@@ -21,6 +21,7 @@ services:
   - type: web
     name: almaali-api
     runtime: node
+    region: frankfurt
     rootDir: apps/api
     plan: free
     buildCommand: pnpm install --frozen-lockfile && pnpm exec prisma generate --config prisma7.config.ts && pnpm run build
