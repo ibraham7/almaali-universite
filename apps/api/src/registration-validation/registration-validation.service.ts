@@ -40,7 +40,10 @@ export class RegistrationValidationService {
     };
   }
 
-  async validateSection(sectionId: string) {
+  async validateSection(
+    sectionId: string,
+    semesterId?: string,
+  ) {
     const section =
       await this.prisma.courseSection.findUnique({
         where: {
@@ -56,6 +59,7 @@ export class RegistrationValidationService {
               },
             },
           },
+          schedules: true,
         },
       });
 
@@ -73,13 +77,22 @@ export class RegistrationValidationService {
       };
     }
 
-    if (
-      section.enrolledCount >=
-      section.maxCapacity
-    ) {
+    if (section.enrolledCount >= section.maxCapacity) {
       return {
         valid: false,
         errors: ['Section is full'],
+      };
+    }
+
+    if (
+      semesterId &&
+      section.semesterId !== semesterId
+    ) {
+      return {
+        valid: false,
+        errors: [
+          'Section does not belong to the course placement semester',
+        ],
       };
     }
 
@@ -130,6 +143,7 @@ export class RegistrationValidationService {
   async validateCourseEligibility(
     enrollmentId: string,
     courseId: string,
+    sectionId?: string,
   ) {
     const enrollment =
       await this.prisma.studentEnrollment.findUnique({
@@ -163,18 +177,137 @@ export class RegistrationValidationService {
       return {
         valid: false,
         errors: [
-          'Student is not assigned to an academic year',
+          'Student is not assigned to an academic level',
         ],
       };
     }
 
-    const planCourse =
-      await this.prisma.studyPlanCourse.findFirst({
+    const [currentLevel, studyPlan, selectedSection] =
+      await Promise.all([
+        this.prisma.academicYear.findUnique({
+          where: {
+            id: student.academicYearId,
+          },
+          select: {
+            id: true,
+            studyPlanId: true,
+            levelNumber: true,
+          },
+        }),
+
+        this.prisma.studyPlan.findUnique({
+          where: {
+            id: student.studyPlanId,
+          },
+          select: {
+            id: true,
+            program: {
+              select: {
+                department: {
+                  select: {
+                    college: {
+                      select: {
+                        university: {
+                          select: {
+                            minGpaForFutureYears: true,
+                            allowedFutureYears: true,
+                            requiredElectiveCredits: true,
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }),
+
+        sectionId
+          ? this.prisma.courseSection.findUnique({
+              where: {
+                id: sectionId,
+              },
+              select: {
+                id: true,
+                courseId: true,
+                semesterId: true,
+              },
+            })
+          : Promise.resolve(null),
+      ]);
+
+    if (
+      !currentLevel ||
+      currentLevel.studyPlanId !== student.studyPlanId
+    ) {
+      return {
+        valid: false,
+        errors: [
+          'Student academic level does not belong to the assigned study plan',
+        ],
+      };
+    }
+
+    if (!studyPlan) {
+      return {
+        valid: false,
+        errors: ['Study plan not found'],
+      };
+    }
+
+    if (sectionId && !selectedSection) {
+      return {
+        valid: false,
+        errors: ['Section not found'],
+      };
+    }
+
+    if (
+      selectedSection &&
+      selectedSection.courseId !== courseId
+    ) {
+      return {
+        valid: false,
+        errors: [
+          'Selected section does not belong to the selected course',
+        ],
+      };
+    }
+
+    const settings =
+      studyPlan.program.department.college.university;
+
+    const maxAllowedLevelNumber =
+      currentLevel.levelNumber +
+      settings.allowedFutureYears;
+
+    /*
+     * القاعدة المعتمدة:
+     * - المقرر يجب أن يكون ضمن خطة الطالب.
+     * - المستوى الحالي مسموح.
+     * - يمكن السماح بمستويات لاحقة حسب allowedFutureYears.
+     * - priority للترتيب فقط ولا يمثل prerequisite.
+     *
+     * لا نطبق minGpaForFutureYears هنا حتى يوجد GPA محسوب فعليًا
+     * من نتائج المقررات. لا نعتمد قيمة GPA يدوية أو وهمية.
+     */
+    const eligiblePlanCourses =
+      await this.prisma.studyPlanCourse.findMany({
         where: {
           studyPlanId: student.studyPlanId,
-          academicYearId:
-            student.academicYearId,
           courseId,
+          ...(selectedSection
+            ? {
+                semesterId: selectedSection.semesterId,
+              }
+            : {}),
+          academicYear: {
+            levelNumber: {
+              gte: currentLevel.levelNumber,
+              lte: maxAllowedLevelNumber,
+            },
+          },
           course: {
             status: 'ACTIVE',
           },
@@ -182,22 +315,45 @@ export class RegistrationValidationService {
         include: {
           course: true,
           academicYear: true,
+          semester: true,
         },
       });
 
-    if (!planCourse) {
+    if (eligiblePlanCourses.length === 0) {
       return {
         valid: false,
         errors: [
-          'Course is not available in the student study plan and academic year',
+          'Course is not available within the allowed study-plan levels',
         ],
       };
     }
+
+    eligiblePlanCourses.sort(
+      (a, b) =>
+        a.academicYear.levelNumber -
+          b.academicYear.levelNumber ||
+        a.semester.semesterNumber -
+          b.semester.semesterNumber ||
+        a.priority - b.priority,
+    );
+
+    const planCourse = eligiblePlanCourses[0];
 
     return {
       valid: true,
       errors: [],
       planCourse,
+      currentLevelNumber: currentLevel.levelNumber,
+      maxAllowedLevelNumber,
+      universitySettings: {
+        minGpaForFutureYears: Number(
+          settings.minGpaForFutureYears,
+        ),
+        allowedFutureYears:
+          settings.allowedFutureYears,
+        requiredElectiveCredits:
+          settings.requiredElectiveCredits,
+      },
     };
   }
 
@@ -243,17 +399,20 @@ export class RegistrationValidationService {
     /*
      * القاعدة المؤكدة من إدارة الجامعة:
      * لا يشترط النجاح في المتطلب السابق.
-     * يكفي أن يكون الطالب قد سجله.
+     * يكفي أن يكون الطالب قد سجله في تسجيل سابق.
      *
-     * ملاحظة تنفيذية مؤقتة:
-     * التسجيلات CANCELLED و DROPPED لا تُحسب حاليًا.
-     * نحتاج تأكيد الإدارة لاحقًا إن كانت المادة
-     * المسحوبة/الملغاة يجب أن تعتبر "مسجلة سابقًا".
+     * التسجيل الحالي لا يُحسب "سابقًا".
+     *
+     * قرار مؤقت محفوظ من المنطق السابق:
+     * CANCELLED و DROPPED لا تُحسب حتى يتم تأكيد الإدارة.
      */
     const previouslyRegisteredItems =
       await this.prisma.enrollmentItem.findMany({
         where: {
           enrollment: {
+            id: {
+              not: enrollmentId,
+            },
             studentId: enrollment.studentId,
             status: {
               notIn: [
@@ -287,13 +446,142 @@ export class RegistrationValidationService {
             item.prerequisite.code,
         );
 
-    if (
-      missingPrerequisites.length > 0
-    ) {
+    if (missingPrerequisites.length > 0) {
       return {
         valid: false,
         errors: [
           `Missing prerequisites: ${missingPrerequisites.join(', ')}`,
+        ],
+      };
+    }
+
+    return {
+      valid: true,
+      errors: [],
+    };
+  }
+
+  async validateMandatoryCourses(
+    enrollmentId: string,
+  ) {
+    const enrollment =
+      await this.prisma.studentEnrollment.findUnique({
+        where: {
+          id: enrollmentId,
+        },
+        include: {
+          student: true,
+          items: {
+            select: {
+              courseId: true,
+            },
+          },
+        },
+      });
+
+    if (!enrollment) {
+      return {
+        valid: false,
+        errors: ['Enrollment not found'],
+      };
+    }
+
+    const semester =
+      await this.prisma.semester.findUnique({
+        where: {
+          id: enrollment.semesterId,
+        },
+        select: {
+          id: true,
+          requireMandatoryCourses: true,
+        },
+      });
+
+    if (!semester) {
+      return {
+        valid: false,
+        errors: ['Semester not found'],
+      };
+    }
+
+    if (!semester.requireMandatoryCourses) {
+      return {
+        valid: true,
+        errors: [],
+      };
+    }
+
+    if (!enrollment.student.studyPlanId) {
+      return {
+        valid: false,
+        errors: [
+          'Student is not assigned to a study plan',
+        ],
+      };
+    }
+
+    if (!enrollment.student.academicYearId) {
+      return {
+        valid: false,
+        errors: [
+          'Student is not assigned to an academic level',
+        ],
+      };
+    }
+
+    const mandatoryPlanCourses =
+      await this.prisma.studyPlanCourse.findMany({
+        where: {
+          studyPlanId:
+            enrollment.student.studyPlanId,
+          academicYearId:
+            enrollment.student.academicYearId,
+          semesterId:
+            enrollment.semesterId,
+          requirement: 'MANDATORY',
+          course: {
+            status: 'ACTIVE',
+          },
+        },
+        include: {
+          course: true,
+        },
+        orderBy: {
+          priority: 'asc',
+        },
+      });
+
+    if (mandatoryPlanCourses.length === 0) {
+      return {
+        valid: true,
+        errors: [],
+      };
+    }
+
+    const registeredCourseIds = new Set(
+      enrollment.items.map(
+        (item) => item.courseId,
+      ),
+    );
+
+    const missingMandatoryCourses =
+      mandatoryPlanCourses.filter(
+        (planCourse) =>
+          !registeredCourseIds.has(
+            planCourse.courseId,
+          ),
+      );
+
+    if (missingMandatoryCourses.length > 0) {
+      return {
+        valid: false,
+        errors: [
+          `Mandatory courses are required for this semester: ${missingMandatoryCourses
+            .map(
+              (item) =>
+                item.course.code,
+            )
+            .join(', ')}`,
         ],
       };
     }
@@ -339,23 +627,20 @@ export class RegistrationValidationService {
         },
       });
 
-    for (
-      const existingItem of existingItems
-    ) {
+    for (const existingItem of existingItems) {
       if (
-        existingItem.sectionId ===
-        sectionId
+        existingItem.sectionId === sectionId
       ) {
         continue;
       }
 
       for (
         const newSchedule of
-        newSection.schedules
+          newSection.schedules
       ) {
         for (
           const existingSchedule of
-          existingItem.section.schedules
+            existingItem.section.schedules
         ) {
           if (
             newSchedule.day ===
@@ -408,8 +693,7 @@ export class RegistrationValidationService {
     const registrationPeriod =
       await this.prisma.registrationPeriod.findFirst({
         where: {
-          semesterId:
-            enrollment.semesterId,
+          semesterId: enrollment.semesterId,
           startDateTime: {
             lte: now,
           },
@@ -457,9 +741,7 @@ export class RegistrationValidationService {
     const registrationPeriod =
       periodValidation.registrationPeriod;
 
-    if (
-      !registrationPeriod?.maxCredits
-    ) {
+    if (!registrationPeriod?.maxCredits) {
       return {
         valid: true,
         errors: [],
@@ -498,8 +780,7 @@ export class RegistrationValidationService {
       );
 
     if (
-      currentCredits +
-        course.credits >
+      currentCredits + course.credits >
       registrationPeriod.maxCredits
     ) {
       return {
@@ -534,9 +815,7 @@ export class RegistrationValidationService {
     const registrationPeriod =
       periodValidation.registrationPeriod;
 
-    if (
-      !registrationPeriod?.minCredits
-    ) {
+    if (!registrationPeriod?.minCredits) {
       return {
         valid: true,
         errors: [],

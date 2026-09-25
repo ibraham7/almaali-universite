@@ -56,12 +56,12 @@ model University {
   nameAr String
   nameEn String
 
-  // إعدادات التسجيل العامة - قابلة للتعديل من المدير
   minGpaForFutureYears    Decimal @default(2.0)
   allowedFutureYears      Int     @default(1)
   requiredElectiveCredits Int     @default(12)
 
-  colleges College[]
+  colleges    College[]
+  gradeScales GradeScale[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -128,11 +128,16 @@ model StudyPlan {
   @@unique([programId, nameAr])
 }
 
+// حاليًا يمثل المستوى داخل الخطة الدراسية.
+// أبقينا اسم AcademicYear حتى لا نكسر الخدمات الحالية.
 model AcademicYear {
   id          String  @id @default(uuid())
   studyPlanId String
   nameAr      String
   nameEn      String?
+
+  // ترتيب المستوى داخل الخطة: 1، 2، 3...
+  levelNumber Int
 
   studyPlan   StudyPlan         @relation(fields: [studyPlanId], references: [id])
   semesters   Semester[]
@@ -142,6 +147,7 @@ model AcademicYear {
   updatedAt DateTime @updatedAt
 
   @@unique([studyPlanId, nameAr])
+  @@unique([studyPlanId, levelNumber])
 }
 
 model Semester {
@@ -150,15 +156,20 @@ model Semester {
   nameAr         String
   nameEn         String?
 
-  // المدير يستطيع تحديد هل المواد الإجبارية إلزامية في هذا الفصل
+  // ترتيب الفصل داخل المستوى.
+  semesterNumber Int
+
   requireMandatoryCourses Boolean @default(false)
 
-  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  academicYear AcademicYear      @relation(fields: [academicYearId], references: [id])
+  planCourses  StudyPlanCourse[]
+  results      CourseResult[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([academicYearId, nameAr])
+  @@unique([academicYearId, semesterNumber])
 }
 
 model Role {
@@ -202,15 +213,17 @@ model Student {
   idOrPassport    String?
   universityEmail String?
   phone           String?
-  collegeId       String?
-  departmentId    String?
-  programId       String?
-  studyPlanId     String?
-  academicYearId  String?
-  semesterId      String?
-  status          String
-  advisorId       String?
-  admissionDate   DateTime?
+
+  collegeId      String?
+  departmentId   String?
+  programId      String?
+  studyPlanId    String?
+  academicYearId String?
+  semesterId     String?
+
+  status        String
+  advisorId     String?
+  admissionDate DateTime?
 
   userId String? @unique
   user   User?   @relation(fields: [userId], references: [id])
@@ -219,6 +232,7 @@ model Student {
   updatedAt DateTime @updatedAt
 
   enrollments StudentEnrollment[]
+  results     CourseResult[]
 }
 
 model Teacher {
@@ -265,31 +279,37 @@ model Course {
   sections        CourseSection[]
   enrollmentItems EnrollmentItem[]
   planCourses     StudyPlanCourse[]
+  results         CourseResult[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-// ربط المادة بالخطة الدراسية والسنة وترتيب الأولوية
+// ربط المقرر بالخطة والمستوى والفصل.
+// priority للترتيب فقط، وليس prerequisite.
 model StudyPlanCourse {
-  id             String            @id @default(uuid())
+  id             String @id @default(uuid())
   studyPlanId    String
   academicYearId String
+  semesterId     String
   courseId       String
-  priority       Int
-  requirement    CourseRequirement
+
+  priority    Int
+  requirement CourseRequirement
 
   studyPlan    StudyPlan    @relation(fields: [studyPlanId], references: [id])
   academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  semester     Semester     @relation(fields: [semesterId], references: [id])
   course       Course       @relation(fields: [courseId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([studyPlanId, academicYearId, courseId])
-  @@unique([studyPlanId, academicYearId, priority])
+  @@unique([studyPlanId, academicYearId, semesterId, courseId])
+  @@unique([studyPlanId, academicYearId, semesterId, priority])
 }
 
+// علاقة المتطلبات السابقة مستقلة عن ترتيب priority.
 model CoursePrerequisite {
   id             String @id @default(uuid())
   courseId       String
@@ -379,9 +399,64 @@ model EnrollmentItem {
   enrollment StudentEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
   course     Course            @relation(fields: [courseId], references: [id])
   section    CourseSection     @relation(fields: [sectionId], references: [id])
+  result     CourseResult?
 
   @@unique([enrollmentId, courseId])
   @@unique([enrollmentId, sectionId])
+}
+
+// سلم الدرجات قابل للتعديل بدل افتراض نظام 4.0 أو 5.0.
+// كل صف يمثل نطاق درجة واحدًا مثل A / B+ / Pass ... إلخ.
+// gradePoint و passed هما القيمتان اللتان يعتمد عليهما حساب GPA والنجاح لاحقًا.
+model GradeScale {
+  id           String  @id @default(uuid())
+  universityId String
+  label        String
+  minScore     Decimal
+  maxScore     Decimal
+  gradePoint   Decimal
+  passed       Boolean
+  isActive     Boolean @default(true)
+
+  university University     @relation(fields: [universityId], references: [id], onDelete: Cascade)
+  results    CourseResult[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([universityId, label])
+  @@index([universityId, minScore, maxScore])
+}
+
+// نتيجة مقرر واحدة مرتبطة بمحاولة التسجيل نفسها.
+// نخزن gradePoint و passed كلقطة تاريخية حتى لا تتغير النتائج القديمة
+// إذا تم تعديل سلم الدرجات في المستقبل.
+model CourseResult {
+  id               String  @id @default(uuid())
+  enrollmentItemId String  @unique
+  studentId        String
+  courseId         String
+  semesterId       String
+  gradeScaleId     String?
+
+  score      Decimal
+  gradeLabel String
+  gradePoint Decimal
+  passed     Boolean
+
+  enrollmentItem EnrollmentItem @relation(fields: [enrollmentItemId], references: [id], onDelete: Cascade)
+  student        Student        @relation(fields: [studentId], references: [id])
+  course         Course         @relation(fields: [courseId], references: [id])
+  semester       Semester       @relation(fields: [semesterId], references: [id])
+  gradeScale     GradeScale?    @relation(fields: [gradeScaleId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([courseId])
+  @@index([semesterId])
+  @@index([studentId, semesterId])
 }
 
 model AdvisorApproval {

@@ -1,14 +1,25 @@
 import {
+  Alert,
   Box,
   Button,
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   LinearProgress,
   Typography,
 } from '@mui/material';
 
-import { useNavigate } from 'react-router-dom';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+
+import {
+  useNavigate,
+} from 'react-router-dom';
 
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded';
@@ -23,40 +34,68 @@ import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
+import AssessmentRoundedIcon from '@mui/icons-material/AssessmentRounded';
+import GradingRoundedIcon from '@mui/icons-material/GradingRounded';
+import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 
 import { useAuth } from '../../auth/AuthContext';
-import { universityColors } from '../../theme/theme';
+
+import {
+  universityColors,
+} from '../../theme/theme';
+
+import {
+  getDashboardCourses,
+  getDashboardEnrollments,
+  getDashboardSections,
+  getDashboardStudents,
+  getMyAdvisorApprovals,
+  getStudentDashboardRegistration,
+  type DashboardApproval,
+  type DashboardEnrollment,
+  type DashboardSection,
+  type DashboardStudent,
+  type StudentRegistrationContext,
+} from '../../api/dashboard';
 
 interface StatCardProps {
   title: string;
   value: string;
   description: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }
 
 interface QuickActionProps {
   title: string;
   description: string;
   path: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }
 
-function getRoleLabel(role?: string) {
+function getRoleLabel(
+  role?: string,
+) {
   switch (role) {
     case 'STUDENT':
       return 'طالب';
+
     case 'ADVISOR':
       return 'المرشد الأكاديمي';
+
     case 'REGISTRAR':
       return 'مسجل الجامعة';
+
     case 'SYSTEM_ADMIN':
       return 'مدير النظام';
+
     default:
       return 'مستخدم';
   }
 }
 
-function getWelcomeText(role?: string) {
+function getWelcomeText(
+  role?: string,
+) {
   switch (role) {
     case 'STUDENT':
       return 'تابع تسجيلك الأكاديمي ومقرراتك وجدولك الدراسي من مكان واحد.';
@@ -75,6 +114,36 @@ function getWelcomeText(role?: string) {
   }
 }
 
+function enrollmentStatusLabel(
+  status?: string,
+) {
+  switch (status) {
+    case 'DRAFT':
+      return 'مسودة';
+
+    case 'PENDING':
+      return 'بانتظار الموافقة';
+
+    case 'APPROVED':
+      return 'معتمد';
+
+    case 'REJECTED':
+      return 'مرفوض';
+
+    case 'CONFIRMED':
+      return 'مؤكد';
+
+    case 'DROPPED':
+      return 'منسحب';
+
+    case 'CANCELLED':
+      return 'ملغى';
+
+    default:
+      return status ?? 'لا يوجد طلب';
+  }
+}
+
 function StatCard({
   title,
   value,
@@ -86,16 +155,23 @@ function StatCard({
       sx={{
         height: '100%',
         boxShadow: 'none',
-        transition: '0.2s ease',
+
+        transition:
+          '0.2s ease',
+
         '&:hover': {
-          borderColor: '#C7D4E0',
-          transform: 'translateY(-2px)',
+          borderColor:
+            '#C7D4E0',
+
+          transform:
+            'translateY(-2px)',
         },
       }}
     >
       <CardContent
         sx={{
           p: 2.5,
+
           '&:last-child': {
             pb: 2.5,
           },
@@ -104,8 +180,13 @@ function StatCard({
         <Box
           sx={{
             display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
+
+            alignItems:
+              'flex-start',
+
+            justifyContent:
+              'space-between',
+
             gap: 2,
           }}
         >
@@ -113,7 +194,10 @@ function StatCard({
             <Typography
               sx={{
                 fontSize: 12.5,
-                color: universityColors.textSecondary,
+
+                color:
+                  universityColors.textSecondary,
+
                 fontWeight: 500,
               }}
             >
@@ -123,10 +207,15 @@ function StatCard({
             <Typography
               sx={{
                 mt: 0.6,
+
                 fontSize: 27,
+
                 lineHeight: 1.3,
+
                 fontWeight: 700,
-                color: universityColors.navyDark,
+
+                color:
+                  universityColors.navyDark,
               }}
             >
               {value}
@@ -137,13 +226,24 @@ function StatCard({
             sx={{
               width: 46,
               height: 46,
+
               borderRadius: 2.5,
+
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+
+              alignItems:
+                'center',
+
+              justifyContent:
+                'center',
+
               flexShrink: 0,
-              bgcolor: universityColors.softBlue,
-              color: universityColors.navy,
+
+              bgcolor:
+                universityColors.softBlue,
+
+              color:
+                universityColors.navy,
             }}
           >
             {icon}
@@ -153,8 +253,11 @@ function StatCard({
         <Typography
           sx={{
             mt: 1.5,
+
             fontSize: 11.5,
-            color: universityColors.textSecondary,
+
+            color:
+              universityColors.textSecondary,
           }}
         >
           {description}
@@ -170,30 +273,49 @@ function QuickAction({
   path,
   icon,
 }: QuickActionProps) {
-  const navigate = useNavigate();
+  const navigate =
+    useNavigate();
 
   return (
     <Box
       component="button"
       type="button"
-      onClick={() => navigate(path)}
+      onClick={() =>
+        navigate(path)
+      }
       sx={{
         width: '100%',
-        border: `1px solid ${universityColors.border}`,
+
+        border:
+          `1px solid ${universityColors.border}`,
+
         bgcolor: '#FFFFFF',
+
         borderRadius: 2.5,
+
         p: 1.7,
+
         display: 'flex',
+
         alignItems: 'center',
+
         gap: 1.5,
+
         textAlign: 'right',
+
         cursor: 'pointer',
-        transition: '0.2s ease',
+
+        transition:
+          '0.2s ease',
+
         fontFamily: 'inherit',
 
         '&:hover': {
-          borderColor: '#B9C9D8',
-          bgcolor: '#FAFCFE',
+          borderColor:
+            '#B9C9D8',
+
+          bgcolor:
+            '#FAFCFE',
         },
       }}
     >
@@ -201,12 +323,22 @@ function QuickAction({
         sx={{
           width: 42,
           height: 42,
+
           borderRadius: 2,
-          bgcolor: universityColors.softBlue,
-          color: universityColors.navy,
+
+          bgcolor:
+            universityColors.softBlue,
+
+          color:
+            universityColors.navy,
+
           display: 'flex',
+
           alignItems: 'center',
-          justifyContent: 'center',
+
+          justifyContent:
+            'center',
+
           flexShrink: 0,
         }}
       >
@@ -222,8 +354,11 @@ function QuickAction({
         <Typography
           sx={{
             fontSize: 13,
+
             fontWeight: 600,
-            color: universityColors.text,
+
+            color:
+              universityColors.text,
           }}
         >
           {title}
@@ -232,8 +367,11 @@ function QuickAction({
         <Typography
           sx={{
             mt: 0.2,
+
             fontSize: 10.5,
-            color: universityColors.textSecondary,
+
+            color:
+              universityColors.textSecondary,
           }}
         >
           {description}
@@ -250,90 +388,231 @@ function QuickAction({
   );
 }
 
+function DashboardLoading() {
+  return (
+    <Box
+      sx={{
+        minHeight: 350,
+
+        display: 'grid',
+
+        placeItems: 'center',
+      }}
+    >
+      <Box
+        sx={{
+          textAlign: 'center',
+        }}
+      >
+        <CircularProgress />
+
+        <Typography
+          sx={{
+            mt: 1.5,
+
+            fontSize: 12,
+
+            color:
+              universityColors.textSecondary,
+          }}
+        >
+          جاري تحميل بيانات لوحة
+          التحكم...
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
 function StudentDashboard() {
-  const navigate = useNavigate();
+  const navigate =
+    useNavigate();
+
+  const [
+    registration,
+    setRegistration,
+  ] =
+    useState<StudentRegistrationContext | null>(
+      null,
+    );
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState('');
+
+  useEffect(() => {
+    async function load() {
+      try {
+        setLoading(true);
+
+        setError('');
+
+        const data =
+          await getStudentDashboardRegistration();
+
+        setRegistration(data);
+      } catch {
+        setError(
+          'تعذر تحميل بيانات التسجيل الأكاديمي.',
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void load();
+  }, []);
+
+  if (loading) {
+    return <DashboardLoading />;
+  }
+
+  const items =
+    registration?.enrollment
+      ?.items ?? [];
+
+  const registeredCourses =
+    items.length;
+
+  const registeredCredits =
+    items.reduce(
+      (sum, item) =>
+        sum +
+        (item.course
+          ?.credits ?? 0),
+      0,
+    );
+
+  const status =
+    enrollmentStatusLabel(
+      registration?.enrollment
+        ?.status,
+    );
+
+  const registrationOpen =
+    registration
+      ?.registrationOpen === true;
 
   return (
     <>
+      {error && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2 }}
+        >
+          {error}
+        </Alert>
+      )}
+
       <Box
         sx={{
           display: 'grid',
+
           gridTemplateColumns: {
             xs: '1fr',
+
             sm: 'repeat(2, minmax(0, 1fr))',
+
             xl: 'repeat(4, minmax(0, 1fr))',
           },
+
           gap: 2,
         }}
       >
         <StatCard
           title="المقررات المسجلة"
-          value="—"
+          value={String(
+            registeredCourses,
+          )}
           description="الفصل الدراسي الحالي"
-          icon={<MenuBookRoundedIcon />}
+          icon={
+            <MenuBookRoundedIcon />
+          }
         />
 
         <StatCard
           title="الساعات المسجلة"
-          value="—"
+          value={String(
+            registeredCredits,
+          )}
           description="إجمالي الساعات المعتمدة"
-          icon={<AccessTimeRoundedIcon />}
+          icon={
+            <AccessTimeRoundedIcon />
+          }
         />
 
         <StatCard
           title="حالة التسجيل"
-          value="—"
-          description="حالة طلب التسجيل الحالي"
-          icon={<AssignmentTurnedInRoundedIcon />}
+          value={status}
+          description={
+            registrationOpen
+              ? 'فترة التسجيل مفتوحة'
+              : 'فترة التسجيل مغلقة'
+          }
+          icon={
+            <AssignmentTurnedInRoundedIcon />
+          }
         />
 
         <StatCard
           title="المعدل التراكمي"
           value="—"
-          description="سيظهر عند توفر بيانات المعدل"
-          icon={<SchoolRoundedIcon />}
+          description="سيظهر بعد تنفيذ نظام النتائج والمعدل"
+          icon={
+            <SchoolRoundedIcon />
+          }
         />
       </Box>
 
       <Box
         sx={{
           mt: 3,
+
           display: 'grid',
+
           gridTemplateColumns: {
             xs: '1fr',
+
             lg: 'minmax(0, 1.65fr) minmax(300px, 0.85fr)',
           },
+
           gap: 2.5,
+
           alignItems: 'start',
         }}
       >
-        <Card sx={{ boxShadow: 'none' }}>
+        <Card
+          sx={{
+            boxShadow: 'none',
+          }}
+        >
           <CardContent
             sx={{
               p: {
                 xs: 2,
                 md: 3,
               },
-              '&:last-child': {
-                pb: {
-                  xs: 2,
-                  md: 3,
-                },
-              },
             }}
           >
             <Box
               sx={{
                 display: 'flex',
+
                 alignItems: {
                   xs: 'flex-start',
                   sm: 'center',
                 },
-                justifyContent: 'space-between',
+
+                justifyContent:
+                  'space-between',
+
                 flexDirection: {
                   xs: 'column',
                   sm: 'row',
                 },
+
                 gap: 2,
               }}
             >
@@ -341,8 +620,11 @@ function StudentDashboard() {
                 <Typography
                   sx={{
                     fontSize: 16,
+
                     fontWeight: 700,
-                    color: universityColors.navyDark,
+
+                    color:
+                      universityColors.navyDark,
                   }}
                 >
                   التسجيل الأكاديمي
@@ -351,134 +633,171 @@ function StudentDashboard() {
                 <Typography
                   sx={{
                     mt: 0.5,
+
                     fontSize: 11.5,
-                    color: universityColors.textSecondary,
+
+                    color:
+                      universityColors.textSecondary,
                   }}
                 >
-                  تابع عملية تسجيل مقررات الفصل الدراسي الحالي.
+                  حالة التسجيل الحالية
+                  للطالب.
                 </Typography>
               </Box>
 
               <Chip
-                label="بانتظار البيانات"
+                label={
+                  registrationOpen
+                    ? 'التسجيل مفتوح'
+                    : 'التسجيل مغلق'
+                }
                 size="small"
-                sx={{
-                  bgcolor: '#F2F4F7',
-                  color: universityColors.textSecondary,
-                }}
+                color={
+                  registrationOpen
+                    ? 'success'
+                    : 'default'
+                }
               />
             </Box>
 
             <Box
               sx={{
                 mt: 3,
+
                 p: {
                   xs: 2,
                   md: 2.5,
                 },
+
                 borderRadius: 3,
+
                 bgcolor: '#F8FAFC',
-                border: `1px solid ${universityColors.border}`,
+
+                border:
+                  `1px solid ${universityColors.border}`,
               }}
             >
               <Box
                 sx={{
                   display: 'flex',
-                  alignItems: 'center',
+
+                  alignItems:
+                    'center',
+
                   gap: 1,
                 }}
               >
                 <CheckCircleRoundedIcon
                   sx={{
                     fontSize: 20,
-                    color: universityColors.navy,
+
+                    color:
+                      universityColors.navy,
                   }}
                 />
 
                 <Typography
                   sx={{
                     fontSize: 13,
+
                     fontWeight: 600,
-                    color: universityColors.text,
                   }}
                 >
-                  حالة التسجيل
+                  {status}
                 </Typography>
               </Box>
 
               <Typography
                 sx={{
                   mt: 1,
+
                   fontSize: 12,
-                  color: universityColors.textSecondary,
+
+                  color:
+                    universityColors.textSecondary,
                 }}
               >
-                سيتم عرض حالة فترة التسجيل والطلب الأكاديمي هنا بعد
-                ربط بيانات الطالب بالواجهة.
+                لديك{' '}
+                {registeredCourses}{' '}
+                مقررات مسجلة بإجمالي{' '}
+                {registeredCredits}{' '}
+                ساعات معتمدة.
               </Typography>
 
               <LinearProgress
                 variant="determinate"
-                value={0}
+                value={
+                  registeredCourses >
+                    0
+                    ? 100
+                    : 0
+                }
                 sx={{
                   mt: 2.5,
+
                   height: 7,
+
                   borderRadius: 20,
-                  bgcolor: '#E8EDF2',
-                  '& .MuiLinearProgress-bar': {
+
+                  bgcolor:
+                    '#E8EDF2',
+
+                  '& .MuiLinearProgress-bar':
+                  {
                     borderRadius: 20,
-                    bgcolor: universityColors.gold,
+
+                    bgcolor:
+                      universityColors.gold,
                   },
                 }}
               />
 
               <Button
                 variant="contained"
-                onClick={() => navigate('/student/registration')}
-                sx={{
-                  mt: 2.5,
-                }}
+                onClick={() =>
+                  navigate(
+                    '/student/registration',
+                  )
+                }
+                sx={{ mt: 2.5 }}
               >
-                الانتقال إلى تسجيل المقررات
+                الانتقال إلى تسجيل
+                المقررات
               </Button>
             </Box>
           </CardContent>
         </Card>
 
-        <Card sx={{ boxShadow: 'none' }}>
+        <Card
+          sx={{
+            boxShadow: 'none',
+          }}
+        >
           <CardContent
-            sx={{
-              p: 2.5,
-              '&:last-child': {
-                pb: 2.5,
-              },
-            }}
+            sx={{ p: 2.5 }}
           >
             <Typography
               sx={{
                 fontSize: 15,
+
                 fontWeight: 700,
-                color: universityColors.navyDark,
+
+                color:
+                  universityColors.navyDark,
               }}
             >
               الوصول السريع
             </Typography>
 
-            <Typography
-              sx={{
-                mt: 0.4,
-                mb: 2,
-                fontSize: 11,
-                color: universityColors.textSecondary,
-              }}
-            >
-              أكثر الخدمات استخدامًا للطالب.
-            </Typography>
-
             <Box
               sx={{
+                mt: 2,
+
                 display: 'flex',
-                flexDirection: 'column',
+
+                flexDirection:
+                  'column',
+
                 gap: 1.2,
               }}
             >
@@ -486,14 +805,18 @@ function StudentDashboard() {
                 title="تسجيل المقررات"
                 description="استعراض وإضافة المقررات المتاحة"
                 path="/student/registration"
-                icon={<MenuBookRoundedIcon />}
+                icon={
+                  <MenuBookRoundedIcon />
+                }
               />
 
               <QuickAction
                 title="الجدول الدراسي"
                 description="استعراض جدول الشعب المسجلة"
                 path="/student/schedule"
-                icon={<CalendarMonthRoundedIcon />}
+                icon={
+                  <CalendarMonthRoundedIcon />
+                }
               />
             </Box>
           </CardContent>
@@ -503,74 +826,195 @@ function StudentDashboard() {
   );
 }
 
-function AdvisorDashboard() {
+function AdvisorDashboard({
+  userId,
+}: {
+  userId?: string;
+}) {
+  const [
+    students,
+    setStudents,
+  ] = useState<
+    DashboardStudent[]
+  >([]);
+
+  const [
+    approvals,
+    setApprovals,
+  ] = useState<
+    DashboardApproval[]
+  >([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState('');
+
+  useEffect(() => {
+    async function load() {
+      try {
+        setLoading(true);
+
+        setError('');
+
+        const [
+          studentsData,
+          approvalsData,
+        ] = await Promise.all([
+          getDashboardStudents(),
+
+          getMyAdvisorApprovals(),
+        ]);
+
+        setStudents(
+          studentsData,
+        );
+
+        setApprovals(
+          approvalsData,
+        );
+      } catch {
+        setError(
+          'تعذر تحميل بعض بيانات المرشد.',
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void load();
+  }, []);
+
+  const advisorStudents =
+    useMemo(
+      () =>
+        userId
+          ? students.filter(
+            (student) =>
+              student.advisorId ===
+              userId,
+          )
+          : [],
+      [students, userId],
+    );
+
+  const pending =
+    approvals.filter(
+      (approval) =>
+        approval.status ===
+        'PENDING',
+    ).length;
+
+  const approved =
+    approvals.filter(
+      (approval) =>
+        approval.status ===
+        'APPROVED',
+    ).length;
+
+  if (loading) {
+    return <DashboardLoading />;
+  }
+
   return (
     <>
+      {error && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2 }}
+        >
+          {error}
+        </Alert>
+      )}
+
       <Box
         sx={{
           display: 'grid',
+
           gridTemplateColumns: {
             xs: '1fr',
+
             sm: 'repeat(2, minmax(0, 1fr))',
+
             xl: 'repeat(4, minmax(0, 1fr))',
           },
+
           gap: 2,
         }}
       >
         <StatCard
           title="طلبات بانتظار المراجعة"
-          value="—"
+          value={String(pending)}
           description="طلبات تسجيل تحتاج إجراء"
-          icon={<AssignmentTurnedInRoundedIcon />}
+          icon={
+            <AssignmentTurnedInRoundedIcon />
+          }
         />
 
         <StatCard
           title="الطلاب"
-          value="—"
-          description="الطلاب المرتبطون بالإرشاد"
-          icon={<GroupsRoundedIcon />}
+          value={String(
+            advisorStudents.length,
+          )}
+          description="الطلاب المرتبطون بهذا المرشد"
+          icon={
+            <GroupsRoundedIcon />
+          }
         />
 
         <StatCard
-          title="الخطة الدراسية"
-          value="—"
-          description="المقررات المرتبة في الخطة"
-          icon={<AccountTreeRoundedIcon />}
+          title="إجمالي الطلبات"
+          value={String(
+            approvals.length,
+          )}
+          description="طلبات التسجيل الخاصة بالمرشد"
+          icon={
+            <AccountTreeRoundedIcon />
+          }
         />
 
         <StatCard
           title="الطلبات المعتمدة"
-          value="—"
-          description="خلال الفصل الحالي"
-          icon={<CheckCircleRoundedIcon />}
+          value={String(approved)}
+          description="الطلبات التي تمت الموافقة عليها"
+          icon={
+            <CheckCircleRoundedIcon />
+          }
         />
       </Box>
 
       <Box
         sx={{
           mt: 3,
+
           display: 'grid',
+
           gridTemplateColumns: {
             xs: '1fr',
+
             lg: 'minmax(0, 1.6fr) minmax(300px, 0.9fr)',
           },
+
           gap: 2.5,
         }}
       >
-        <Card sx={{ boxShadow: 'none' }}>
+        <Card
+          sx={{
+            boxShadow: 'none',
+          }}
+        >
           <CardContent
-            sx={{
-              p: 3,
-              '&:last-child': {
-                pb: 3,
-              },
-            }}
+            sx={{ p: 3 }}
           >
             <Typography
               sx={{
                 fontSize: 16,
+
                 fontWeight: 700,
-                color: universityColors.navyDark,
+
+                color:
+                  universityColors.navyDark,
               }}
             >
               طلبات التسجيل
@@ -579,73 +1023,80 @@ function AdvisorDashboard() {
             <Typography
               sx={{
                 mt: 0.5,
-                color: universityColors.textSecondary,
+
+                color:
+                  universityColors.textSecondary,
+
                 fontSize: 11.5,
               }}
             >
-              الطلبات التي تحتاج مراجعة المرشد الأكاديمي.
+              الطلبات التي تحتاج
+              مراجعة المرشد الأكاديمي.
             </Typography>
 
             <Box
               sx={{
                 mt: 3,
-                minHeight: 180,
-                borderRadius: 3,
-                border: `1px dashed #C9D4DF`,
-                bgcolor: '#FAFCFE',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexDirection: 'column',
-                textAlign: 'center',
+
                 p: 3,
+
+                borderRadius: 3,
+
+                bgcolor: '#FAFCFE',
+
+                border:
+                  `1px solid ${universityColors.border}`,
               }}
             >
-              <AssignmentTurnedInRoundedIcon
-                sx={{
-                  fontSize: 34,
-                  color: '#AAB8C5',
-                }}
-              />
-
               <Typography
                 sx={{
-                  mt: 1.2,
-                  fontSize: 13,
-                  fontWeight: 600,
+                  fontSize: 14,
+
+                  fontWeight: 700,
+
+                  color:
+                    universityColors.navyDark,
                 }}
               >
-                لا توجد بيانات معروضة حاليًا
+                {pending > 0
+                  ? `لديك ${pending} طلبات بانتظار المراجعة`
+                  : 'لا توجد طلبات معلقة حاليًا'}
               </Typography>
 
               <Typography
                 sx={{
-                  mt: 0.5,
-                  maxWidth: 380,
-                  fontSize: 11,
-                  color: universityColors.textSecondary,
+                  mt: 0.8,
+
+                  fontSize: 11.5,
+
+                  color:
+                    universityColors.textSecondary,
                 }}
               >
-                سنربط هذه المنطقة بطلبات التسجيل الفعلية من الـAPI.
+                إجمالي الطلبات المرتبطة
+                بحسابك:{' '}
+                {approvals.length}
               </Typography>
             </Box>
           </CardContent>
         </Card>
 
-        <Card sx={{ boxShadow: 'none' }}>
+        <Card
+          sx={{
+            boxShadow: 'none',
+          }}
+        >
           <CardContent
-            sx={{
-              p: 2.5,
-              '&:last-child': {
-                pb: 2.5,
-              },
-            }}
+            sx={{ p: 2.5 }}
           >
             <Typography
               sx={{
                 fontSize: 15,
+
                 fontWeight: 700,
-                color: universityColors.navyDark,
+
+                color:
+                  universityColors.navyDark,
               }}
             >
               الوصول السريع
@@ -654,8 +1105,12 @@ function AdvisorDashboard() {
             <Box
               sx={{
                 mt: 2,
+
                 display: 'flex',
-                flexDirection: 'column',
+
+                flexDirection:
+                  'column',
+
                 gap: 1.2,
               }}
             >
@@ -663,21 +1118,27 @@ function AdvisorDashboard() {
                 title="طلبات التسجيل"
                 description="مراجعة طلبات الطلاب"
                 path="/advisor/registrations"
-                icon={<AssignmentTurnedInRoundedIcon />}
+                icon={
+                  <AssignmentTurnedInRoundedIcon />
+                }
               />
 
               <QuickAction
                 title="الخطة الدراسية"
                 description="ترتيب مقررات الخطة وأولوياتها"
                 path="/supervisor/study-plan"
-                icon={<AccountTreeRoundedIcon />}
+                icon={
+                  <AccountTreeRoundedIcon />
+                }
               />
 
               <QuickAction
                 title="الطلاب"
                 description="استعراض الطلاب المرتبطين"
                 path="/students"
-                icon={<GroupsRoundedIcon />}
+                icon={
+                  <GroupsRoundedIcon />
+                }
               />
             </Box>
           </CardContent>
@@ -692,89 +1153,247 @@ function AdministrationDashboard({
 }: {
   role: string;
 }) {
+  const [
+    students,
+    setStudents,
+  ] = useState<
+    DashboardStudent[]
+  >([]);
+
+  const [courses, setCourses] =
+    useState<unknown[]>([]);
+
+  const [
+    sections,
+    setSections,
+  ] = useState<
+    DashboardSection[]
+  >([]);
+
+  const [
+    enrollments,
+    setEnrollments,
+  ] = useState<
+    DashboardEnrollment[]
+  >([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState('');
+
+  async function loadData() {
+    try {
+      setLoading(true);
+
+      setError('');
+
+      const [
+        studentsData,
+        coursesData,
+        sectionsData,
+        enrollmentsData,
+      ] = await Promise.all([
+        getDashboardStudents(),
+
+        getDashboardCourses(),
+
+        getDashboardSections(),
+
+        getDashboardEnrollments(),
+      ]);
+
+      setStudents(studentsData);
+
+      setCourses(coursesData);
+
+      setSections(sectionsData);
+
+      setEnrollments(
+        enrollmentsData,
+      );
+    } catch {
+      setError(
+        'تعذر تحميل بعض إحصاءات النظام.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadData();
+  }, []);
+
+  if (loading) {
+    return <DashboardLoading />;
+  }
+
+  const openSections =
+    sections.filter(
+      (section) =>
+        section.status ===
+        'OPEN',
+    ).length;
+
+  const pendingEnrollments =
+    enrollments.filter(
+      (enrollment) =>
+        enrollment.status ===
+        'PENDING' ||
+        enrollment.status ===
+        'DRAFT',
+    ).length;
+
   return (
     <>
+      {error && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2 }}
+        >
+          {error}
+        </Alert>
+      )}
+
+      <Box
+        sx={{
+          display: 'flex',
+
+          justifyContent:
+            'flex-end',
+
+          mb: 2,
+        }}
+      >
+        <Button
+          size="small"
+          startIcon={
+            <RefreshRoundedIcon />
+          }
+          onClick={() =>
+            void loadData()
+          }
+        >
+          تحديث البيانات
+        </Button>
+      </Box>
+
       <Box
         sx={{
           display: 'grid',
+
           gridTemplateColumns: {
             xs: '1fr',
+
             sm: 'repeat(2, minmax(0, 1fr))',
+
             xl: 'repeat(4, minmax(0, 1fr))',
           },
+
           gap: 2,
         }}
       >
         <StatCard
           title="الطلاب"
-          value="—"
+          value={String(
+            students.length,
+          )}
           description="إجمالي الطلاب في النظام"
-          icon={<GroupsRoundedIcon />}
+          icon={
+            <GroupsRoundedIcon />
+          }
         />
 
         <StatCard
           title="المقررات"
-          value="—"
-          description="المقررات الأكاديمية"
-          icon={<MenuBookRoundedIcon />}
+          value={String(
+            courses.length,
+          )}
+          description="إجمالي المقررات الأكاديمية"
+          icon={
+            <MenuBookRoundedIcon />
+          }
         />
 
         <StatCard
-          title="الشعب الدراسية"
-          value="—"
-          description="الشعب في الفصل الحالي"
-          icon={<ClassRoundedIcon />}
+          title="الشعب المفتوحة"
+          value={String(
+            openSections,
+          )}
+          description={`من أصل ${sections.length} شعبة`}
+          icon={
+            <ClassRoundedIcon />
+          }
         />
 
         <StatCard
           title="طلبات التسجيل"
-          value="—"
-          description="طلبات الفصل الحالي"
-          icon={<AssignmentTurnedInRoundedIcon />}
+          value={String(
+            pendingEnrollments,
+          )}
+          description={`إجمالي التسجيلات: ${enrollments.length}`}
+          icon={
+            <AssignmentTurnedInRoundedIcon />
+          }
         />
       </Box>
 
       <Box
         sx={{
           mt: 3,
+
           display: 'grid',
+
           gridTemplateColumns: {
             xs: '1fr',
+
             lg: 'minmax(0, 1.55fr) minmax(310px, 0.9fr)',
           },
+
           gap: 2.5,
+
           alignItems: 'start',
         }}
       >
-        <Card sx={{ boxShadow: 'none' }}>
+        <Card
+          sx={{
+            boxShadow: 'none',
+          }}
+        >
           <CardContent
             sx={{
               p: {
                 xs: 2,
                 md: 3,
               },
-              '&:last-child': {
-                pb: {
-                  xs: 2,
-                  md: 3,
-                },
-              },
             }}
           >
             <Box
               sx={{
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
+
+                justifyContent:
+                  'space-between',
+
+                alignItems:
+                  'center',
+
                 gap: 2,
+
+                mb: 3,
               }}
             >
               <Box>
                 <Typography
                   sx={{
                     fontSize: 16,
+
                     fontWeight: 700,
-                    color: universityColors.navyDark,
+
+                    color:
+                      universityColors.navyDark,
                   }}
                 >
                   نظرة عامة على النظام
@@ -783,32 +1402,35 @@ function AdministrationDashboard({
                 <Typography
                   sx={{
                     mt: 0.5,
+
                     fontSize: 11.5,
-                    color: universityColors.textSecondary,
+
+                    color:
+                      universityColors.textSecondary,
                   }}
                 >
-                  ملخص العمليات الأكاديمية للفصل الحالي.
+                  بيانات مباشرة من النظام
+                  الأكاديمي.
                 </Typography>
               </Box>
 
               <Chip
-                label="الفصل الحالي"
+                label="بيانات فعلية"
                 size="small"
-                sx={{
-                  bgcolor: universityColors.goldLight,
-                  color: universityColors.navyDark,
-                }}
+                color="success"
               />
             </Box>
 
             <Box
               sx={{
-                mt: 3,
                 display: 'grid',
+
                 gridTemplateColumns: {
                   xs: '1fr',
+
                   sm: 'repeat(2, minmax(0, 1fr))',
                 },
+
                 gap: 1.5,
               }}
             >
@@ -816,47 +1438,57 @@ function AdministrationDashboard({
                 title="إدارة المقررات"
                 description="المقررات والمتطلبات الأكاديمية"
                 path="/courses"
-                icon={<MenuBookRoundedIcon />}
+                icon={
+                  <MenuBookRoundedIcon />
+                }
               />
 
               <QuickAction
                 title="إدارة الشعب"
                 description="الشعب والسعة والجداول"
-                path="/sections"
-                icon={<ClassRoundedIcon />}
+                path="/supervisor/sections"
+                icon={
+                  <ClassRoundedIcon />
+                }
               />
 
               <QuickAction
                 title="الهيكل الأكاديمي"
                 description="الكليات والأقسام والبرامج"
                 path="/academic-structure"
-                icon={<SchoolRoundedIcon />}
+                icon={
+                  <SchoolRoundedIcon />
+                }
               />
 
               <QuickAction
-                title="الفترات الأكاديمية"
-                description="السنوات والفصول وفترات التسجيل"
-                path="/academic-periods"
-                icon={<CalendarMonthRoundedIcon />}
+                title="فترات التسجيل"
+                description="إدارة فترات التسجيل الأكاديمي"
+                path="/supervisor/registration-periods"
+                icon={
+                  <CalendarMonthRoundedIcon />
+                }
               />
             </Box>
           </CardContent>
         </Card>
 
-        <Card sx={{ boxShadow: 'none' }}>
+        <Card
+          sx={{
+            boxShadow: 'none',
+          }}
+        >
           <CardContent
-            sx={{
-              p: 2.5,
-              '&:last-child': {
-                pb: 2.5,
-              },
-            }}
+            sx={{ p: 2.5 }}
           >
             <Typography
               sx={{
                 fontSize: 15,
+
                 fontWeight: 700,
-                color: universityColors.navyDark,
+
+                color:
+                  universityColors.navyDark,
               }}
             >
               إدارة النظام
@@ -866,17 +1498,24 @@ function AdministrationDashboard({
               sx={{
                 mt: 0.4,
                 mb: 2,
+
                 fontSize: 11,
-                color: universityColors.textSecondary,
+
+                color:
+                  universityColors.textSecondary,
               }}
             >
-              الوصول إلى الوظائف الإدارية الأساسية.
+              الوصول إلى الوظائف
+              الإدارية الأساسية.
             </Typography>
 
             <Box
               sx={{
                 display: 'flex',
-                flexDirection: 'column',
+
+                flexDirection:
+                  'column',
+
                 gap: 1.2,
               }}
             >
@@ -884,33 +1523,64 @@ function AdministrationDashboard({
                 title="الطلاب"
                 description="إدارة واستعراض بيانات الطلاب"
                 path="/students"
-                icon={<GroupsRoundedIcon />}
+                icon={
+                  <GroupsRoundedIcon />
+                }
               />
 
               <QuickAction
                 title="الخطة الدراسية"
                 description="إدارة مقررات وأولويات الخطط"
                 path="/supervisor/study-plan"
-                icon={<AccountTreeRoundedIcon />}
+                icon={
+                  <AccountTreeRoundedIcon />
+                }
               />
 
-              {role === 'SYSTEM_ADMIN' && (
-                <>
+              <QuickAction
+                title="استيراد النتائج"
+                description="تنزيل قالب Excel ورفع درجات الطلاب"
+                path="/results/import"
+                icon={
+                  <AssessmentRoundedIcon />
+                }
+              />
+
+              {role ===
+                'SYSTEM_ADMIN' && (
                   <QuickAction
                     title="المستخدمون والصلاحيات"
                     description="إدارة حسابات مستخدمي النظام"
                     path="/users"
-                    icon={<PersonRoundedIcon />}
+                    icon={
+                      <PersonRoundedIcon />
+                    }
                   />
+                )}
 
+              {role ===
+                'SYSTEM_ADMIN' && (
+                  <QuickAction
+                    title="سلم الدرجات"
+                    description="إدارة نطاقات الدرجات ونقاط المعدل"
+                    path="/grade-scale"
+                    icon={
+                      <GradingRoundedIcon />
+                    }
+                  />
+                )}
+
+              {role ===
+                'SYSTEM_ADMIN' && (
                   <QuickAction
                     title="إعدادات النظام"
-                    description="إعدادات الجامعة والتسجيل"
+                    description="إعدادات الجامعة وقواعد التسجيل"
                     path="/settings"
-                    icon={<SettingsRoundedIcon />}
+                    icon={
+                      <SettingsRoundedIcon />
+                    }
                   />
-                </>
-              )}
+                )}
             </Box>
           </CardContent>
         </Card>
@@ -922,7 +1592,8 @@ function AdministrationDashboard({
 export default function DashboardPage() {
   const { user } = useAuth();
 
-  const role = user?.role ?? '';
+  const role =
+    user?.role ?? '';
 
   return (
     <Box
@@ -931,20 +1602,25 @@ export default function DashboardPage() {
         width: '100%',
       }}
     >
-      {/* Welcome */}
       <Box
         sx={{
           mb: 3,
+
           display: 'flex',
+
           alignItems: {
             xs: 'flex-start',
             md: 'center',
           },
-          justifyContent: 'space-between',
+
+          justifyContent:
+            'space-between',
+
           flexDirection: {
             xs: 'column',
             md: 'row',
           },
+
           gap: 2,
         }}
       >
@@ -952,23 +1628,31 @@ export default function DashboardPage() {
           <Box
             sx={{
               display: 'flex',
+
               alignItems: 'center',
+
               gap: 1,
+
               mb: 0.7,
             }}
           >
             <DashboardRoundedIcon
               sx={{
                 fontSize: 20,
-                color: universityColors.goldDark,
+
+                color:
+                  universityColors.goldDark,
               }}
             />
 
             <Typography
               sx={{
                 fontSize: 12,
+
                 fontWeight: 600,
-                color: universityColors.goldDark,
+
+                color:
+                  universityColors.goldDark,
               }}
             >
               لوحة التحكم
@@ -982,19 +1666,27 @@ export default function DashboardPage() {
                 xs: 22,
                 md: 26,
               },
+
               fontWeight: 700,
-              color: universityColors.navyDark,
+
+              color:
+                universityColors.navyDark,
             }}
           >
-            مرحبًا بك في نظام جامعة المعالي
+            مرحبًا بك في نظام جامعة
+            المعالي
           </Typography>
 
           <Typography
             sx={{
               mt: 0.7,
+
               maxWidth: 650,
+
               fontSize: 12.5,
-              color: universityColors.textSecondary,
+
+              color:
+                universityColors.textSecondary,
             }}
           >
             {getWelcomeText(role)}
@@ -1004,12 +1696,19 @@ export default function DashboardPage() {
         <Box
           sx={{
             display: 'flex',
+
             alignItems: 'center',
+
             gap: 1.2,
+
             px: 1.8,
             py: 1.2,
+
             bgcolor: '#FFFFFF',
-            border: `1px solid ${universityColors.border}`,
+
+            border:
+              `1px solid ${universityColors.border}`,
+
             borderRadius: 2.5,
           }}
         >
@@ -1017,22 +1716,36 @@ export default function DashboardPage() {
             sx={{
               width: 37,
               height: 37,
+
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+
+              alignItems:
+                'center',
+
+              justifyContent:
+                'center',
+
               borderRadius: 2,
-              bgcolor: universityColors.softBlue,
-              color: universityColors.navy,
+
+              bgcolor:
+                universityColors.softBlue,
+
+              color:
+                universityColors.navy,
             }}
           >
-            <PersonRoundedIcon fontSize="small" />
+            <PersonRoundedIcon
+              fontSize="small"
+            />
           </Box>
 
           <Box>
             <Typography
               sx={{
                 fontSize: 10.5,
-                color: universityColors.textSecondary,
+
+                color:
+                  universityColors.textSecondary,
               }}
             >
               نوع الحساب
@@ -1041,8 +1754,11 @@ export default function DashboardPage() {
             <Typography
               sx={{
                 fontSize: 12.5,
+
                 fontWeight: 600,
-                color: universityColors.navyDark,
+
+                color:
+                  universityColors.navyDark,
               }}
             >
               {getRoleLabel(role)}
@@ -1051,13 +1767,24 @@ export default function DashboardPage() {
         </Box>
       </Box>
 
-      {role === 'STUDENT' && <StudentDashboard />}
-
-      {role === 'ADVISOR' && <AdvisorDashboard />}
-
-      {(role === 'REGISTRAR' || role === 'SYSTEM_ADMIN') && (
-        <AdministrationDashboard role={role} />
+      {role === 'STUDENT' && (
+        <StudentDashboard />
       )}
+
+      {role === 'ADVISOR' && (
+        <AdvisorDashboard
+          userId={user?.id}
+        />
+      )}
+
+      {(role ===
+        'REGISTRAR' ||
+        role ===
+        'SYSTEM_ADMIN') && (
+          <AdministrationDashboard
+            role={role}
+          />
+        )}
     </Box>
   );
 }

@@ -1,5 +1,14 @@
-import { useMemo, useState } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import {
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
+
+import {
+  Outlet,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 
 import {
   AppBar,
@@ -35,15 +44,20 @@ import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import AssignmentTurnedInRoundedIcon from '@mui/icons-material/AssignmentTurnedInRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 
-import { useAuth } from '../auth/AuthContext';
-import { universityColors } from '../theme/theme';
+import {
+  useAuth,
+} from '../auth/AuthContext';
+
+import {
+  universityColors,
+} from '../theme/theme';
 
 const DRAWER_WIDTH = 280;
 
 interface NavigationItem {
   label: string;
   path: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   roles: string[];
 }
 
@@ -52,68 +66,108 @@ const navigationItems: NavigationItem[] = [
     label: 'الرئيسية',
     path: '/dashboard',
     icon: <DashboardRoundedIcon />,
-    roles: ['STUDENT', 'ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN'],
+    roles: [
+      'STUDENT',
+      'ADVISOR',
+      'REGISTRAR',
+      'SYSTEM_ADMIN',
+    ],
   },
+
   {
     label: 'تسجيل المقررات',
     path: '/student/registration',
     icon: <MenuBookRoundedIcon />,
     roles: ['STUDENT'],
   },
+
   {
     label: 'جدولي الدراسي',
     path: '/student/schedule',
     icon: <CalendarMonthRoundedIcon />,
     roles: ['STUDENT'],
   },
+
   {
     label: 'طلبات التسجيل',
     path: '/advisor/registrations',
-    icon: <AssignmentTurnedInRoundedIcon />,
+    icon: (
+      <AssignmentTurnedInRoundedIcon />
+    ),
     roles: ['ADVISOR'],
   },
+
   {
     label: 'الخطة الدراسية',
     path: '/supervisor/study-plan',
     icon: <AccountTreeRoundedIcon />,
-    roles: ['ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN'],
+    roles: [
+      'ADVISOR',
+      'REGISTRAR',
+      'SYSTEM_ADMIN',
+    ],
   },
+
   {
     label: 'الطلاب',
     path: '/students',
     icon: <GroupsRoundedIcon />,
-    roles: ['ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN'],
+    roles: [
+      'ADVISOR',
+      'REGISTRAR',
+      'SYSTEM_ADMIN',
+    ],
   },
+
   {
     label: 'المقررات',
     path: '/courses',
     icon: <MenuBookRoundedIcon />,
-    roles: ['REGISTRAR', 'SYSTEM_ADMIN'],
+    roles: [
+      'REGISTRAR',
+      'SYSTEM_ADMIN',
+    ],
   },
+
   {
     label: 'الشعب الدراسية',
-    path: '/sections',
+    path: '/supervisor/sections',
     icon: <ClassRoundedIcon />,
-    roles: ['REGISTRAR', 'SYSTEM_ADMIN'],
+    roles: [
+      'REGISTRAR',
+      'SYSTEM_ADMIN',
+    ],
   },
+
   {
     label: 'الهيكل الأكاديمي',
     path: '/academic-structure',
     icon: <SchoolRoundedIcon />,
-    roles: ['REGISTRAR', 'SYSTEM_ADMIN'],
+    roles: [
+      'REGISTRAR',
+      'SYSTEM_ADMIN',
+    ],
   },
+
   {
     label: 'الفصول والفترات',
-    path: '/academic-periods',
+    path:
+      '/supervisor/registration-periods',
     icon: <DateRangeRoundedIcon />,
-    roles: ['REGISTRAR', 'SYSTEM_ADMIN'],
+    roles: [
+      'REGISTRAR',
+      'SYSTEM_ADMIN',
+    ],
   },
+
   {
-    label: 'المستخدمون والصلاحيات',
+    label:
+      'المستخدمون والصلاحيات',
     path: '/users',
     icon: <PersonRoundedIcon />,
     roles: ['SYSTEM_ADMIN'],
   },
+
   {
     label: 'إعدادات النظام',
     path: '/settings',
@@ -122,87 +176,147 @@ const navigationItems: NavigationItem[] = [
   },
 ];
 
-function getRoleLabel(role?: string) {
+function getRoleLabel(
+  role?: string,
+) {
   switch (role) {
     case 'STUDENT':
       return 'طالب';
+
     case 'ADVISOR':
       return 'المرشد الأكاديمي';
+
     case 'REGISTRAR':
       return 'مسجل الجامعة';
+
     case 'SYSTEM_ADMIN':
       return 'مدير النظام';
+
     default:
       return 'مستخدم';
   }
 }
 
-function getPageTitle(pathname: string) {
-  const item = navigationItems.find((navItem) => {
-    if (navItem.path === '/dashboard') {
-      return pathname === '/dashboard';
-    }
+function getPageTitle(
+  pathname: string,
+) {
+  const item =
+    navigationItems.find(
+      (navItem) => {
+        if (
+          navItem.path ===
+          '/dashboard'
+        ) {
+          return (
+            pathname ===
+            '/dashboard'
+          );
+        }
 
-    return pathname.startsWith(navItem.path);
-  });
+        return pathname.startsWith(
+          navItem.path,
+        );
+      },
+    );
 
-  return item?.label ?? 'نظام إدارة الجامعة';
+  return (
+    item?.label ??
+    'نظام إدارة الجامعة'
+  );
 }
 
 export default function DashboardLayout() {
   const theme = useTheme();
-  const navigate = useNavigate();
-  const location = useLocation();
 
-  const { user, logout } = useAuth();
+  const navigate =
+    useNavigate();
 
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const location =
+    useLocation();
 
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const {
+    user,
+    logout,
+  } = useAuth();
 
-  const userRole = user?.role ?? '';
+  const isMobile =
+    useMediaQuery(
+      theme.breakpoints.down('md'),
+    );
 
-  const visibleItems = useMemo(
-    () =>
-      navigationItems.filter((item) =>
-        item.roles.includes(userRole),
-      ),
-    [userRole],
-  );
+  const [
+    mobileOpen,
+    setMobileOpen,
+  ] = useState(false);
 
-  const pageTitle = getPageTitle(location.pathname);
+  const userRole =
+    user?.role ?? '';
 
-  const handleNavigate = (path: string) => {
+  const visibleItems =
+    useMemo(
+      () =>
+        navigationItems.filter(
+          (item) =>
+            item.roles.includes(
+              userRole,
+            ),
+        ),
+      [userRole],
+    );
+
+  const pageTitle =
+    getPageTitle(
+      location.pathname,
+    );
+
+  function handleNavigate(
+    path: string,
+  ) {
     navigate(path);
 
     if (isMobile) {
       setMobileOpen(false);
     }
-  };
+  }
 
-  const handleLogout = () => {
+  function handleLogout() {
     logout();
-    navigate('/login', { replace: true });
-  };
+
+    navigate(
+      '/login',
+      {
+        replace: true,
+      },
+    );
+  }
 
   const drawerContent = (
     <Box
       sx={{
         height: '100%',
+
         display: 'flex',
+
         flexDirection: 'column',
-        bgcolor: universityColors.navyDark,
+
+        bgcolor:
+          universityColors.navyDark,
+
         color: '#FFFFFF',
       }}
     >
-      {/* Logo */}
       <Box
         sx={{
           minHeight: 92,
+
           display: 'flex',
+
           alignItems: 'center',
+
           px: 2.5,
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
+
+          borderBottom:
+            '1px solid rgba(255,255,255,0.08)',
         }}
       >
         <Box
@@ -212,17 +326,28 @@ export default function DashboardLayout() {
           sx={{
             width: 58,
             height: 58,
+
             objectFit: 'contain',
+
             flexShrink: 0,
           }}
         />
 
-        <Box sx={{ mr: 1.5, minWidth: 0 }}>
+        <Box
+          sx={{
+            mr: 1.5,
+
+            minWidth: 0,
+          }}
+        >
           <Typography
             sx={{
               fontSize: 17,
+
               fontWeight: 700,
+
               lineHeight: 1.4,
+
               color: '#FFFFFF',
             }}
           >
@@ -232,8 +357,11 @@ export default function DashboardLayout() {
           <Typography
             sx={{
               mt: 0.3,
+
               fontSize: 11.5,
-              color: 'rgba(255,255,255,0.58)',
+
+              color:
+                'rgba(255,255,255,0.58)',
             }}
           >
             نظام الإدارة الجامعية
@@ -241,148 +369,225 @@ export default function DashboardLayout() {
         </Box>
       </Box>
 
-      {/* Navigation */}
       <Box
         sx={{
           flex: 1,
+
           overflowY: 'auto',
+
           px: 1.5,
+
           py: 2.5,
         }}
       >
         <Typography
           sx={{
             px: 1.5,
+
             mb: 1,
+
             fontSize: 11,
+
             fontWeight: 600,
-            color: 'rgba(255,255,255,0.38)',
+
+            color:
+              'rgba(255,255,255,0.38)',
           }}
         >
           القائمة الرئيسية
         </Typography>
 
         <List disablePadding>
-          {visibleItems.map((item) => {
-            const selected =
-              item.path === '/dashboard'
-                ? location.pathname === '/dashboard'
-                : location.pathname.startsWith(item.path);
+          {visibleItems.map(
+            (item) => {
+              const selected =
+                item.path ===
+                  '/dashboard'
+                  ? location
+                    .pathname ===
+                  '/dashboard'
+                  : location.pathname.startsWith(
+                    item.path,
+                  );
 
-            return (
-              <ListItemButton
-                key={item.path}
-                selected={selected}
-                onClick={() => handleNavigate(item.path)}
-                sx={{
-                  minHeight: 48,
-                  mb: 0.6,
-                  px: 1.5,
-                  borderRadius: 2.5,
-                  color: selected
-                    ? '#FFFFFF'
-                    : 'rgba(255,255,255,0.68)',
-                  position: 'relative',
-
-                  '& .MuiListItemIcon-root': {
-                    color: selected
-                      ? universityColors.gold
-                      : 'rgba(255,255,255,0.55)',
-                  },
-
-                  '&.Mui-selected': {
-                    bgcolor: 'rgba(255,255,255,0.09)',
-                  },
-
-                  '&.Mui-selected:hover': {
-                    bgcolor: 'rgba(255,255,255,0.12)',
-                  },
-
-                  '&:hover': {
-                    bgcolor: 'rgba(255,255,255,0.06)',
-                    color: '#FFFFFF',
-                  },
-
-                  '&::before': selected
-                    ? {
-                        content: '""',
-                        position: 'absolute',
-                        right: 0,
-                        top: 11,
-                        bottom: 11,
-                        width: 3,
-                        borderRadius: 10,
-                        bgcolor: universityColors.gold,
-                      }
-                    : {},
-                }}
-              >
-                <ListItemIcon
+              return (
+                <ListItemButton
+                  key={item.path}
+                  selected={
+                    selected
+                  }
+                  onClick={() =>
+                    handleNavigate(
+                      item.path,
+                    )
+                  }
                   sx={{
-                    minWidth: 40,
+                    minHeight: 48,
+
+                    mb: 0.6,
+
+                    px: 1.5,
+
+                    borderRadius: 2.5,
+
+                    color: selected
+                      ? '#FFFFFF'
+                      : 'rgba(255,255,255,0.68)',
+
+                    position:
+                      'relative',
+
+                    '& .MuiListItemIcon-root':
+                    {
+                      color:
+                        selected
+                          ? universityColors.gold
+                          : 'rgba(255,255,255,0.55)',
+                    },
+
+                    '&.Mui-selected':
+                    {
+                      bgcolor:
+                        'rgba(255,255,255,0.09)',
+                    },
+
+                    '&.Mui-selected:hover':
+                    {
+                      bgcolor:
+                        'rgba(255,255,255,0.12)',
+                    },
+
+                    '&:hover': {
+                      bgcolor:
+                        'rgba(255,255,255,0.06)',
+
+                      color:
+                        '#FFFFFF',
+                    },
+
+                    '&::before':
+                      selected
+                        ? {
+                          content:
+                            '""',
+
+                          position:
+                            'absolute',
+
+                          right: 0,
+
+                          top: 11,
+
+                          bottom: 11,
+
+                          width: 3,
+
+                          borderRadius: 10,
+
+                          bgcolor:
+                            universityColors.gold,
+                        }
+                        : {},
                   }}
                 >
-                  {item.icon}
-                </ListItemIcon>
-
-                <ListItemText
-                  primary={item.label}
-                  sx={{
-                    '& .MuiListItemText-primary': {
-                      fontSize: 13.5,
-                      fontWeight: selected ? 600 : 400,
-                    },
-                  }}
-                />
-
-                {selected && (
-                  <ChevronRightRoundedIcon
+                  <ListItemIcon
                     sx={{
-                      fontSize: 17,
-                      color: 'rgba(255,255,255,0.4)',
-                      transform: 'rotate(180deg)',
+                      minWidth: 40,
+                    }}
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+
+                  <ListItemText
+                    primary={
+                      item.label
+                    }
+                    sx={{
+                      '& .MuiListItemText-primary':
+                      {
+                        fontSize:
+                          13.5,
+
+                        fontWeight:
+                          selected
+                            ? 600
+                            : 400,
+                      },
                     }}
                   />
-                )}
-              </ListItemButton>
-            );
-          })}
+
+                  {selected && (
+                    <ChevronRightRoundedIcon
+                      sx={{
+                        fontSize:
+                          17,
+
+                        color:
+                          'rgba(255,255,255,0.4)',
+
+                        transform:
+                          'rotate(180deg)',
+                      }}
+                    />
+                  )}
+                </ListItemButton>
+              );
+            },
+          )}
         </List>
       </Box>
 
-      {/* User */}
       <Box
         sx={{
           p: 1.5,
-          borderTop: '1px solid rgba(255,255,255,0.08)',
+
+          borderTop:
+            '1px solid rgba(255,255,255,0.08)',
         }}
       >
         <Box
           sx={{
             display: 'flex',
+
             alignItems: 'center',
+
             gap: 1.2,
+
             p: 1.2,
+
             borderRadius: 2.5,
-            bgcolor: 'rgba(255,255,255,0.045)',
+
+            bgcolor:
+              'rgba(255,255,255,0.045)',
           }}
         >
           <Avatar
             sx={{
               width: 38,
+
               height: 38,
-              bgcolor: universityColors.gold,
-              color: universityColors.navyDark,
+
+              bgcolor:
+                universityColors.gold,
+
+              color:
+                universityColors.navyDark,
+
               fontSize: 15,
+
               fontWeight: 700,
             }}
           >
-            {user?.email?.charAt(0).toUpperCase() ?? 'U'}
+            {user?.email
+              ?.charAt(0)
+              .toUpperCase() ??
+              'U'}
           </Avatar>
 
           <Box
             sx={{
               flex: 1,
+
               minWidth: 0,
             }}
           >
@@ -390,33 +595,48 @@ export default function DashboardLayout() {
               noWrap
               sx={{
                 fontSize: 12.5,
+
                 fontWeight: 600,
+
                 color: '#FFFFFF',
               }}
             >
-              {user?.email ?? 'المستخدم'}
+              {user?.email ??
+                'المستخدم'}
             </Typography>
 
             <Typography
               sx={{
                 mt: 0.2,
+
                 fontSize: 10.5,
-                color: 'rgba(255,255,255,0.48)',
+
+                color:
+                  'rgba(255,255,255,0.48)',
               }}
             >
-              {getRoleLabel(user?.role)}
+              {getRoleLabel(
+                user?.role,
+              )}
             </Typography>
           </Box>
 
           <Tooltip title="تسجيل الخروج">
             <IconButton
-              onClick={handleLogout}
+              onClick={
+                handleLogout
+              }
               size="small"
               sx={{
-                color: 'rgba(255,255,255,0.55)',
+                color:
+                  'rgba(255,255,255,0.55)',
+
                 '&:hover': {
-                  color: '#FFFFFF',
-                  bgcolor: 'rgba(255,255,255,0.08)',
+                  color:
+                    '#FFFFFF',
+
+                  bgcolor:
+                    'rgba(255,255,255,0.08)',
                 },
               }}
             >
@@ -433,23 +653,33 @@ export default function DashboardLayout() {
       dir="rtl"
       sx={{
         minHeight: '100vh',
-        bgcolor: universityColors.background,
+
+        bgcolor:
+          universityColors.background,
       }}
     >
-      {/* Desktop sidebar */}
       {!isMobile && (
         <Drawer
           variant="permanent"
           anchor="right"
           sx={{
-            width: DRAWER_WIDTH,
+            width:
+              DRAWER_WIDTH,
+
             flexShrink: 0,
 
-            '& .MuiDrawer-paper': {
-              width: DRAWER_WIDTH,
-              boxSizing: 'border-box',
+            '& .MuiDrawer-paper':
+            {
+              width:
+                DRAWER_WIDTH,
+
+              boxSizing:
+                'border-box',
+
               border: 0,
+
               right: 0,
+
               left: 'auto',
             },
           }}
@@ -458,19 +688,23 @@ export default function DashboardLayout() {
         </Drawer>
       )}
 
-      {/* Mobile sidebar */}
       {isMobile && (
         <Drawer
           variant="temporary"
           anchor="right"
           open={mobileOpen}
-          onClose={() => setMobileOpen(false)}
+          onClose={() =>
+            setMobileOpen(false)
+          }
           ModalProps={{
             keepMounted: true,
           }}
           sx={{
-            '& .MuiDrawer-paper': {
-              width: DRAWER_WIDTH,
+            '& .MuiDrawer-paper':
+            {
+              width:
+                DRAWER_WIDTH,
+
               border: 0,
             },
           }}
@@ -479,30 +713,39 @@ export default function DashboardLayout() {
         </Drawer>
       )}
 
-      {/* Main area */}
       <Box
         sx={{
           minHeight: '100vh',
+
           mr: {
             xs: 0,
+
             md: `${DRAWER_WIDTH}px`,
           },
         }}
       >
-        {/* Header */}
         <AppBar
           position="sticky"
           elevation={0}
           sx={{
-            bgcolor: 'rgba(255,255,255,0.96)',
-            color: universityColors.text,
-            borderBottom: `1px solid ${universityColors.border}`,
-            backdropFilter: 'blur(12px)',
+            bgcolor:
+              'rgba(255,255,255,0.96)',
+
+            color:
+              universityColors.text,
+
+            borderBottom:
+              `1px solid ${universityColors.border}`,
+
+            backdropFilter:
+              'blur(12px)',
           }}
         >
           <Toolbar
             sx={{
-              minHeight: '70px !important',
+              minHeight:
+                '70px !important',
+
               px: {
                 xs: 2,
                 sm: 3,
@@ -512,25 +755,39 @@ export default function DashboardLayout() {
           >
             {isMobile && (
               <IconButton
-                onClick={() => setMobileOpen(true)}
+                onClick={() =>
+                  setMobileOpen(
+                    true,
+                  )
+                }
                 sx={{
                   ml: 1,
-                  color: universityColors.navy,
+
+                  color:
+                    universityColors.navy,
                 }}
               >
                 <MenuRoundedIcon />
               </IconButton>
             )}
 
-            <Box sx={{ flex: 1 }}>
+            <Box
+              sx={{
+                flex: 1,
+              }}
+            >
               <Typography
                 sx={{
                   fontSize: {
                     xs: 17,
+
                     md: 19,
                   },
+
                   fontWeight: 700,
-                  color: universityColors.navyDark,
+
+                  color:
+                    universityColors.navyDark,
                 }}
               >
                 {pageTitle}
@@ -540,14 +797,20 @@ export default function DashboardLayout() {
                 sx={{
                   display: {
                     xs: 'none',
+
                     sm: 'block',
                   },
+
                   mt: 0.2,
+
                   fontSize: 11.5,
-                  color: universityColors.textSecondary,
+
+                  color:
+                    universityColors.textSecondary,
                 }}
               >
-                جامعة المعالي · نظام الإدارة الجامعية
+                جامعة المعالي · نظام
+                الإدارة الجامعية
               </Typography>
             </Box>
 
@@ -555,10 +818,17 @@ export default function DashboardLayout() {
               <IconButton
                 sx={{
                   width: 40,
+
                   height: 40,
-                  border: `1px solid ${universityColors.border}`,
-                  color: universityColors.navy,
-                  bgcolor: '#FFFFFF',
+
+                  border:
+                    `1px solid ${universityColors.border}`,
+
+                  color:
+                    universityColors.navy,
+
+                  bgcolor:
+                    '#FFFFFF',
                 }}
               >
                 <NotificationsNoneRoundedIcon fontSize="small" />
@@ -570,9 +840,12 @@ export default function DashboardLayout() {
               flexItem
               sx={{
                 mx: 2,
+
                 my: 2,
+
                 display: {
                   xs: 'none',
+
                   sm: 'block',
                 },
               }}
@@ -582,58 +855,84 @@ export default function DashboardLayout() {
               sx={{
                 display: {
                   xs: 'none',
+
                   sm: 'flex',
                 },
-                alignItems: 'center',
+
+                alignItems:
+                  'center',
+
                 gap: 1.1,
               }}
             >
               <Avatar
                 sx={{
                   width: 37,
+
                   height: 37,
-                  bgcolor: universityColors.navy,
+
+                  bgcolor:
+                    universityColors.navy,
+
                   fontSize: 14,
+
                   fontWeight: 700,
                 }}
               >
-                {user?.email?.charAt(0).toUpperCase() ?? 'U'}
+                {user?.email
+                  ?.charAt(0)
+                  .toUpperCase() ??
+                  'U'}
               </Avatar>
 
               <Box>
                 <Typography
+                  noWrap
                   sx={{
                     maxWidth: 180,
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                    color: universityColors.text,
+
+                    fontSize:
+                      12.5,
+
+                    fontWeight:
+                      600,
+
+                    color:
+                      universityColors.text,
                   }}
-                  noWrap
                 >
-                  {user?.email ?? 'المستخدم'}
+                  {user?.email ??
+                    'المستخدم'}
                 </Typography>
 
                 <Typography
                   sx={{
-                    fontSize: 10.5,
-                    color: universityColors.textSecondary,
+                    fontSize:
+                      10.5,
+
+                    color:
+                      universityColors.textSecondary,
                   }}
                 >
-                  {getRoleLabel(user?.role)}
+                  {getRoleLabel(
+                    user?.role,
+                  )}
                 </Typography>
               </Box>
             </Box>
           </Toolbar>
         </AppBar>
 
-        {/* Page content */}
         <Box
           component="main"
           sx={{
             width: '100%',
+
             p: {
               xs: 2,
+
               sm: 3,
+
               lg: 4,
             },
           }}
@@ -641,7 +940,9 @@ export default function DashboardLayout() {
           <Box
             sx={{
               width: '100%',
+
               maxWidth: 1500,
+
               mx: 'auto',
             }}
           >

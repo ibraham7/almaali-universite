@@ -12,7 +12,531 @@ export class StudentEnrollmentsService {
     private readonly prisma: PrismaService,
     private readonly validation: RegistrationValidationService,
     private readonly auditLogs: AuditLogsService,
-  ) {}
+  ) { }
+
+  private async getStudentByUserId(userId: string) {
+    return this.prisma.student.findFirst({
+      where: {
+        userId,
+      },
+    });
+  }
+
+  private async getOwnedEnrollment(
+    userId: string,
+    enrollmentId: string,
+  ) {
+    return this.prisma.studentEnrollment.findFirst({
+      where: {
+        id: enrollmentId,
+        student: {
+          userId,
+        },
+      },
+      include: {
+        student: true,
+      },
+    });
+  }
+
+  async getMyRegistration(userId: string) {
+    const student = await this.getStudentByUserId(userId);
+
+    if (!student) {
+      return {
+        success: false,
+        errors: ['Student record not found'],
+      };
+    }
+
+    if (!student.studyPlanId) {
+      return {
+        success: false,
+        errors: ['Student is not assigned to a study plan'],
+      };
+    }
+
+    if (!student.academicYearId) {
+      return {
+        success: false,
+        errors: ['Student is not assigned to an academic level'],
+      };
+    }
+
+    if (!student.semesterId) {
+      return {
+        success: false,
+        errors: ['Student is not assigned to a semester'],
+      };
+    }
+
+    const [
+      studyPlan,
+      academicYear,
+      semester,
+      registrationPeriod,
+      enrollment,
+    ] = await Promise.all([
+      this.prisma.studyPlan.findUnique({
+        where: {
+          id: student.studyPlanId,
+        },
+        include: {
+          program: {
+            include: {
+              department: {
+                include: {
+                  college: {
+                    include: {
+                      university: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+
+      this.prisma.academicYear.findUnique({
+        where: {
+          id: student.academicYearId,
+        },
+      }),
+
+      this.prisma.semester.findUnique({
+        where: {
+          id: student.semesterId,
+        },
+      }),
+
+      this.prisma.registrationPeriod.findFirst({
+        where: {
+          semesterId: student.semesterId,
+        },
+        orderBy: {
+          startDateTime: 'desc',
+        },
+      }),
+
+      this.prisma.studentEnrollment.findUnique({
+        where: {
+          studentId_semesterId: {
+            studentId: student.id,
+            semesterId: student.semesterId,
+          },
+        },
+        include: {
+          items: {
+            include: {
+              course: true,
+              section: {
+                include: {
+                  teacher: true,
+                  classroom: true,
+                  schedules: true,
+                },
+              },
+            },
+            orderBy: {
+              createdAt: 'asc',
+            },
+          },
+          approvals: true,
+        },
+      }),
+    ]);
+
+    if (!studyPlan) {
+      return {
+        success: false,
+        errors: ['Study plan not found'],
+      };
+    }
+
+    if (!academicYear) {
+      return {
+        success: false,
+        errors: ['Academic level not found'],
+      };
+    }
+
+    if (!semester) {
+      return {
+        success: false,
+        errors: ['Semester not found'],
+      };
+    }
+
+    const university =
+      studyPlan.program.department.college.university;
+
+    const maxAllowedLevelNumber =
+      academicYear.levelNumber +
+      university.allowedFutureYears;
+
+    const rawPlanCourses =
+      await this.prisma.studyPlanCourse.findMany({
+        where: {
+          studyPlanId: student.studyPlanId,
+          academicYear: {
+            levelNumber: {
+              gte: academicYear.levelNumber,
+              lte: maxAllowedLevelNumber,
+            },
+          },
+          course: {
+            status: 'ACTIVE',
+          },
+        },
+        include: {
+          course: {
+            include: {
+              prerequisites: {
+                include: {
+                  prerequisite: true,
+                },
+              },
+              sections: {
+                include: {
+                  teacher: true,
+                  classroom: true,
+                  schedules: true,
+                },
+                orderBy: {
+                  sectionNumber: 'asc',
+                },
+              },
+            },
+          },
+          academicYear: true,
+          semester: true,
+        },
+      });
+
+    const planCourses =
+      rawPlanCourses
+        .map((planCourse) => ({
+          ...planCourse,
+          course: {
+            ...planCourse.course,
+            sections:
+              planCourse.course.sections.filter(
+                (section) =>
+                  section.semesterId ===
+                  planCourse.semesterId,
+              ),
+          },
+        }))
+        .sort(
+          (a, b) =>
+            a.academicYear.levelNumber -
+            b.academicYear.levelNumber ||
+            a.semester.semesterNumber -
+            b.semester.semesterNumber ||
+            a.priority - b.priority,
+        );
+
+    const now = new Date();
+
+    const registrationOpen =
+      !!registrationPeriod &&
+      registrationPeriod.startDateTime <= now &&
+      registrationPeriod.endDateTime >= now;
+
+    const totalRegisteredCredits =
+      enrollment?.items.reduce(
+        (total, item) =>
+          total + item.course.credits,
+        0,
+      ) ?? 0;
+
+    return {
+      success: true,
+      student,
+      studyPlan,
+      academicYear,
+      semester,
+      registrationPeriod,
+      registrationOpen,
+      planCourses,
+      enrollment,
+      totalRegisteredCredits,
+      registrationSettings: {
+        minGpaForFutureYears: Number(
+          university.minGpaForFutureYears,
+        ),
+        allowedFutureYears:
+          university.allowedFutureYears,
+        requiredElectiveCredits:
+          university.requiredElectiveCredits,
+        currentLevelNumber:
+          academicYear.levelNumber,
+        maxAllowedLevelNumber,
+      },
+    };
+  }
+
+  async createMyEnrollment(userId: string) {
+    const student = await this.getStudentByUserId(userId);
+
+    if (!student) {
+      return {
+        success: false,
+        errors: ['Student record not found'],
+      };
+    }
+
+    if (!student.semesterId) {
+      return {
+        success: false,
+        errors: ['Student is not assigned to a semester'],
+      };
+    }
+
+    const existingEnrollment =
+      await this.prisma.studentEnrollment.findUnique({
+        where: {
+          studentId_semesterId: {
+            studentId: student.id,
+            semesterId: student.semesterId,
+          },
+        },
+        include: {
+          items: {
+            include: {
+              course: true,
+              section: {
+                include: {
+                  schedules: true,
+                },
+              },
+            },
+          },
+          approvals: true,
+        },
+      });
+
+    if (existingEnrollment) {
+      return existingEnrollment;
+    }
+
+    const now = new Date();
+
+    const registrationPeriod =
+      await this.prisma.registrationPeriod.findFirst({
+        where: {
+          semesterId: student.semesterId,
+          startDateTime: {
+            lte: now,
+          },
+          endDateTime: {
+            gte: now,
+          },
+        },
+        orderBy: {
+          startDateTime: 'desc',
+        },
+      });
+
+    if (!registrationPeriod) {
+      return {
+        success: false,
+        errors: ['Registration period is closed'],
+      };
+    }
+
+    const enrollment =
+      await this.prisma.studentEnrollment.create({
+        data: {
+          studentId: student.id,
+          semesterId: student.semesterId,
+        },
+        include: {
+          items: {
+            include: {
+              course: true,
+              section: {
+                include: {
+                  schedules: true,
+                },
+              },
+            },
+          },
+          approvals: true,
+        },
+      });
+
+    await this.auditLogs.create({
+      action: 'CREATE_REGISTRATION',
+      entity: 'StudentEnrollment',
+      entityId: enrollment.id,
+      userId,
+      details: JSON.stringify({
+        studentId: student.id,
+        semesterId: student.semesterId,
+      }),
+    });
+
+    return enrollment;
+  }
+
+  async addMyItem(
+    userId: string,
+    courseId: string,
+    sectionId: string,
+  ) {
+    const student = await this.getStudentByUserId(userId);
+
+    if (!student) {
+      return {
+        success: false,
+        errors: ['Student record not found'],
+      };
+    }
+
+    if (!student.semesterId) {
+      return {
+        success: false,
+        errors: ['Student is not assigned to a semester'],
+      };
+    }
+
+    let enrollment =
+      await this.prisma.studentEnrollment.findUnique({
+        where: {
+          studentId_semesterId: {
+            studentId: student.id,
+            semesterId: student.semesterId,
+          },
+        },
+      });
+
+    if (!enrollment) {
+      const now = new Date();
+
+      const registrationPeriod =
+        await this.prisma.registrationPeriod.findFirst({
+          where: {
+            semesterId: student.semesterId,
+            startDateTime: {
+              lte: now,
+            },
+            endDateTime: {
+              gte: now,
+            },
+          },
+          orderBy: {
+            startDateTime: 'desc',
+          },
+        });
+
+      if (!registrationPeriod) {
+        return {
+          success: false,
+          errors: ['Registration period is closed'],
+        };
+      }
+
+      enrollment =
+        await this.prisma.studentEnrollment.create({
+          data: {
+            studentId: student.id,
+            semesterId: student.semesterId,
+          },
+        });
+
+      await this.auditLogs.create({
+        action: 'CREATE_REGISTRATION',
+        entity: 'StudentEnrollment',
+        entityId: enrollment.id,
+        userId,
+        details: JSON.stringify({
+          studentId: student.id,
+          semesterId: student.semesterId,
+        }),
+      });
+    }
+
+    return this.addItem(
+      {
+        enrollmentId: enrollment.id,
+        courseId,
+        sectionId,
+      },
+      userId,
+    );
+  }
+
+  async confirmMyEnrollment(userId: string) {
+    const student = await this.getStudentByUserId(userId);
+
+    if (!student) {
+      return {
+        success: false,
+        errors: ['Student record not found'],
+      };
+    }
+
+    if (!student.semesterId) {
+      return {
+        success: false,
+        errors: ['Student is not assigned to a semester'],
+      };
+    }
+
+    const enrollment =
+      await this.prisma.studentEnrollment.findUnique({
+        where: {
+          studentId_semesterId: {
+            studentId: student.id,
+            semesterId: student.semesterId,
+          },
+        },
+      });
+
+    if (!enrollment) {
+      return {
+        success: false,
+        errors: ['Enrollment not found'],
+      };
+    }
+
+    return this.confirm(enrollment.id, userId);
+  }
+
+  async dropMyItem(
+    userId: string,
+    enrollmentItemId: string,
+  ) {
+    const item =
+      await this.prisma.enrollmentItem.findFirst({
+        where: {
+          id: enrollmentItemId,
+          enrollment: {
+            student: {
+              userId,
+            },
+          },
+        },
+      });
+
+    if (!item) {
+      return {
+        success: false,
+        errors: [
+          'Enrollment item not found or does not belong to the current student',
+        ],
+      };
+    }
+
+    return this.dropItem(
+      {
+        enrollmentItemId,
+      },
+      userId,
+    );
+  }
 
   async create(dto: CreateStudentEnrollmentDto) {
     return this.prisma.studentEnrollment.create({
@@ -32,8 +556,57 @@ export class StudentEnrollmentsService {
     });
   }
 
-  async addItem(dto: AddEnrollmentItemDto) {
-    // 1. التحقق من فترة التسجيل
+  async addItem(
+    dto: AddEnrollmentItemDto,
+    userId?: string,
+  ) {
+    if (userId) {
+      const ownedEnrollment =
+        await this.getOwnedEnrollment(
+          userId,
+          dto.enrollmentId,
+        );
+
+      if (!ownedEnrollment) {
+        return {
+          success: false,
+          errors: [
+            'Enrollment does not belong to the current student',
+          ],
+        };
+      }
+    }
+
+    const editableValidation =
+      await this.validation.validateEnrollmentEditable(
+        dto.enrollmentId,
+      );
+
+    if (!editableValidation.valid) {
+      return {
+        success: false,
+        errors: editableValidation.errors,
+      };
+    }
+
+    const enrollment =
+      await this.prisma.studentEnrollment.findUnique({
+        where: {
+          id: dto.enrollmentId,
+        },
+        select: {
+          id: true,
+          semesterId: true,
+        },
+      });
+
+    if (!enrollment) {
+      return {
+        success: false,
+        errors: ['Enrollment not found'],
+      };
+    }
+
     const periodValidation =
       await this.validation.validateRegistrationPeriod(
         dto.enrollmentId,
@@ -46,10 +619,36 @@ export class StudentEnrollmentsService {
       };
     }
 
-    // 2. التحقق من الشعبة وحالتها وسعتها
+    const eligibilityValidation =
+      await this.validation.validateCourseEligibility(
+        dto.enrollmentId,
+        dto.courseId,
+        dto.sectionId,
+      );
+
+    if (!eligibilityValidation.valid) {
+      return {
+        success: false,
+        errors: eligibilityValidation.errors,
+      };
+    }
+
+    const targetSemesterId =
+      eligibilityValidation.planCourse?.semesterId;
+
+    if (!targetSemesterId) {
+      return {
+        success: false,
+        errors: [
+          'Course placement semester could not be resolved',
+        ],
+      };
+    }
+
     const sectionValidation =
       await this.validation.validateSection(
         dto.sectionId,
+        targetSemesterId,
       );
 
     if (!sectionValidation.valid) {
@@ -59,7 +658,6 @@ export class StudentEnrollmentsService {
       };
     }
 
-    // 3. التأكد أن الشعبة تابعة للمقرر المرسل
     const sectionCourseValidation =
       await this.validation.validateSectionCourse(
         dto.sectionId,
@@ -73,22 +671,6 @@ export class StudentEnrollmentsService {
       };
     }
 
-    // 4. التأكد أن المقرر مسموح للطالب
-    // ضمن خطته الدراسية وسنته الأكاديمية الحالية
-    const eligibilityValidation =
-      await this.validation.validateCourseEligibility(
-        dto.enrollmentId,
-        dto.courseId,
-      );
-
-    if (!eligibilityValidation.valid) {
-      return {
-        success: false,
-        errors: eligibilityValidation.errors,
-      };
-    }
-
-    // 5. منع تسجيل نفس المقرر مرتين
     const existingItem =
       await this.prisma.enrollmentItem.findFirst({
         where: {
@@ -104,7 +686,6 @@ export class StudentEnrollmentsService {
       };
     }
 
-    // 6. التحقق من المتطلبات السابقة
     const prerequisiteValidation =
       await this.validation.validatePrerequisites(
         dto.enrollmentId,
@@ -118,7 +699,6 @@ export class StudentEnrollmentsService {
       };
     }
 
-    // 7. التحقق من تعارض الأوقات
     const timeConflictValidation =
       await this.validation.validateTimeConflict(
         dto.enrollmentId,
@@ -132,7 +712,6 @@ export class StudentEnrollmentsService {
       };
     }
 
-    // 8. التحقق من الحد الأقصى للساعات
     const maxCreditsValidation =
       await this.validation.validateMaxCredits(
         dto.enrollmentId,
@@ -146,41 +725,68 @@ export class StudentEnrollmentsService {
       };
     }
 
-    // 9. إضافة المقرر والشعبة
     const enrollmentItem =
-      await this.prisma.enrollmentItem.create({
-        data: {
-          enrollmentId: dto.enrollmentId,
-          courseId: dto.courseId,
-          sectionId: dto.sectionId,
-        },
-        include: {
-          course: true,
-          section: {
-            include: {
-              schedules: true,
+      await this.prisma.$transaction(
+        async (tx) => {
+          const freshSection =
+            await tx.courseSection.findUnique({
+              where: {
+                id: dto.sectionId,
+              },
+            });
+
+          if (!freshSection) {
+            throw new Error('Section not found');
+          }
+
+          if (freshSection.status !== 'OPEN') {
+            throw new Error('Section is closed');
+          }
+
+          if (
+            freshSection.enrolledCount >=
+            freshSection.maxCapacity
+          ) {
+            throw new Error('Section is full');
+          }
+
+          const createdItem =
+            await tx.enrollmentItem.create({
+              data: {
+                enrollmentId: dto.enrollmentId,
+                courseId: dto.courseId,
+                sectionId: dto.sectionId,
+              },
+              include: {
+                course: true,
+                section: {
+                  include: {
+                    schedules: true,
+                  },
+                },
+              },
+            });
+
+          await tx.courseSection.update({
+            where: {
+              id: dto.sectionId,
             },
-          },
-        },
-      });
+            data: {
+              enrolledCount: {
+                increment: 1,
+              },
+            },
+          });
 
-    // 10. زيادة عدد المسجلين في الشعبة
-    await this.prisma.courseSection.update({
-      where: {
-        id: dto.sectionId,
-      },
-      data: {
-        enrolledCount: {
-          increment: 1,
+          return createdItem;
         },
-      },
-    });
+      );
 
-    // 11. Audit Log
     await this.auditLogs.create({
       action: 'ADD_COURSE',
       entity: 'EnrollmentItem',
       entityId: enrollmentItem.id,
+      userId,
       details: JSON.stringify({
         enrollmentId: dto.enrollmentId,
         courseId: dto.courseId,
@@ -191,7 +797,39 @@ export class StudentEnrollmentsService {
     return enrollmentItem;
   }
 
-  async confirm(enrollmentId: string) {
+  async confirm(
+    enrollmentId: string,
+    userId?: string,
+  ) {
+    if (userId) {
+      const ownedEnrollment =
+        await this.getOwnedEnrollment(
+          userId,
+          enrollmentId,
+        );
+
+      if (!ownedEnrollment) {
+        return {
+          success: false,
+          errors: [
+            'Enrollment does not belong to the current student',
+          ],
+        };
+      }
+    }
+
+    const editableValidation =
+      await this.validation.validateEnrollmentEditable(
+        enrollmentId,
+      );
+
+    if (!editableValidation.valid) {
+      return {
+        success: false,
+        errors: editableValidation.errors,
+      };
+    }
+
     const enrollment =
       await this.prisma.studentEnrollment.findUnique({
         where: {
@@ -214,7 +852,6 @@ export class StudentEnrollmentsService {
       };
     }
 
-    // 1. إعادة التحقق من فترة التسجيل
     const periodValidation =
       await this.validation.validateRegistrationPeriod(
         enrollmentId,
@@ -227,7 +864,6 @@ export class StudentEnrollmentsService {
       };
     }
 
-    // 2. التحقق من الحد الأدنى للساعات
     const minCreditsValidation =
       await this.validation.validateMinCredits(
         enrollmentId,
@@ -240,11 +876,37 @@ export class StudentEnrollmentsService {
       };
     }
 
-    // 3. إعادة التحقق من جميع المقررات والشعب
     for (const item of enrollment.items) {
+      const eligibilityValidation =
+        await this.validation.validateCourseEligibility(
+          enrollmentId,
+          item.courseId,
+          item.sectionId,
+        );
+
+      if (!eligibilityValidation.valid) {
+        return {
+          success: false,
+          errors: eligibilityValidation.errors,
+        };
+      }
+
+      const targetSemesterId =
+        eligibilityValidation.planCourse?.semesterId;
+
+      if (!targetSemesterId) {
+        return {
+          success: false,
+          errors: [
+            'Course placement semester could not be resolved',
+          ],
+        };
+      }
+
       const sectionValidation =
         await this.validation.validateSection(
           item.sectionId,
+          targetSemesterId,
         );
 
       if (!sectionValidation.valid) {
@@ -254,7 +916,6 @@ export class StudentEnrollmentsService {
         };
       }
 
-      // التأكد مرة أخرى أن الشعبة للمقرر نفسه
       const sectionCourseValidation =
         await this.validation.validateSectionCourse(
           item.sectionId,
@@ -265,21 +926,6 @@ export class StudentEnrollmentsService {
         return {
           success: false,
           errors: sectionCourseValidation.errors,
-        };
-      }
-
-      // إعادة التحقق من أن المادة ما زالت ضمن
-      // خطة الطالب وسنته الأكاديمية
-      const eligibilityValidation =
-        await this.validation.validateCourseEligibility(
-          enrollmentId,
-          item.courseId,
-        );
-
-      if (!eligibilityValidation.valid) {
-        return {
-          success: false,
-          errors: eligibilityValidation.errors,
         };
       }
 
@@ -310,10 +956,21 @@ export class StudentEnrollmentsService {
       }
     }
 
+    const mandatoryCoursesValidation =
+      await this.validation.validateMandatoryCourses(
+        enrollmentId,
+      );
+
+    if (!mandatoryCoursesValidation.valid) {
+      return {
+        success: false,
+        errors: mandatoryCoursesValidation.errors,
+      };
+    }
+
     const registrationPeriod =
       periodValidation.registrationPeriod;
 
-    // 4. إذا كانت موافقة المرشد مطلوبة
     if (
       registrationPeriod?.advisorApprovalRequired
     ) {
@@ -369,6 +1026,7 @@ export class StudentEnrollmentsService {
         action: 'CONFIRM_REGISTRATION',
         entity: 'StudentEnrollment',
         entityId: enrollmentId,
+        userId,
         details: JSON.stringify({
           status: 'PENDING',
           advisorApprovalRequired: true,
@@ -378,7 +1036,6 @@ export class StudentEnrollmentsService {
       return pendingEnrollment;
     }
 
-    // 5. إذا لم تكن موافقة المرشد مطلوبة
     const confirmedEnrollment =
       await this.prisma.studentEnrollment.update({
         where: {
@@ -406,6 +1063,7 @@ export class StudentEnrollmentsService {
       action: 'CONFIRM_REGISTRATION',
       entity: 'StudentEnrollment',
       entityId: enrollmentId,
+      userId,
       details: JSON.stringify({
         status: 'CONFIRMED',
         advisorApprovalRequired: false,
@@ -415,14 +1073,21 @@ export class StudentEnrollmentsService {
     return confirmedEnrollment;
   }
 
-  async dropItem(dto: DropEnrollmentItemDto) {
+  async dropItem(
+    dto: DropEnrollmentItemDto,
+    userId?: string,
+  ) {
     const item =
       await this.prisma.enrollmentItem.findUnique({
         where: {
           id: dto.enrollmentItemId,
         },
         include: {
-          enrollment: true,
+          enrollment: {
+            include: {
+              student: true,
+            },
+          },
         },
       });
 
@@ -430,6 +1095,30 @@ export class StudentEnrollmentsService {
       return {
         success: false,
         errors: ['Enrollment item not found'],
+      };
+    }
+
+    if (
+      userId &&
+      item.enrollment.student.userId !== userId
+    ) {
+      return {
+        success: false,
+        errors: [
+          'Enrollment item does not belong to the current student',
+        ],
+      };
+    }
+
+    const editableValidation =
+      await this.validation.validateEnrollmentEditable(
+        item.enrollmentId,
+      );
+
+    if (!editableValidation.valid) {
+      return {
+        success: false,
+        errors: editableValidation.errors,
       };
     }
 
@@ -492,6 +1181,7 @@ export class StudentEnrollmentsService {
       action: 'DROP_COURSE',
       entity: 'EnrollmentItem',
       entityId: item.id,
+      userId,
       details: JSON.stringify({
         enrollmentId: item.enrollmentId,
         courseId: item.courseId,

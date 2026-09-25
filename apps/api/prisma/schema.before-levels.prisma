@@ -1,0 +1,409 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  LOCKED
+  DISABLED
+}
+
+enum RoleCode {
+  STUDENT
+  ADVISOR
+  REGISTRAR
+  SYSTEM_ADMIN
+}
+
+enum CourseType {
+  THEORY
+  PRACTICAL
+}
+
+enum CourseRequirement {
+  MANDATORY
+  ELECTIVE
+}
+
+enum CourseStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SectionStatus {
+  OPEN
+  CLOSED
+}
+
+enum EnrollmentStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  CONFIRMED
+  DROPPED
+  CANCELLED
+}
+
+model University {
+  id     String @id @default(uuid())
+  nameAr String
+  nameEn String
+
+  // إعدادات التسجيل العامة - قابلة للتعديل من المدير
+  minGpaForFutureYears    Decimal @default(2.0)
+  allowedFutureYears      Int     @default(1)
+  requiredElectiveCredits Int     @default(12)
+
+  colleges College[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model College {
+  id           String  @id @default(uuid())
+  universityId String
+  nameAr       String
+  nameEn       String?
+
+  university  University   @relation(fields: [universityId], references: [id])
+  departments Department[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([universityId, nameAr])
+}
+
+model Department {
+  id        String  @id @default(uuid())
+  collegeId String
+  nameAr    String
+  nameEn    String?
+
+  college  College   @relation(fields: [collegeId], references: [id])
+  programs Program[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([collegeId, nameAr])
+}
+
+model Program {
+  id           String  @id @default(uuid())
+  departmentId String
+  nameAr       String
+  nameEn       String?
+
+  department Department  @relation(fields: [departmentId], references: [id])
+  studyPlans StudyPlan[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([departmentId, nameAr])
+}
+
+model StudyPlan {
+  id        String  @id @default(uuid())
+  programId String
+  nameAr    String
+  nameEn    String?
+
+  program       Program           @relation(fields: [programId], references: [id])
+  academicYears AcademicYear[]
+  planCourses   StudyPlanCourse[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([programId, nameAr])
+}
+
+model AcademicYear {
+  id          String  @id @default(uuid())
+  studyPlanId String
+  nameAr      String
+  nameEn      String?
+
+  studyPlan   StudyPlan         @relation(fields: [studyPlanId], references: [id])
+  semesters   Semester[]
+  planCourses StudyPlanCourse[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studyPlanId, nameAr])
+}
+
+model Semester {
+  id             String  @id @default(uuid())
+  academicYearId String
+  nameAr         String
+  nameEn         String?
+
+  // المدير يستطيع تحديد هل المواد الإجبارية إلزامية في هذا الفصل
+  requireMandatoryCourses Boolean @default(false)
+
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([academicYearId, nameAr])
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  code        RoleCode @unique
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+
+  users User[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String
+  status       UserStatus @default(ACTIVE)
+
+  roleId String
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  student Student?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Student {
+  id              String    @id @default(uuid())
+  universityId    String    @unique
+  firstName       String
+  middleName      String?
+  familyName      String
+  englishName     String?
+  gender          String?
+  dateOfBirth     DateTime?
+  nationality     String?
+  idOrPassport    String?
+  universityEmail String?
+  phone           String?
+  collegeId       String?
+  departmentId    String?
+  programId       String?
+  studyPlanId     String?
+  academicYearId  String?
+  semesterId      String?
+  status          String
+  advisorId       String?
+  admissionDate   DateTime?
+
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  enrollments StudentEnrollment[]
+}
+
+model Teacher {
+  id    String  @id @default(uuid())
+  name  String
+  email String?
+  phone String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sections CourseSection[]
+}
+
+model RegistrationPeriod {
+  id                      String    @id @default(uuid())
+  semesterId              String
+  startDateTime           DateTime
+  endDateTime             DateTime
+  minCredits              Int?
+  maxCredits              Int?
+  advisorApprovalRequired Boolean   @default(false)
+  dropAllowed             Boolean   @default(true)
+  addDropDeadline         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Course {
+  id          String            @id @default(uuid())
+  code        String            @unique
+  nameAr      String
+  nameEn      String?
+  credits     Int
+  ects        Decimal?
+  type        CourseType
+  requirement CourseRequirement
+  description String?
+  status      CourseStatus      @default(ACTIVE)
+
+  prerequisites   CoursePrerequisite[] @relation("CoursePrerequisites")
+  requiredFor     CoursePrerequisite[] @relation("RequiredFor")
+  sections        CourseSection[]
+  enrollmentItems EnrollmentItem[]
+  planCourses     StudyPlanCourse[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ربط المادة بالخطة الدراسية والسنة وترتيب الأولوية
+model StudyPlanCourse {
+  id             String            @id @default(uuid())
+  studyPlanId    String
+  academicYearId String
+  courseId       String
+  priority       Int
+  requirement    CourseRequirement
+
+  studyPlan    StudyPlan    @relation(fields: [studyPlanId], references: [id])
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  course       Course       @relation(fields: [courseId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studyPlanId, academicYearId, courseId])
+  @@unique([studyPlanId, academicYearId, priority])
+}
+
+model CoursePrerequisite {
+  id             String @id @default(uuid())
+  courseId       String
+  prerequisiteId String
+
+  course       Course @relation("CoursePrerequisites", fields: [courseId], references: [id])
+  prerequisite Course @relation("RequiredFor", fields: [prerequisiteId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([courseId, prerequisiteId])
+}
+
+model Classroom {
+  id       String @id @default(uuid())
+  name     String
+  capacity Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sections CourseSection[]
+}
+
+model CourseSection {
+  id            String        @id @default(uuid())
+  sectionNumber String
+  courseId      String
+  semesterId    String
+  teacherId     String?
+  classroomId   String?
+  maxCapacity   Int
+  enrolledCount Int           @default(0)
+  status        SectionStatus @default(OPEN)
+  minEnrollment Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  course          Course            @relation(fields: [courseId], references: [id])
+  teacher         Teacher?          @relation(fields: [teacherId], references: [id])
+  classroom       Classroom?        @relation(fields: [classroomId], references: [id])
+  schedules       SectionSchedule[]
+  enrollmentItems EnrollmentItem[]
+
+  @@unique([courseId, semesterId, sectionNumber])
+}
+
+model SectionSchedule {
+  id        String @id @default(uuid())
+  sectionId String
+  day       String
+  startTime String
+  endTime   String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  section CourseSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+}
+
+model StudentEnrollment {
+  id         String           @id @default(uuid())
+  studentId  String
+  semesterId String
+  status     EnrollmentStatus @default(DRAFT)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  student   Student           @relation(fields: [studentId], references: [id])
+  items     EnrollmentItem[]
+  approvals AdvisorApproval[]
+
+  @@unique([studentId, semesterId])
+}
+
+model EnrollmentItem {
+  id           String @id @default(uuid())
+  enrollmentId String
+  courseId     String
+  sectionId    String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  enrollment StudentEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  course     Course            @relation(fields: [courseId], references: [id])
+  section    CourseSection     @relation(fields: [sectionId], references: [id])
+
+  @@unique([enrollmentId, courseId])
+  @@unique([enrollmentId, sectionId])
+}
+
+model AdvisorApproval {
+  id           String  @id @default(uuid())
+  enrollmentId String
+  advisorId    String
+  status       String
+  note         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  enrollment StudentEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id       String  @id @default(uuid())
+  action   String
+  entity   String
+  entityId String?
+  userId   String?
+  details  String?
+
+  createdAt DateTime @default(now())
+}

@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
+
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+
 import { PrismaModule } from './prisma/prisma.module.js';
 import { UsersModule } from './users/users.module.js';
 import { AuthModule } from './auth/auth.module.js';
@@ -24,6 +26,9 @@ import { AuditLogsModule } from './audit-logs/audit-logs.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { StudyPlansModule } from './study-plans/study-plans.module.js';
 import { StudyPlanCoursesModule } from './study-plan-courses/study-plan-courses.module.js';
+import { GradeScalesModule } from './grade-scales/grade-scales.module.js';
+import { CourseResultsModule } from './course-results/course-results.module.js';
+
 @Module({
   imports: [
     PrismaModule,
@@ -49,8 +54,16 @@ import { StudyPlanCoursesModule } from './study-plan-courses/study-plan-courses.
     NotificationsModule,
     StudyPlansModule,
     StudyPlanCoursesModule,
+    GradeScalesModule,
+    CourseResultsModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+
+  controllers: [
+    AppController,
+  ],
+
+  providers: [
+    AppService,
+  ],
 })
-export class AppModule { }
+export class AppModule {}

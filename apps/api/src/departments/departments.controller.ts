@@ -1,36 +1,95 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+
 import { DepartmentsService } from './departments.service.js';
 
+import { JwtGuard } from '../auth/guards/jwt/jwt.guard.js';
+import { RolesGuard } from '../auth/guards/roles/roles.guard.js';
+import { Roles } from '../auth/decorators/roles.decorator.js';
+
 @Controller('departments')
+@UseGuards(
+  JwtGuard,
+  RolesGuard,
+)
+@Roles(
+  'ADVISOR',
+  'REGISTRAR',
+  'SYSTEM_ADMIN',
+)
 export class DepartmentsController {
-    constructor(
-        private readonly departmentsService: DepartmentsService,
-    ) { }
+  constructor(
+    private readonly departmentsService: DepartmentsService,
+  ) {}
 
-    @Post()
-    create(
-        @Body()
-        body: {
-            collegeId: string;
-            nameAr: string;
-            nameEn?: string;
-        },
-    ) {
-        return this.departmentsService.create(body);
-    }
+  @Post()
+  @Roles(
+    'REGISTRAR',
+    'SYSTEM_ADMIN',
+  )
+  create(
+    @Body()
+    body: {
+      collegeId: string;
+      nameAr: string;
+      nameEn?: string;
+    },
+  ) {
+    return this.departmentsService.create(
+      body,
+    );
+  }
 
-    @Get()
-    findAll() {
-        return this.departmentsService.findAll();
-    }
+  @Patch(':id')
+  @Roles(
+    'REGISTRAR',
+    'SYSTEM_ADMIN',
+  )
+  update(
+    @Param('id')
+    id: string,
 
-    @Get('college/:collegeId')
-    findByCollege(@Param('collegeId') collegeId: string) {
-        return this.departmentsService.findByCollege(collegeId);
-    }
+    @Body()
+    body: {
+      nameAr?: string;
+      nameEn?: string;
+    },
+  ) {
+    return this.departmentsService.update(
+      id,
+      body,
+    );
+  }
 
-    @Get(':id')
-    findById(@Param('id') id: string) {
-        return this.departmentsService.findById(id);
-    }
+  @Get()
+  findAll() {
+    return this.departmentsService.findAll();
+  }
+
+  @Get('college/:collegeId')
+  findByCollege(
+    @Param('collegeId')
+    collegeId: string,
+  ) {
+    return this.departmentsService.findByCollege(
+      collegeId,
+    );
+  }
+
+  @Get(':id')
+  findById(
+    @Param('id')
+    id: string,
+  ) {
+    return this.departmentsService.findById(
+      id,
+    );
+  }
 }

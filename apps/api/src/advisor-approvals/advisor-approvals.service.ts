@@ -1,4 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UpdateAdvisorApprovalDto } from './dto/update-advisor-approval.dto.js';
 
@@ -6,88 +12,192 @@ import { UpdateAdvisorApprovalDto } from './dto/update-advisor-approval.dto.js';
 export class AdvisorApprovalsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(enrollmentId: string, advisorId: string) {
-    return this.prisma.advisorApproval.create({
-      data: {
-        enrollmentId,
-        advisorId,
-        status: 'PENDING',
-      },
-    });
-  }
-
-  async update(
-    approvalId: string,
-    dto: UpdateAdvisorApprovalDto,
-  ) {
-    const approval = await this.prisma.advisorApproval.update({
-      where: {
-        id: approvalId,
-      },
-      data: {
-        status: dto.status,
-        note: dto.note,
-      },
-    });
-
-    await this.prisma.studentEnrollment.update({
-      where: {
-        id: approval.enrollmentId,
-      },
-      data: {
-        status:
-          dto.status === 'APPROVED'
-            ? 'APPROVED'
-            : 'REJECTED',
-      },
-    });
-
-    return this.findById(approvalId);
-  }
-
-  async findById(approvalId: string) {
-    return this.prisma.advisorApproval.findUnique({
-      where: {
-        id: approvalId,
-      },
+  private readonly includeDetails = {
+    enrollment: {
       include: {
-        enrollment: {
+        student: true,
+        items: {
           include: {
-            student: true,
-            items: {
+            course: true,
+            section: {
               include: {
-                course: true,
-                section: {
-                  include: {
-                    schedules: true,
-                  },
-                },
+                schedules: true,
+                teacher: true,
+                classroom: true,
               },
             },
           },
         },
+      },
+    },
+  } as const;
+
+  async findForAdvisor(advisorId: string) {
+    return this.prisma.advisorApproval.findMany({
+      where: {
+        advisorId,
+      },
+      include: this.includeDetails,
+      orderBy: {
+        createdAt: 'desc',
       },
     });
   }
 
   async findAll() {
     return this.prisma.advisorApproval.findMany({
-      include: {
-        enrollment: {
-          include: {
-            student: true,
-            items: {
-              include: {
-                course: true,
-                section: true,
-              },
-            },
-          },
-        },
-      },
+      include: this.includeDetails,
       orderBy: {
         createdAt: 'desc',
       },
     });
+  }
+
+  async findOneForAdvisor(
+    approvalId: string,
+    advisorId: string,
+  ) {
+    const approval =
+      await this.prisma.advisorApproval.findUnique({
+        where: {
+          id: approvalId,
+        },
+        include: this.includeDetails,
+      });
+
+    if (!approval) {
+      throw new NotFoundException(
+        'طلب الموافقة غير موجود',
+      );
+    }
+
+    if (approval.advisorId !== advisorId) {
+      throw new ForbiddenException(
+        'لا يمكنك الوصول إلى طلب تابع لمرشد آخر',
+      );
+    }
+
+    return approval;
+  }
+
+  async findOne(approvalId: string) {
+    const approval =
+      await this.prisma.advisorApproval.findUnique({
+        where: {
+          id: approvalId,
+        },
+        include: this.includeDetails,
+      });
+
+    if (!approval) {
+      throw new NotFoundException(
+        'طلب الموافقة غير موجود',
+      );
+    }
+
+    return approval;
+  }
+
+  async updateDecision(
+    approvalId: string,
+    advisorId: string,
+    dto: UpdateAdvisorApprovalDto,
+  ) {
+    const approval =
+      await this.prisma.advisorApproval.findUnique({
+        where: {
+          id: approvalId,
+        },
+        include: {
+          enrollment: {
+            include: {
+              student: true,
+            },
+          },
+        },
+      });
+
+    if (!approval) {
+      throw new NotFoundException(
+        'طلب الموافقة غير موجود',
+      );
+    }
+
+    if (approval.advisorId !== advisorId) {
+      throw new ForbiddenException(
+        'لا يمكنك اتخاذ قرار على طلب تابع لمرشد آخر',
+      );
+    }
+
+    if (approval.status !== 'PENDING') {
+      throw new BadRequestException(
+        'تم اتخاذ قرار على هذا الطلب مسبقًا',
+      );
+    }
+
+    if (approval.enrollment.status !== 'PENDING') {
+      throw new BadRequestException(
+        'حالة تسجيل الطالب لم تعد بانتظار موافقة المرشد',
+      );
+    }
+
+    const note = dto.note?.trim() || null;
+
+    if (
+      dto.status === 'REJECTED' &&
+      !note
+    ) {
+      throw new BadRequestException(
+        'سبب الرفض مطلوب',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.advisorApproval.update({
+        where: {
+          id: approvalId,
+        },
+        data: {
+          status: dto.status,
+          note,
+        },
+      });
+
+      await tx.studentEnrollment.update({
+        where: {
+          id: approval.enrollmentId,
+        },
+        data: {
+          status: dto.status,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          action:
+            dto.status === 'APPROVED'
+              ? 'ADVISOR_APPROVE_REGISTRATION'
+              : 'ADVISOR_REJECT_REGISTRATION',
+          entity: 'AdvisorApproval',
+          entityId: approvalId,
+          userId: advisorId,
+          details: JSON.stringify({
+            enrollmentId:
+              approval.enrollmentId,
+            studentId:
+              approval.enrollment.studentId,
+            previousStatus:
+              approval.status,
+            newStatus: dto.status,
+            note,
+          }),
+        },
+      });
+    });
+
+    return this.findOneForAdvisor(
+      approvalId,
+      advisorId,
+    );
   }
 }

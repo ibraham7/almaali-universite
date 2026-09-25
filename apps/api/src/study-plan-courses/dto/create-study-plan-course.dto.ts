@@ -15,6 +15,9 @@ export class CreateStudyPlanCourseDto {
   academicYearId!: string;
 
   @IsUUID()
+  semesterId!: string;
+
+  @IsUUID()
   courseId!: string;
 
   @IsInt()

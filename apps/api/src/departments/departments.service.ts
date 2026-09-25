@@ -1,9 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+
 import { PrismaService } from '../prisma/prisma.service.js';
 
 @Injectable()
 export class DepartmentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+  ) { }
 
   async create(data: {
     collegeId: string;
@@ -12,9 +18,54 @@ export class DepartmentsService {
   }) {
     return this.prisma.department.create({
       data: {
-        collegeId: data.collegeId,
-        nameAr: data.nameAr,
-        nameEn: data.nameEn,
+        collegeId:
+          data.collegeId,
+
+        nameAr:
+          data.nameAr.trim(),
+
+        nameEn:
+          data.nameEn?.trim(),
+      },
+    });
+  }
+
+  async update(
+    id: string,
+    data: {
+      nameAr?: string;
+      nameEn?: string;
+    },
+  ) {
+    const department =
+      await this.prisma.department.findUnique({
+        where: { id },
+      });
+
+    if (!department) {
+      throw new NotFoundException(
+        'Department not found',
+      );
+    }
+
+    return this.prisma.department.update({
+      where: { id },
+
+      data: {
+        ...(data.nameAr !== undefined
+          ? {
+            nameAr:
+              data.nameAr.trim(),
+          }
+          : {}),
+
+        ...(data.nameEn !== undefined
+          ? {
+            nameEn:
+              data.nameEn.trim() ||
+              null,
+          }
+          : {}),
       },
     });
   }
@@ -33,11 +84,14 @@ export class DepartmentsService {
     });
   }
 
-  async findByCollege(collegeId: string) {
+  async findByCollege(
+    collegeId: string,
+  ) {
     return this.prisma.department.findMany({
       where: {
         collegeId,
       },
+
       orderBy: {
         createdAt: 'asc',
       },

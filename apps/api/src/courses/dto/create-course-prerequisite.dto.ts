@@ -1,4 +1,6 @@
-import { IsUUID } from 'class-validator';
+import {
+  IsUUID,
+} from 'class-validator';
 
 export class CreateCoursePrerequisiteDto {
   @IsUUID()

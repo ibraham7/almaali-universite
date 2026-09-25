@@ -33,13 +33,32 @@ export class CreateCourseDto {
   @Min(0)
   ects?: number;
 
-  @IsIn(['THEORY', 'PRACTICAL'])
-  type!: 'THEORY' | 'PRACTICAL';
+  @IsIn([
+    'THEORY',
+    'PRACTICAL',
+  ])
+  type!:
+    | 'THEORY'
+    | 'PRACTICAL';
 
-  @IsIn(['MANDATORY', 'ELECTIVE'])
-  requirement!: 'MANDATORY' | 'ELECTIVE';
+  @IsIn([
+    'MANDATORY',
+    'ELECTIVE',
+  ])
+  requirement!:
+    | 'MANDATORY'
+    | 'ELECTIVE';
 
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsIn([
+    'ACTIVE',
+    'INACTIVE',
+  ])
+  status?:
+    | 'ACTIVE'
+    | 'INACTIVE';
 }
