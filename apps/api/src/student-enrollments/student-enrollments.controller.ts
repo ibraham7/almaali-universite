@@ -11,17 +11,14 @@ import {
 import type { Request } from 'express';
 
 import { StudentEnrollmentsService } from './student-enrollments.service.js';
+import { PrismaService } from '../prisma/prisma.service.js';
 
 import { CreateStudentEnrollmentDto } from './dto/create-student-enrollment.dto.js';
-
 import { AddEnrollmentItemDto } from './dto/add-enrollment-item.dto.js';
-
 import { DropEnrollmentItemDto } from './dto/drop-enrollment-item.dto.js';
 
 import { JwtGuard } from '../auth/guards/jwt/jwt.guard.js';
-
 import { RolesGuard } from '../auth/guards/roles/roles.guard.js';
-
 import { Roles } from '../auth/decorators/roles.decorator.js';
 
 interface AuthenticatedUser {
@@ -30,8 +27,7 @@ interface AuthenticatedUser {
   role: string;
 }
 
-interface AuthenticatedRequest
-  extends Request {
+interface AuthenticatedRequest extends Request {
   user: AuthenticatedUser;
 }
 
@@ -45,27 +41,114 @@ interface DropMyEnrollmentItemBody {
 }
 
 @Controller('student-enrollments')
-@UseGuards(
-  JwtGuard,
-  RolesGuard,
-)
+@UseGuards(JwtGuard, RolesGuard)
 export class StudentEnrollmentsController {
   constructor(
     private readonly studentEnrollmentsService: StudentEnrollmentsService,
+    private readonly prisma: PrismaService,
   ) {}
 
-  /*
-   * =========================
-   * Student self-service API
-   * =========================
-   */
+  private async reopenForStudent(userId: string) {
+    const student = await this.prisma.student.findFirst({
+      where: { userId },
+      select: {
+        id: true,
+        semesterId: true,
+      },
+    });
+
+    if (!student) {
+      return {
+        success: false,
+        errors: ['Student record not found'],
+      };
+    }
+
+    if (!student.semesterId) {
+      return {
+        success: false,
+        errors: ['Student is not assigned to a semester'],
+      };
+    }
+
+    const enrollment = await this.prisma.studentEnrollment.findUnique({
+      where: {
+        studentId_semesterId: {
+          studentId: student.id,
+          semesterId: student.semesterId,
+        },
+      },
+    });
+
+    if (!enrollment) {
+      return { success: true };
+    }
+
+    if (enrollment.status === 'DRAFT') {
+      return { success: true, enrollment };
+    }
+
+    const now = new Date();
+
+    const activePeriod = await this.prisma.registrationPeriod.findFirst({
+      where: {
+        semesterId: student.semesterId,
+        startDateTime: { lte: now },
+        endDateTime: { gte: now },
+      },
+      orderBy: {
+        startDateTime: 'desc',
+      },
+    });
+
+    if (!activePeriod) {
+      return {
+        success: false,
+        errors: ['Registration period is closed'],
+      };
+    }
+
+    const updatedEnrollment = await this.prisma.$transaction(async (tx) => {
+      await tx.advisorApproval.deleteMany({
+        where: {
+          enrollmentId: enrollment.id,
+        },
+      });
+
+      const updated = await tx.studentEnrollment.update({
+        where: {
+          id: enrollment.id,
+        },
+        data: {
+          status: 'DRAFT',
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          action: 'REOPEN_REGISTRATION',
+          entity: 'StudentEnrollment',
+          entityId: enrollment.id,
+          userId,
+          details: JSON.stringify({
+            previousStatus: enrollment.status,
+            newStatus: 'DRAFT',
+          }),
+        },
+      });
+
+      return updated;
+    });
+
+    return {
+      success: true,
+      enrollment: updatedEnrollment,
+    };
+  }
 
   @Get('me/registration')
   @Roles('STUDENT')
-  getMyRegistration(
-    @Req()
-    request: AuthenticatedRequest,
-  ) {
+  getMyRegistration(@Req() request: AuthenticatedRequest) {
     return this.studentEnrollmentsService.getMyRegistration(
       request.user.id,
     );
@@ -73,24 +156,30 @@ export class StudentEnrollmentsController {
 
   @Post('me')
   @Roles('STUDENT')
-  createMyEnrollment(
-    @Req()
-    request: AuthenticatedRequest,
-  ) {
+  createMyEnrollment(@Req() request: AuthenticatedRequest) {
     return this.studentEnrollmentsService.createMyEnrollment(
       request.user.id,
     );
   }
 
+  @Post('me/reopen')
+  @Roles('STUDENT')
+  reopenMyEnrollment(@Req() request: AuthenticatedRequest) {
+    return this.reopenForStudent(request.user.id);
+  }
+
   @Post('me/items')
   @Roles('STUDENT')
-  addMyItem(
-    @Req()
-    request: AuthenticatedRequest,
-
-    @Body()
-    body: AddMyEnrollmentItemBody,
+  async addMyItem(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: AddMyEnrollmentItemBody,
   ) {
+    const reopenResult = await this.reopenForStudent(request.user.id);
+
+    if (reopenResult.success === false) {
+      return reopenResult;
+    }
+
     return this.studentEnrollmentsService.addMyItem(
       request.user.id,
       body.courseId,
@@ -100,10 +189,13 @@ export class StudentEnrollmentsController {
 
   @Post('me/confirm')
   @Roles('STUDENT')
-  confirmMyEnrollment(
-    @Req()
-    request: AuthenticatedRequest,
-  ) {
+  async confirmMyEnrollment(@Req() request: AuthenticatedRequest) {
+    const reopenResult = await this.reopenForStudent(request.user.id);
+
+    if (reopenResult.success === false) {
+      return reopenResult;
+    }
+
     return this.studentEnrollmentsService.confirmMyEnrollment(
       request.user.id,
     );
@@ -111,102 +203,55 @@ export class StudentEnrollmentsController {
 
   @Post('me/items/drop')
   @Roles('STUDENT')
-  dropMyItem(
-    @Req()
-    request: AuthenticatedRequest,
-
-    @Body()
-    body: DropMyEnrollmentItemBody,
+  async dropMyItem(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: DropMyEnrollmentItemBody,
   ) {
+    const reopenResult = await this.reopenForStudent(request.user.id);
+
+    if (reopenResult.success === false) {
+      return reopenResult;
+    }
+
     return this.studentEnrollmentsService.dropMyItem(
       request.user.id,
       body.enrollmentItemId,
     );
   }
 
-  /*
-   * =========================
-   * Management API
-   * =========================
-   */
-
   @Post('items/drop')
-  @Roles(
-    'REGISTRAR',
-    'SYSTEM_ADMIN',
-  )
-  dropItem(
-    @Body()
-    dto: DropEnrollmentItemDto,
-  ) {
-    return this.studentEnrollmentsService.dropItem(
-      dto,
-    );
+  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  dropItem(@Body() dto: DropEnrollmentItemDto) {
+    return this.studentEnrollmentsService.dropItem(dto);
   }
 
   @Post(':enrollmentId/confirm')
-  @Roles(
-    'REGISTRAR',
-    'SYSTEM_ADMIN',
-  )
-  confirm(
-    @Param('enrollmentId')
-    enrollmentId: string,
-  ) {
-    return this.studentEnrollmentsService.confirm(
-      enrollmentId,
-    );
+  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  confirm(@Param('enrollmentId') enrollmentId: string) {
+    return this.studentEnrollmentsService.confirm(enrollmentId);
   }
 
   @Post('items')
-  @Roles(
-    'REGISTRAR',
-    'SYSTEM_ADMIN',
-  )
-  addItem(
-    @Body()
-    dto: AddEnrollmentItemDto,
-  ) {
-    return this.studentEnrollmentsService.addItem(
-      dto,
-    );
+  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  addItem(@Body() dto: AddEnrollmentItemDto) {
+    return this.studentEnrollmentsService.addItem(dto);
   }
 
   @Post()
-  @Roles(
-    'REGISTRAR',
-    'SYSTEM_ADMIN',
-  )
-  create(
-    @Body()
-    dto: CreateStudentEnrollmentDto,
-  ) {
-    return this.studentEnrollmentsService.create(
-      dto,
-    );
+  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  create(@Body() dto: CreateStudentEnrollmentDto) {
+    return this.studentEnrollmentsService.create(dto);
   }
 
   @Get()
-  @Roles(
-    'REGISTRAR',
-    'SYSTEM_ADMIN',
-  )
+  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
   findAll() {
     return this.studentEnrollmentsService.findAll();
   }
 
   @Get('student/:studentId')
-  @Roles(
-    'ADVISOR',
-    'REGISTRAR',
-    'SYSTEM_ADMIN',
-  )
-  findByStudent(
-    @Param('studentId')
-    studentId: string,
-  ) {
-    return this.studentEnrollmentsService.findByStudent(
-      studentId,
-    );
+  @Roles('ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN')
+  findByStudent(@Param('studentId') studentId: string) {
+    return this.studentEnrollmentsService.findByStudent(studentId);
   }
 }
