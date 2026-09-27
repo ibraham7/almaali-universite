@@ -58,6 +58,18 @@ export class AdvisorApprovalsController {
     );
   }
 
+  @Get(':approvalId/available-courses')
+  @Roles('ADVISOR')
+  getAvailableCourses(
+    @Param('approvalId') approvalId: string,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.advisorApprovalsService.getAvailableCoursesForAdvisor(
+      approvalId,
+      request.user.id,
+    );
+  }
+
   @Post(':approvalId/courses')
   @Roles('ADVISOR')
   addCourse(
