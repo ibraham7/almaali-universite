@@ -12,10 +12,21 @@ import { UpdateAdvisorApprovalDto } from './dto/update-advisor-approval.dto.js';
 export class AdvisorApprovalsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private readonly studentDetails = {
+    include: {
+      college: true,
+      department: true,
+      program: true,
+      studyPlan: true,
+      academicYear: true,
+      semester: true,
+    },
+  } as const;
+
   private readonly includeDetails = {
     enrollment: {
       include: {
-        student: true,
+        student: this.studentDetails,
         items: {
           include: {
             course: true,
