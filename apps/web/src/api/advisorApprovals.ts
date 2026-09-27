@@ -47,7 +47,6 @@ export interface AdvisorApproval {
 
         items: Array<{
             id: string;
-
             course: {
                 id: string;
                 code: string;
@@ -55,21 +54,17 @@ export interface AdvisorApproval {
                 nameEn?: string | null;
                 credits: number;
             };
-
             section: {
                 id: string;
                 sectionNumber: string;
-
                 teacher?: {
                     id: string;
                     name: string;
                 } | null;
-
                 classroom?: {
                     id: string;
                     name: string;
                 } | null;
-
                 schedules: Array<{
                     id: string;
                     day: string;
@@ -85,7 +80,6 @@ export async function getMyAdvisorApprovals() {
     const { data } = await apiClient.get<AdvisorApproval[]>(
         '/advisor-approvals/me',
     );
-
     return data;
 }
 
@@ -100,6 +94,41 @@ export async function updateAdvisorApproval(
         `/advisor-approvals/${approvalId}`,
         payload,
     );
+    return data;
+}
 
+export async function advisorAddRegistrationCourse(
+    approvalId: string,
+    payload: {
+        courseId: string;
+        sectionId: string;
+    },
+) {
+    const { data } = await apiClient.post<AdvisorApproval>(
+        `/advisor-approvals/${approvalId}/courses`,
+        payload,
+    );
+    return data;
+}
+
+export async function advisorRemoveRegistrationCourse(
+    approvalId: string,
+    enrollmentItemId: string,
+) {
+    const { data } = await apiClient.post<AdvisorApproval>(
+        `/advisor-approvals/${approvalId}/courses/remove`,
+        { enrollmentItemId },
+    );
+    return data;
+}
+
+export async function advisorCancelRegistration(
+    approvalId: string,
+    note?: string,
+) {
+    const { data } = await apiClient.post<AdvisorApproval>(
+        `/advisor-approvals/${approvalId}/cancel-registration`,
+        { note },
+    );
     return data;
 }
