@@ -8,7 +8,6 @@ import { PrismaService } from '../prisma/prisma.service.js';
 
 import { CreateCourseDto } from './dto/create-course.dto.js';
 import { UpdateCourseDto } from './dto/update-course.dto.js';
-
 import { CreateCoursePrerequisiteDto } from './dto/create-course-prerequisite.dto.js';
 
 @Injectable()
@@ -17,92 +16,54 @@ export class CoursesService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async addPrerequisite(
-    dto: CreateCoursePrerequisiteDto,
-  ) {
-    if (
-      dto.courseId ===
-      dto.prerequisiteId
-    ) {
+  async addPrerequisite(dto: CreateCoursePrerequisiteDto) {
+    if (dto.courseId === dto.prerequisiteId) {
       return {
         success: false,
-
-        errors: [
-          'A course cannot be its own prerequisite',
-        ],
+        errors: ['A course cannot be its own prerequisite'],
       };
     }
 
-    const [course, prerequisite] =
-      await Promise.all([
-        this.prisma.course.findUnique({
-          where: {
-            id: dto.courseId,
-          },
-        }),
-
-        this.prisma.course.findUnique({
-          where: {
-            id: dto.prerequisiteId,
-          },
-        }),
-      ]);
+    const [course, prerequisite] = await Promise.all([
+      this.prisma.course.findUnique({ where: { id: dto.courseId } }),
+      this.prisma.course.findUnique({ where: { id: dto.prerequisiteId } }),
+    ]);
 
     if (!course) {
-      return {
-        success: false,
-        errors: ['Course not found'],
-      };
+      return { success: false, errors: ['Course not found'] };
     }
 
     if (!prerequisite) {
       return {
         success: false,
-
-        errors: [
-          'Prerequisite course not found',
-        ],
+        errors: ['Prerequisite course not found'],
       };
     }
 
-    const existingPrerequisite =
-      await this.prisma.coursePrerequisite.findFirst(
-        {
-          where: {
-            courseId: dto.courseId,
-
-            prerequisiteId:
-              dto.prerequisiteId,
-          },
-        },
-      );
+    const existingPrerequisite = await this.prisma.coursePrerequisite.findFirst({
+      where: {
+        courseId: dto.courseId,
+        prerequisiteId: dto.prerequisiteId,
+      },
+    });
 
     if (existingPrerequisite) {
       return {
         success: false,
-
-        errors: [
-          'This prerequisite is already assigned to the course',
-        ],
+        errors: ['This prerequisite is already assigned to the course'],
       };
     }
 
-    const relation =
-      await this.prisma.coursePrerequisite.create(
-        {
-          data: {
-            courseId: dto.courseId,
-
-            prerequisiteId:
-              dto.prerequisiteId,
-          },
-
-          include: {
-            course: true,
-            prerequisite: true,
-          },
-        },
-      );
+    const relation = await this.prisma.coursePrerequisite.create({
+      data: {
+        courseId: dto.courseId,
+        prerequisiteId: dto.prerequisiteId,
+      },
+      include: {
+        course: true,
+        prerequisite: true,
+      },
+    });
 
     return {
       success: true,
@@ -110,556 +71,407 @@ export class CoursesService {
     };
   }
 
-  async removePrerequisite(
-    courseId: string,
-    prerequisiteId: string,
-  ) {
-    const relation =
-      await this.prisma.coursePrerequisite.findFirst(
-        {
-          where: {
-            courseId,
-            prerequisiteId,
-          },
-
-          include: {
-            prerequisite: true,
-          },
-        },
-      );
+  async removePrerequisite(courseId: string, prerequisiteId: string) {
+    const relation = await this.prisma.coursePrerequisite.findFirst({
+      where: { courseId, prerequisiteId },
+      include: { prerequisite: true },
+    });
 
     if (!relation) {
       return {
         success: false,
-
-        errors: [
-          'Course prerequisite relation not found',
-        ],
+        errors: ['Course prerequisite relation not found'],
       };
     }
 
     await this.prisma.coursePrerequisite.delete({
-      where: {
-        id: relation.id,
-      },
+      where: { id: relation.id },
     });
 
     return {
       success: true,
-
-      message:
-        'Course prerequisite removed successfully',
-
+      message: 'Course prerequisite removed successfully',
       removedPrerequisite: {
         id: relation.prerequisite.id,
-
-        code:
-          relation.prerequisite.code,
-
-        nameAr:
-          relation.prerequisite.nameAr,
+        code: relation.prerequisite.code,
+        nameAr: relation.prerequisite.nameAr,
       },
     };
   }
 
-  async create(
-    createCourseDto: CreateCourseDto,
-  ) {
-    const existing =
-      await this.prisma.course.findFirst({
-        where: {
-          code: createCourseDto.code,
-        },
-      });
+  async create(createCourseDto: CreateCourseDto) {
+    const existing = await this.prisma.course.findFirst({
+      where: {
+        code: createCourseDto.code.trim(),
+      },
+    });
 
     if (existing) {
-      throw new BadRequestException(
-        'Course code already exists',
-      );
+      throw new BadRequestException('Course code already exists');
     }
 
-    return this.prisma.course.create({
-      data: {
-        code:
-          createCourseDto.code.trim(),
-
-        nameAr:
-          createCourseDto.nameAr.trim(),
-
-        nameEn:
-          createCourseDto.nameEn?.trim(),
-
-        credits:
-          createCourseDto.credits,
-
-        ects:
-          createCourseDto.ects,
-
-        type:
-          createCourseDto.type,
-
-        requirement:
-          createCourseDto.requirement,
-
-        description:
-          createCourseDto.description?.trim(),
-
-        status:
-          createCourseDto.status ??
-          'ACTIVE',
-      },
-
+    const studyPlan = await this.prisma.studyPlan.findUnique({
+      where: { id: createCourseDto.studyPlanId },
       include: {
-        prerequisites: {
+        program: {
           include: {
-            prerequisite: true,
+            department: {
+              include: {
+                college: true,
+              },
+            },
           },
         },
       },
     });
-  }
 
-  async update(
-    id: string,
-    dto: UpdateCourseDto,
-  ) {
-    const course =
-      await this.prisma.course.findUnique({
-        where: {
-          id,
-        },
-      });
+    if (!studyPlan) {
+      throw new BadRequestException('الخطة الدراسية غير موجودة');
+    }
 
-    if (!course) {
-      throw new NotFoundException(
-        'Course not found',
+    const academicYear = await this.prisma.academicYear.findUnique({
+      where: { id: createCourseDto.academicYearId },
+    });
+
+    if (!academicYear || academicYear.studyPlanId !== studyPlan.id) {
+      throw new BadRequestException(
+        'السنة/المستوى المحدد لا يتبع الخطة الدراسية المختارة',
       );
     }
 
-    if (
-      dto.code &&
-      dto.code !== course.code
-    ) {
-      const existing =
-        await this.prisma.course.findFirst({
-          where: {
-            code: dto.code,
+    const semester = await this.prisma.semester.findUnique({
+      where: { id: createCourseDto.semesterId },
+    });
 
-            NOT: {
-              id,
+    if (!semester || semester.academicYearId !== academicYear.id) {
+      throw new BadRequestException(
+        'الفصل المحدد لا يتبع السنة/المستوى المختار',
+      );
+    }
+
+    const lastPlanCourse = await this.prisma.studyPlanCourse.findFirst({
+      where: {
+        studyPlanId: studyPlan.id,
+        academicYearId: academicYear.id,
+        semesterId: semester.id,
+      },
+      orderBy: {
+        priority: 'desc',
+      },
+      select: {
+        priority: true,
+      },
+    });
+
+    const priority = (lastPlanCourse?.priority ?? 0) + 1;
+
+    return this.prisma.$transaction(async (tx) => {
+      const course = await tx.course.create({
+        data: {
+          code: createCourseDto.code.trim(),
+          nameAr: createCourseDto.nameAr.trim(),
+          nameEn: createCourseDto.nameEn?.trim(),
+          credits: createCourseDto.credits,
+          ects: createCourseDto.ects,
+          type: createCourseDto.type,
+          requirement: createCourseDto.requirement,
+          description: createCourseDto.description?.trim(),
+          status: createCourseDto.status ?? 'ACTIVE',
+        },
+      });
+
+      await tx.studyPlanCourse.create({
+        data: {
+          studyPlanId: studyPlan.id,
+          academicYearId: academicYear.id,
+          semesterId: semester.id,
+          courseId: course.id,
+          priority,
+          requirement: createCourseDto.requirement,
+        },
+      });
+
+      return tx.course.findUniqueOrThrow({
+        where: { id: course.id },
+        include: {
+          prerequisites: {
+            include: {
+              prerequisite: true,
             },
           },
-        });
+          planCourses: {
+            include: {
+              academicYear: true,
+              semester: true,
+              studyPlan: {
+                include: {
+                  program: {
+                    include: {
+                      department: {
+                        include: {
+                          college: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+    });
+  }
+
+  async update(id: string, dto: UpdateCourseDto) {
+    const course = await this.prisma.course.findUnique({
+      where: { id },
+    });
+
+    if (!course) {
+      throw new NotFoundException('Course not found');
+    }
+
+    if (dto.code && dto.code !== course.code) {
+      const existing = await this.prisma.course.findFirst({
+        where: {
+          code: dto.code,
+          NOT: { id },
+        },
+      });
 
       if (existing) {
-        throw new BadRequestException(
-          'Course code already exists',
-        );
+        throw new BadRequestException('Course code already exists');
       }
     }
 
     return this.prisma.course.update({
-      where: {
-        id,
-      },
-
+      where: { id },
       data: {
-        ...(dto.code !== undefined
-          ? {
-              code: dto.code.trim(),
-            }
-          : {}),
-
-        ...(dto.nameAr !== undefined
-          ? {
-              nameAr:
-                dto.nameAr.trim(),
-            }
-          : {}),
-
+        ...(dto.code !== undefined ? { code: dto.code.trim() } : {}),
+        ...(dto.nameAr !== undefined ? { nameAr: dto.nameAr.trim() } : {}),
         ...(dto.nameEn !== undefined
-          ? {
-              nameEn:
-                dto.nameEn?.trim() ||
-                null,
-            }
+          ? { nameEn: dto.nameEn?.trim() || null }
           : {}),
-
-        ...(dto.credits !== undefined
-          ? {
-              credits: dto.credits,
-            }
+        ...(dto.credits !== undefined ? { credits: dto.credits } : {}),
+        ...(dto.ects !== undefined ? { ects: dto.ects } : {}),
+        ...(dto.type !== undefined ? { type: dto.type } : {}),
+        ...(dto.requirement !== undefined
+          ? { requirement: dto.requirement }
           : {}),
-
-        ...(dto.ects !== undefined
-          ? {
-              ects: dto.ects,
-            }
+        ...(dto.description !== undefined
+          ? { description: dto.description?.trim() || null }
           : {}),
-
-        ...(dto.type !== undefined
-          ? {
-              type: dto.type,
-            }
-          : {}),
-
-        ...(dto.requirement !==
-        undefined
-          ? {
-              requirement:
-                dto.requirement,
-            }
-          : {}),
-
-        ...(dto.description !==
-        undefined
-          ? {
-              description:
-                dto.description?.trim() ||
-                null,
-            }
-          : {}),
-
-        ...(dto.status !== undefined
-          ? {
-              status: dto.status,
-            }
-          : {}),
+        ...(dto.status !== undefined ? { status: dto.status } : {}),
       },
-
       include: {
         prerequisites: {
-          include: {
-            prerequisite: true,
-          },
+          include: { prerequisite: true },
         },
       },
     });
   }
 
   async findOne(id: string) {
-    const course =
-      await this.prisma.course.findUnique({
-        where: {
-          id,
+    const course = await this.prisma.course.findUnique({
+      where: { id },
+      include: {
+        prerequisites: {
+          include: { prerequisite: true },
         },
-
-        include: {
-          prerequisites: {
-            include: {
-              prerequisite: true,
+        planCourses: {
+          include: {
+            academicYear: true,
+            semester: true,
+            studyPlan: {
+              include: {
+                program: {
+                  include: {
+                    department: {
+                      include: {
+                        college: true,
+                      },
+                    },
+                  },
+                },
+              },
             },
           },
-
-          planCourses: {
-            include: {
-              academicYear: true,
-              semester: true,
-              studyPlan: true,
-            },
-
-            orderBy: {
-              priority: 'asc',
-            },
-          },
-
-          sections: {
-            include: {
-              teacher: true,
-              classroom: true,
-              schedules: true,
-            },
+          orderBy: { priority: 'asc' },
+        },
+        sections: {
+          include: {
+            teacher: true,
+            classroom: true,
+            schedules: true,
           },
         },
-      });
+      },
+    });
 
     if (!course) {
-      throw new NotFoundException(
-        'Course not found',
-      );
+      throw new NotFoundException('Course not found');
     }
 
     return course;
   }
 
   async findAll() {
-    const courses =
-      await this.prisma.course.findMany({
-        include: {
-          prerequisites: {
-            include: {
-              prerequisite: true,
+    const courses = await this.prisma.course.findMany({
+      include: {
+        prerequisites: {
+          include: { prerequisite: true },
+        },
+        planCourses: {
+          include: {
+            academicYear: true,
+            semester: true,
+            studyPlan: {
+              include: {
+                program: {
+                  include: {
+                    department: {
+                      include: {
+                        college: true,
+                      },
+                    },
+                  },
+                },
+              },
             },
           },
+          orderBy: { priority: 'asc' },
         },
-
-        orderBy: {
-          code: 'asc',
-        },
-      });
+      },
+      orderBy: { code: 'asc' },
+    });
 
     return {
       success: true,
-
       count: courses.length,
-
       courses,
     };
   }
 
-  async findAvailableForStudent(
-    studentId: string,
-  ) {
-    const student =
-      await this.prisma.student.findUnique({
-        where: {
-          id: studentId,
-        },
-
-        select: {
-          id: true,
-
-          universityId: true,
-
-          firstName: true,
-
-          middleName: true,
-
-          familyName: true,
-
-          status: true,
-
-          studyPlanId: true,
-
-          academicYearId: true,
-
-          semesterId: true,
-        },
-      });
+  async findAvailableForStudent(studentId: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { id: studentId },
+      select: {
+        id: true,
+        universityId: true,
+        firstName: true,
+        middleName: true,
+        familyName: true,
+        status: true,
+        studyPlanId: true,
+        academicYearId: true,
+        semesterId: true,
+      },
+    });
 
     if (!student) {
-      return {
-        success: false,
-
-        errors: [
-          'Student not found',
-        ],
-      };
+      return { success: false, errors: ['Student not found'] };
     }
 
     if (!student.studyPlanId) {
       return {
         success: false,
-
-        errors: [
-          'Student is not assigned to a study plan',
-        ],
+        errors: ['Student is not assigned to a study plan'],
       };
     }
 
     if (!student.academicYearId) {
       return {
         success: false,
-
-        errors: [
-          'Student is not assigned to an academic year',
-        ],
+        errors: ['Student is not assigned to an academic year'],
       };
     }
 
-    const planCourses =
-      await this.prisma.studyPlanCourse.findMany(
-        {
-          where: {
-            studyPlanId:
-              student.studyPlanId,
-
-            academicYearId:
-              student.academicYearId,
-
-            course: {
-              status: 'ACTIVE',
-            },
-          },
-
+    const planCourses = await this.prisma.studyPlanCourse.findMany({
+      where: {
+        studyPlanId: student.studyPlanId,
+        academicYearId: student.academicYearId,
+        course: { status: 'ACTIVE' },
+      },
+      include: {
+        course: {
           include: {
-            course: {
-              include: {
-                prerequisites: {
-                  include: {
-                    prerequisite: true,
-                  },
-                },
-              },
-            },
-
-            academicYear: true,
-          },
-
-          orderBy: {
-            priority: 'asc',
-          },
-        },
-      );
-
-    const registrationHistory =
-      await this.prisma.enrollmentItem.findMany(
-        {
-          where: {
-            enrollment: {
-              studentId:
-                student.id,
-
-              status: {
-                notIn: [
-                  'CANCELLED',
-                  'DROPPED',
-                ],
-              },
+            prerequisites: {
+              include: { prerequisite: true },
             },
           },
+        },
+        academicYear: true,
+      },
+      orderBy: { priority: 'asc' },
+    });
 
-          select: {
-            courseId: true,
+    const registrationHistory = await this.prisma.enrollmentItem.findMany({
+      where: {
+        enrollment: {
+          studentId: student.id,
+          status: {
+            notIn: ['CANCELLED', 'DROPPED'],
           },
         },
-      );
+      },
+      select: { courseId: true },
+    });
 
-    const registeredCourseIds =
-      new Set(
-        registrationHistory.map(
-          (item) => item.courseId,
-        ),
-      );
+    const registeredCourseIds = new Set(
+      registrationHistory.map((item) => item.courseId),
+    );
 
-    const courses =
-      planCourses.map(
-        (planCourse) => {
-          const missingPrerequisites =
-            planCourse.course.prerequisites
-              .filter(
-                (prerequisite) =>
-                  !registeredCourseIds.has(
-                    prerequisite.prerequisiteId,
-                  ),
-              )
+    const courses = planCourses.map((planCourse) => {
+      const missingPrerequisites = planCourse.course.prerequisites
+        .filter(
+          (prerequisite) =>
+            !registeredCourseIds.has(prerequisite.prerequisiteId),
+        )
+        .map((prerequisite) => ({
+          id: prerequisite.prerequisite.id,
+          code: prerequisite.prerequisite.code,
+          nameAr: prerequisite.prerequisite.nameAr,
+        }));
 
-              .map(
-                (prerequisite) => ({
-                  id: prerequisite
-                    .prerequisite.id,
+      const alreadyRegistered = registeredCourseIds.has(planCourse.courseId);
 
-                  code: prerequisite
-                    .prerequisite.code,
-
-                  nameAr:
-                    prerequisite
-                      .prerequisite
-                      .nameAr,
-                }),
-              );
-
-          const alreadyRegistered =
-            registeredCourseIds.has(
-              planCourse.courseId,
-            );
-
-          return {
-            id:
-              planCourse.course.id,
-
-            code:
-              planCourse.course.code,
-
-            nameAr:
-              planCourse.course
-                .nameAr,
-
-            nameEn:
-              planCourse.course
-                .nameEn,
-
-            credits:
-              planCourse.course
-                .credits,
-
-            ects:
-              planCourse.course
-                .ects,
-
-            type:
-              planCourse.course.type,
-
-            requirement:
-              planCourse.requirement,
-
-            priority:
-              planCourse.priority,
-
-            academicYear: {
-              id:
-                planCourse
-                  .academicYear.id,
-
-              nameAr:
-                planCourse
-                  .academicYear
-                  .nameAr,
-
-              nameEn:
-                planCourse
-                  .academicYear
-                  .nameEn,
-            },
-
-            alreadyRegistered,
-
-            prerequisitesSatisfied:
-              missingPrerequisites.length ===
-              0,
-
-            missingPrerequisites,
-
-            canRegister:
-              !alreadyRegistered &&
-              missingPrerequisites.length ===
-                0,
-          };
+      return {
+        id: planCourse.course.id,
+        code: planCourse.course.code,
+        nameAr: planCourse.course.nameAr,
+        nameEn: planCourse.course.nameEn,
+        credits: planCourse.course.credits,
+        ects: planCourse.course.ects,
+        type: planCourse.course.type,
+        requirement: planCourse.requirement,
+        priority: planCourse.priority,
+        academicYear: {
+          id: planCourse.academicYear.id,
+          nameAr: planCourse.academicYear.nameAr,
+          nameEn: planCourse.academicYear.nameEn,
         },
-      );
+        alreadyRegistered,
+        prerequisitesSatisfied: missingPrerequisites.length === 0,
+        missingPrerequisites,
+        canRegister:
+          !alreadyRegistered && missingPrerequisites.length === 0,
+      };
+    });
 
     return {
       success: true,
-
       student: {
-        id:
-          student.id,
-
-        universityId:
-          student.universityId,
-
-        firstName:
-          student.firstName,
-
-        middleName:
-          student.middleName,
-
-        familyName:
-          student.familyName,
-
-        status:
-          student.status,
-
-        studyPlanId:
-          student.studyPlanId,
-
-        academicYearId:
-          student.academicYearId,
-
-        semesterId:
-          student.semesterId,
+        id: student.id,
+        universityId: student.universityId,
+        firstName: student.firstName,
+        middleName: student.middleName,
+        familyName: student.familyName,
+        status: student.status,
+        studyPlanId: student.studyPlanId,
+        academicYearId: student.academicYearId,
+        semesterId: student.semesterId,
       },
-
       courses,
     };
   }
