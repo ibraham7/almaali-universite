@@ -11,6 +11,39 @@ interface AcademicEntity {
     nameEn?: string | null;
 }
 
+export interface AdvisorAvailableCourse {
+    id: string;
+    code: string;
+    nameAr: string;
+    credits: number;
+    academicYear: AcademicEntity & {
+        levelNumber: number;
+    };
+    semester: AcademicEntity & {
+        semesterNumber: number;
+    };
+    sections: Array<{
+        id: string;
+        sectionNumber: string;
+        enrolledCount: number;
+        maxCapacity: number;
+        teacher?: {
+            id: string;
+            name: string;
+        } | null;
+        classroom?: {
+            id: string;
+            name: string;
+        } | null;
+        schedules: Array<{
+            id: string;
+            day: string;
+            startTime: string;
+            endTime: string;
+        }>;
+    }>;
+}
+
 export interface AdvisorApproval {
     id: string;
     enrollmentId: string;
@@ -79,6 +112,15 @@ export interface AdvisorApproval {
 export async function getMyAdvisorApprovals() {
     const { data } = await apiClient.get<AdvisorApproval[]>(
         '/advisor-approvals/me',
+    );
+    return data;
+}
+
+export async function getAdvisorAvailableCourses(
+    approvalId: string,
+) {
+    const { data } = await apiClient.get<AdvisorAvailableCourse[]>(
+        `/advisor-approvals/${approvalId}/available-courses`,
     );
     return data;
 }
