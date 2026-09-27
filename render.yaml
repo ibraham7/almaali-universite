@@ -25,7 +25,7 @@ services:
     rootDir: apps/api
     plan: free
     buildCommand: pnpm install --frozen-lockfile && pnpm exec prisma generate --config prisma7.config.ts && pnpm run build
-    preDeployCommand: pnpm exec prisma migrate deploy --config prisma7.config.ts
+    preDeployCommand: pnpm exec prisma migrate deploy --config prisma7.config.ts && pnpm exec tsx prisma/seed.ts
     startCommand: node dist/main.js
     healthCheckPath: /
     autoDeployTrigger: commit
