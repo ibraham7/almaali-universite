@@ -380,11 +380,26 @@ model StudentEnrollment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  student   Student           @relation(fields: [studentId], references: [id])
+  student   Student             @relation(fields: [studentId], references: [id])
   items     EnrollmentItem[]
   approvals AdvisorApproval[]
+  messages  EnrollmentMessage[]
 
   @@unique([studentId, semesterId])
+}
+
+model EnrollmentMessage {
+  id           String @id @default(uuid())
+  enrollmentId String
+  senderUserId String
+  senderRole   String
+  message      String
+
+  createdAt DateTime @default(now())
+
+  enrollment StudentEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@index([enrollmentId, createdAt])
 }
 
 model EnrollmentItem {
