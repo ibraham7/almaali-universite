@@ -11,11 +11,16 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
 
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlineRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
@@ -26,11 +31,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 
 import {
+  advisorAddRegistrationCourse,
   advisorCancelRegistration,
   advisorRemoveRegistrationCourse,
+  getAdvisorAvailableCourses,
   getMyAdvisorApprovals,
   updateAdvisorApproval,
   type AdvisorApproval,
+  type AdvisorAvailableCourse,
 } from '../../api/advisorApprovals';
 
 type Decision = 'APPROVED' | 'REJECTED';
@@ -75,6 +83,12 @@ export default function AdvisorRegistrationsPage() {
   const [note, setNote] = useState('');
   const [cancelTarget, setCancelTarget] = useState<AdvisorApproval | null>(null);
 
+  const [addTarget, setAddTarget] = useState<AdvisorApproval | null>(null);
+  const [availableCourses, setAvailableCourses] = useState<AdvisorAvailableCourse[]>([]);
+  const [availableLoading, setAvailableLoading] = useState(false);
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [selectedSectionId, setSelectedSectionId] = useState('');
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -96,10 +110,57 @@ export default function AdvisorRegistrationsPage() {
     [approvals],
   );
 
+  const selectedAvailableCourse = useMemo(
+    () => availableCourses.find((course) => course.id === selectedCourseId) ?? null,
+    [availableCourses, selectedCourseId],
+  );
+
   const openDecision = (approval: AdvisorApproval, value: Decision) => {
     setSelected(approval);
     setDecision(value);
     setNote('');
+  };
+
+  const openAddCourse = async (approval: AdvisorApproval) => {
+    setAddTarget(approval);
+    setAvailableCourses([]);
+    setSelectedCourseId('');
+    setSelectedSectionId('');
+    setAvailableLoading(true);
+    setError('');
+
+    try {
+      setAvailableCourses(await getAdvisorAvailableCourses(approval.id));
+    } catch (err) {
+      setError(getErrorMessage(err));
+      setAddTarget(null);
+    } finally {
+      setAvailableLoading(false);
+    }
+  };
+
+  const addCourse = async () => {
+    if (!addTarget || !selectedCourseId || !selectedSectionId) return;
+
+    setSaving(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      await advisorAddRegistrationCourse(addTarget.id, {
+        courseId: selectedCourseId,
+        sectionId: selectedSectionId,
+      });
+      setSuccess('تمت إضافة المقرر إلى تسجيل الطالب.');
+      setAddTarget(null);
+      setSelectedCourseId('');
+      setSelectedSectionId('');
+      await loadData();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const submit = async () => {
@@ -145,10 +206,7 @@ export default function AdvisorRegistrationsPage() {
     setSuccess('');
 
     try {
-      await advisorRemoveRegistrationCourse(
-        approval.id,
-        enrollmentItemId,
-      );
+      await advisorRemoveRegistrationCourse(approval.id, enrollmentItemId);
       setSuccess('تم حذف المقرر من تسجيل الطالب.');
       await loadData();
     } catch (err) {
@@ -166,10 +224,7 @@ export default function AdvisorRegistrationsPage() {
     setSuccess('');
 
     try {
-      await advisorCancelRegistration(
-        cancelTarget.id,
-        note.trim() || undefined,
-      );
+      await advisorCancelRegistration(cancelTarget.id, note.trim() || undefined);
       setSuccess('تم إلغاء تسجيل الطالب.');
       setCancelTarget(null);
       setNote('');
@@ -356,6 +411,15 @@ export default function AdvisorRegistrationsPage() {
                       sx={{ justifyContent: 'flex-end', gap: 1, mt: 2 }}
                     >
                       <Button
+                        variant="outlined"
+                        startIcon={<AddRoundedIcon />}
+                        disabled={saving}
+                        onClick={() => void openAddCourse(approval)}
+                      >
+                        إضافة مادة
+                      </Button>
+
+                      <Button
                         color="error"
                         variant="text"
                         startIcon={<CancelOutlinedIcon />}
@@ -392,6 +456,85 @@ export default function AdvisorRegistrationsPage() {
           })}
         </Stack>
       )}
+
+      <Dialog
+        open={Boolean(addTarget)}
+        onClose={() => !saving && setAddTarget(null)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>إضافة مادة إلى تسجيل الطالب</DialogTitle>
+        <DialogContent dividers>
+          {availableLoading ? (
+            <Box sx={{ py: 5, display: 'grid', placeItems: 'center' }}>
+              <CircularProgress />
+            </Box>
+          ) : availableCourses.length === 0 ? (
+            <Alert severity="info">
+              لا توجد مقررات إضافية متاحة لهذا الطالب حاليًا.
+            </Alert>
+          ) : (
+            <Stack spacing={2}>
+              <FormControl fullWidth>
+                <InputLabel>المقرر</InputLabel>
+                <Select
+                  label="المقرر"
+                  value={selectedCourseId}
+                  onChange={(event) => {
+                    setSelectedCourseId(event.target.value);
+                    setSelectedSectionId('');
+                  }}
+                >
+                  {availableCourses.map((course) => (
+                    <MenuItem key={course.id} value={course.id}>
+                      {course.code} — {course.nameAr} — {course.academicYear.nameAr} — {course.semester.nameAr}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl fullWidth disabled={!selectedAvailableCourse}>
+                <InputLabel>الشعبة</InputLabel>
+                <Select
+                  label="الشعبة"
+                  value={selectedSectionId}
+                  onChange={(event) => setSelectedSectionId(event.target.value)}
+                >
+                  {selectedAvailableCourse?.sections.map((section) => (
+                    <MenuItem key={section.id} value={section.id}>
+                      الشعبة {section.sectionNumber} — {section.enrolledCount}/{section.maxCapacity}
+                      {section.teacher?.name ? ` — ${section.teacher.name}` : ''}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              {selectedAvailableCourse && (
+                <Alert severity="info">
+                  {selectedAvailableCourse.academicYear.nameAr} • {selectedAvailableCourse.semester.nameAr} • {selectedAvailableCourse.credits} ساعات
+                </Alert>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button disabled={saving} onClick={() => setAddTarget(null)}>
+            إلغاء
+          </Button>
+          <Button
+            variant="contained"
+            disabled={
+              saving ||
+              availableLoading ||
+              !selectedCourseId ||
+              !selectedSectionId
+            }
+            onClick={() => void addCourse()}
+          >
+            إضافة المادة
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog
         open={Boolean(selected)}
