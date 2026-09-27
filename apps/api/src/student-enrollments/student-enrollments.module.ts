@@ -14,14 +14,15 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module.js';
     AuthModule,
     AuditLogsModule,
   ],
-
   controllers: [
     StudentEnrollmentsController,
   ],
-
   providers: [
     StudentEnrollmentsService,
     RegistrationValidationService,
+  ],
+  exports: [
+    StudentEnrollmentsService,
   ],
 })
 export class StudentEnrollmentsModule {}
