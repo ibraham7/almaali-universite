@@ -7,6 +7,7 @@ import {
 import ProtectedRoute from './routes/ProtectedRoute';
 import DashboardLayout from './layouts/DashboardLayout';
 import GlobalSuccessToast from './components/GlobalSuccessToast';
+import RegistrationCountdown from './components/RegistrationCountdown';
 
 import LoginPage from './pages/auth/LoginPage';
 import DashboardPage from './pages/shared/DashboardPage';
@@ -111,6 +112,7 @@ function App() {
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
 
+      <RegistrationCountdown />
       <GlobalSuccessToast />
     </>
   );
