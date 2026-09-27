@@ -2,12 +2,15 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
 } from 'react-router-dom';
 
 import ProtectedRoute from './routes/ProtectedRoute';
 import DashboardLayout from './layouts/DashboardLayout';
 import GlobalSuccessToast from './components/GlobalSuccessToast';
 import RegistrationCountdown from './components/RegistrationCountdown';
+import EnrollmentMessagesPanel from './components/EnrollmentMessagesPanel';
+import AdvisorEnrollmentMessagesDock from './components/AdvisorEnrollmentMessagesDock';
 
 import LoginPage from './pages/auth/LoginPage';
 import DashboardPage from './pages/shared/DashboardPage';
@@ -26,6 +29,12 @@ import GradeScalePage from './pages/supervisor/GradeScalePage';
 import ResultsImportPage from './pages/supervisor/ResultsImportPage';
 
 function App() {
+  const location = useLocation();
+  const studentRegistrationOpen =
+    location.pathname === '/student/registration';
+  const advisorRegistrationsOpen =
+    location.pathname === '/advisor/registrations';
+
   return (
     <>
       <Routes>
@@ -113,6 +122,18 @@ function App() {
       </Routes>
 
       <RegistrationCountdown />
+
+      {studentRegistrationOpen && (
+        <EnrollmentMessagesPanel
+          mode="student"
+          floating
+        />
+      )}
+
+      {advisorRegistrationsOpen && (
+        <AdvisorEnrollmentMessagesDock />
+      )}
+
       <GlobalSuccessToast />
     </>
   );
