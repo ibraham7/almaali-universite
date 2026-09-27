@@ -28,6 +28,7 @@ import { StudyPlansModule } from './study-plans/study-plans.module.js';
 import { StudyPlanCoursesModule } from './study-plan-courses/study-plan-courses.module.js';
 import { GradeScalesModule } from './grade-scales/grade-scales.module.js';
 import { CourseResultsModule } from './course-results/course-results.module.js';
+import { EnrollmentMessagesModule } from './enrollment-messages/enrollment-messages.module.js';
 
 @Module({
   imports: [
@@ -56,14 +57,10 @@ import { CourseResultsModule } from './course-results/course-results.module.js';
     StudyPlanCoursesModule,
     GradeScalesModule,
     CourseResultsModule,
+    EnrollmentMessagesModule,
   ],
 
-  controllers: [
-    AppController,
-  ],
-
-  providers: [
-    AppService,
-  ],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
