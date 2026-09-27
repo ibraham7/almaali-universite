@@ -39,6 +39,7 @@ import {
   confirmMyEnrollment,
   dropMyEnrollmentItem,
   getMyRegistration,
+  reopenMyEnrollment,
   type CourseSection,
   type PlanCourse,
   type RegistrationContext,
@@ -358,6 +359,40 @@ export default function StudentRegistrationPage() {
     (!enrollment ||
       enrollment.status === 'DRAFT');
 
+  const canReopen =
+    registration?.registrationOpen === true &&
+    !!enrollment &&
+    ['PENDING', 'APPROVED', 'REJECTED', 'CONFIRMED'].includes(enrollment.status) &&
+    (!registration.registrationPeriod?.addDropDeadline ||
+      new Date() <= new Date(registration.registrationPeriod.addDropDeadline));
+
+  async function handleReopen() {
+    if (!window.confirm('سيعود التسجيل إلى مسودة، وستُلغى موافقة المرشد السابقة إن وجدت. هل تريد المتابعة؟')) {
+      return;
+    }
+
+    try {
+      setActionLoading('reopen');
+      setError(null);
+      setSuccess(null);
+
+      const response = await reopenMyEnrollment();
+      const responseError = getResponseError(response);
+
+      if (responseError) {
+        setError(responseError);
+        return;
+      }
+
+      setSuccess('يمكنك الآن تعديل التسجيل وإعادة تأكيده.');
+      await loadRegistration();
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
   async function handleAdd(
     planCourse: PlanCourse,
   ) {
@@ -608,6 +643,16 @@ export default function StudentRegistrationPage() {
               fontWeight: 700,
             }}
           />
+
+          {canReopen && (
+            <Button
+              variant="outlined"
+              disabled={actionLoading !== null}
+              onClick={() => void handleReopen()}
+            >
+              تعديل التسجيل
+            </Button>
+          )}
 
           <Button
             variant="contained"

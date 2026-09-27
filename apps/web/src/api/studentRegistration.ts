@@ -233,6 +233,15 @@ export async function createMyEnrollment() {
   return response.data;
 }
 
+export async function reopenMyEnrollment() {
+  const response = await apiClient.post<
+    | { success: true }
+    | ApiErrorResponse
+  >('/student-enrollments/me/reopen');
+
+  return response.data;
+}
+
 export async function addMyEnrollmentItem(
   courseId: string,
   sectionId: string,

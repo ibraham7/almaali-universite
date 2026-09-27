@@ -750,6 +750,19 @@ export class StudentEnrollmentsService {
             throw new Error('Section is full');
           }
 
+          const reservation = await tx.courseSection.updateMany({
+            where: {
+              id: dto.sectionId,
+              status: 'OPEN',
+              enrolledCount: { lt: freshSection.maxCapacity },
+            },
+            data: { enrolledCount: { increment: 1 } },
+          });
+
+          if (reservation.count !== 1) {
+            throw new Error('Section is full');
+          }
+
           const createdItem =
             await tx.enrollmentItem.create({
               data: {
@@ -766,17 +779,6 @@ export class StudentEnrollmentsService {
                 },
               },
             });
-
-          await tx.courseSection.update({
-            where: {
-              id: dto.sectionId,
-            },
-            data: {
-              enrolledCount: {
-                increment: 1,
-              },
-            },
-          });
 
           return createdItem;
         },
@@ -907,6 +909,7 @@ export class StudentEnrollmentsService {
         await this.validation.validateSection(
           item.sectionId,
           targetSemesterId,
+          true,
         );
 
       if (!sectionValidation.valid) {

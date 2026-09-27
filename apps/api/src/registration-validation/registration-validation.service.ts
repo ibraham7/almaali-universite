@@ -43,6 +43,7 @@ export class RegistrationValidationService {
   async validateSection(
     sectionId: string,
     semesterId?: string,
+    alreadyReserved = false,
   ) {
     const section =
       await this.prisma.courseSection.findUnique({
@@ -77,7 +78,11 @@ export class RegistrationValidationService {
       };
     }
 
-    if (section.enrolledCount >= section.maxCapacity) {
+    if (
+      alreadyReserved
+        ? section.enrolledCount > section.maxCapacity
+        : section.enrolledCount >= section.maxCapacity
+    ) {
       return {
         valid: false,
         errors: ['Section is full'],

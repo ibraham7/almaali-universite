@@ -88,6 +88,13 @@ export class StudentEnrollmentsController {
       return { success: true, enrollment };
     }
 
+    if (!['PENDING', 'APPROVED', 'REJECTED', 'CONFIRMED'].includes(enrollment.status)) {
+      return {
+        success: false,
+        errors: ['This registration cannot be reopened'],
+      };
+    }
+
     const now = new Date();
 
     const activePeriod = await this.prisma.registrationPeriod.findFirst({
@@ -105,6 +112,13 @@ export class StudentEnrollmentsController {
       return {
         success: false,
         errors: ['Registration period is closed'],
+      };
+    }
+
+    if (activePeriod.addDropDeadline && now > activePeriod.addDropDeadline) {
+      return {
+        success: false,
+        errors: ['Add/drop deadline has passed'],
       };
     }
 
@@ -148,9 +162,7 @@ export class StudentEnrollmentsController {
 
   @Get('me/registration')
   @Roles('STUDENT')
-  async getMyRegistration(@Req() request: AuthenticatedRequest) {
-    await this.reopenForStudent(request.user.id);
-
+  getMyRegistration(@Req() request: AuthenticatedRequest) {
     return this.studentEnrollmentsService.getMyRegistration(
       request.user.id,
     );
@@ -172,16 +184,10 @@ export class StudentEnrollmentsController {
 
   @Post('me/items')
   @Roles('STUDENT')
-  async addMyItem(
+  addMyItem(
     @Req() request: AuthenticatedRequest,
     @Body() body: AddMyEnrollmentItemBody,
   ) {
-    const reopenResult = await this.reopenForStudent(request.user.id);
-
-    if (reopenResult.success === false) {
-      return reopenResult;
-    }
-
     return this.studentEnrollmentsService.addMyItem(
       request.user.id,
       body.courseId,
@@ -191,13 +197,7 @@ export class StudentEnrollmentsController {
 
   @Post('me/confirm')
   @Roles('STUDENT')
-  async confirmMyEnrollment(@Req() request: AuthenticatedRequest) {
-    const reopenResult = await this.reopenForStudent(request.user.id);
-
-    if (reopenResult.success === false) {
-      return reopenResult;
-    }
-
+  confirmMyEnrollment(@Req() request: AuthenticatedRequest) {
     return this.studentEnrollmentsService.confirmMyEnrollment(
       request.user.id,
     );
@@ -205,16 +205,10 @@ export class StudentEnrollmentsController {
 
   @Post('me/items/drop')
   @Roles('STUDENT')
-  async dropMyItem(
+  dropMyItem(
     @Req() request: AuthenticatedRequest,
     @Body() body: DropMyEnrollmentItemBody,
   ) {
-    const reopenResult = await this.reopenForStudent(request.user.id);
-
-    if (reopenResult.success === false) {
-      return reopenResult;
-    }
-
     return this.studentEnrollmentsService.dropMyItem(
       request.user.id,
       body.enrollmentItemId,
