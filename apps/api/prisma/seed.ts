@@ -20,18 +20,26 @@ const prisma = new PrismaClient({
 });
 
 const TEST_STUDENT_UNIVERSITY_ID = 'TEST-STUDENT-001';
-const TEST_STUDENT_EMAIL = 'student.test@university.local';
-const TEST_STUDENT_PASSWORD = 'Student123!';
-
-const TEST_ADVISOR_EMAIL = 'advisor.test@university.local';
-const TEST_ADVISOR_PASSWORD = 'Advisor123!';
-
-const TEST_ADMIN_EMAIL = 'admin.test@university.local';
-const TEST_ADMIN_PASSWORD = 'Admin123!';
-
 const OLD_TEST_SEMESTER_ID = 'TEST-SEMESTER-2026-FALL';
 
+function requiredDemoSeedValue(key: string) {
+  const value = process.env[key]?.trim();
+  if (!value) throw new Error(`${key} must be set to run the local demo seed`);
+  return value;
+}
+
 async function main() {
+  if (process.env.NODE_ENV === 'production' || process.env.ENABLE_DEMO_SEED !== 'true') {
+    throw new Error('Demo seed is available only when explicitly enabled outside production');
+  }
+
+  const TEST_STUDENT_EMAIL = requiredDemoSeedValue('TEST_STUDENT_EMAIL');
+  const TEST_STUDENT_PASSWORD = requiredDemoSeedValue('TEST_STUDENT_PASSWORD');
+  const TEST_ADVISOR_EMAIL = requiredDemoSeedValue('TEST_ADVISOR_EMAIL');
+  const TEST_ADVISOR_PASSWORD = requiredDemoSeedValue('TEST_ADVISOR_PASSWORD');
+  const TEST_ADMIN_EMAIL = requiredDemoSeedValue('TEST_ADMIN_EMAIL');
+  const TEST_ADMIN_PASSWORD = requiredDemoSeedValue('TEST_ADMIN_PASSWORD');
+
   console.log('Starting university test data seed...');
 
   // ============================================================
@@ -657,8 +665,8 @@ async function main() {
           minCredits: 3,
           maxCredits: 18,
 
-          // بيانات اختبار مؤقتة.
-          advisorApprovalRequired: false,
+          // Keep demo requests visible in the advisor approval queue.
+          advisorApprovalRequired: true,
 
           dropAllowed: true,
           addDropDeadline,
@@ -676,7 +684,7 @@ async function main() {
           minCredits: 3,
           maxCredits: 18,
 
-          advisorApprovalRequired: false,
+          advisorApprovalRequired: true,
 
           dropAllowed: true,
           addDropDeadline,
@@ -821,16 +829,9 @@ async function main() {
     `University Student ID: ${student.universityId}`,
   );
 
-  console.log(`Student Email: ${TEST_STUDENT_EMAIL}`);
-  console.log(`Student Password: ${TEST_STUDENT_PASSWORD}`);
-
   console.log(`Advisor User ID: ${advisorUser.id}`);
-  console.log(`Advisor Email: ${TEST_ADVISOR_EMAIL}`);
-  console.log(`Advisor Password: ${TEST_ADVISOR_PASSWORD}`);
 
   console.log(`Admin User ID: ${adminUser.id}`);
-  console.log(`Admin Email: ${TEST_ADMIN_EMAIL}`);
-  console.log(`Admin Password: ${TEST_ADMIN_PASSWORD}`);
 
   console.log(
     `Registration Period ID: ${registrationPeriod.id}`,

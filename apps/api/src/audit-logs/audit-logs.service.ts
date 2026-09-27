@@ -23,12 +23,21 @@ export class AuditLogsService {
     });
   }
 
-  async findAll() {
-    return this.prisma.auditLog.findMany({
+  async findAll(page = 1) {
+    const pageSize = 25;
+    const logs = await this.prisma.auditLog.findMany({
       orderBy: {
         createdAt: 'desc',
       },
+      skip: (page - 1) * pageSize,
+      take: pageSize + 1,
     });
+
+    return {
+      items: logs.slice(0, pageSize),
+      hasMore: logs.length > pageSize,
+      page,
+    };
   }
 
   async findByEntity(entity: string, entityId: string) {

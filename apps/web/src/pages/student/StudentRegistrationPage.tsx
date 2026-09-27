@@ -362,6 +362,7 @@ export default function StudentRegistrationPage() {
   const canReopen =
     registration?.registrationOpen === true &&
     !!enrollment &&
+    (enrollment.revisionCount ?? 0) < 2 &&
     ['PENDING', 'APPROVED', 'REJECTED', 'CONFIRMED'].includes(enrollment.status) &&
     (!registration.registrationPeriod?.addDropDeadline ||
       new Date() <= new Date(registration.registrationPeriod.addDropDeadline));
@@ -643,6 +644,13 @@ export default function StudentRegistrationPage() {
               fontWeight: 700,
             }}
           />
+
+          {enrollment && (
+            <Chip
+              label={`مرات التعديل المتبقية: ${Math.max(0, 2 - (enrollment.revisionCount ?? 0))}`}
+              sx={{ minHeight: 36, fontWeight: 700 }}
+            />
+          )}
 
           {canReopen && (
             <Button

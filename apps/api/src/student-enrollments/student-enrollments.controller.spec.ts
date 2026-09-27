@@ -23,8 +23,21 @@ describe('StudentEnrollmentsController', () => {
   it('keeps a submitted registration unchanged after the add/drop deadline', async () => {
     const prisma = {
       student: { findFirst: vi.fn().mockResolvedValue({ id: 'student', semesterId: 'semester' }) },
-      studentEnrollment: { findUnique: vi.fn().mockResolvedValue({ id: 'enrollment', status: 'PENDING' }) },
+      studentEnrollment: { findUnique: vi.fn().mockResolvedValue({ id: 'enrollment', status: 'PENDING', revisionCount: 0 }) },
       registrationPeriod: { findFirst: vi.fn().mockResolvedValue({ addDropDeadline: new Date('2020-01-01') }) },
+      $transaction: vi.fn(),
+    } as unknown as PrismaService;
+    const controller = new StudentEnrollmentsController({} as StudentEnrollmentsService, prisma);
+    const request = { user: { id: 'student-user' } } as Parameters<typeof controller.reopenMyEnrollment>[0];
+
+    await expect(controller.reopenMyEnrollment(request)).resolves.toMatchObject({ success: false });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('does not reopen a registration after the two allowed revisions', async () => {
+    const prisma = {
+      student: { findFirst: vi.fn().mockResolvedValue({ id: 'student', semesterId: 'semester' }) },
+      studentEnrollment: { findUnique: vi.fn().mockResolvedValue({ id: 'enrollment', status: 'PENDING', revisionCount: 2 }) },
       $transaction: vi.fn(),
     } as unknown as PrismaService;
     const controller = new StudentEnrollmentsController({} as StudentEnrollmentsService, prisma);

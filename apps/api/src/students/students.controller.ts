@@ -1,7 +1,10 @@
 import {
   Controller,
+  Body,
   Get,
   Param,
+  Patch,
+  Post,
   Query,
   Req,
   UseGuards,
@@ -12,6 +15,7 @@ import type {
 } from 'express';
 
 import { StudentsService } from './students.service.js';
+import { StudentInputDto, UpdateStudentDto } from './dto/student-input.dto.js';
 
 import { JwtGuard } from '../auth/guards/jwt/jwt.guard.js';
 
@@ -40,6 +44,24 @@ export class StudentsController {
     private readonly studentsService: StudentsService,
   ) {}
 
+  @Post()
+  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  create(@Body() body: StudentInputDto, @Req() request: AuthenticatedRequest) {
+    return this.studentsService.create(body, request.user.id);
+  }
+
+  @Patch(':id')
+  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  update(@Param('id') id: string, @Body() body: UpdateStudentDto, @Req() request: AuthenticatedRequest) {
+    return this.studentsService.update(id, body, request.user.id);
+  }
+
+  @Get('advisors')
+  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  findAdvisors() {
+    return this.studentsService.findAdvisors();
+  }
+
   @Get('me')
   @Roles('STUDENT')
   findMe(
@@ -63,10 +85,14 @@ export class StudentsController {
 
     @Query('status')
     status?: string,
+
+    @Query('accountStatus')
+    accountStatus?: string,
   ) {
     return this.studentsService.findAll({
       search,
       status,
+      accountStatus,
     });
   }
 

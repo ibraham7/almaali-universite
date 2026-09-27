@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -15,6 +16,50 @@ export class CoursesService {
   constructor(
     private readonly prisma: PrismaService,
   ) {}
+
+  async addPrerequisitesBulk(courseId: string, prerequisiteIds: string[]) {
+    if (!prerequisiteIds.length) {
+      throw new BadRequestException('اختر متطلبًا سابقًا واحدًا على الأقل');
+    }
+    if (prerequisiteIds.includes(courseId)) {
+      throw new BadRequestException('لا يمكن أن يكون المقرر متطلبًا سابقًا لنفسه');
+    }
+
+    const [course, prerequisites, existing] = await Promise.all([
+      this.prisma.course.findUnique({ where: { id: courseId }, select: { id: true } }),
+      this.prisma.course.findMany({ where: { id: { in: prerequisiteIds } }, select: { id: true } }),
+      this.prisma.coursePrerequisite.findMany({
+        where: { courseId, prerequisiteId: { in: prerequisiteIds } },
+        select: { prerequisiteId: true },
+      }),
+    ]);
+
+    if (!course) throw new NotFoundException('المقرر المطلوب غير موجود');
+    if (prerequisites.length !== prerequisiteIds.length) {
+      throw new BadRequestException('تأكد من أن جميع المقررات المختارة موجودة');
+    }
+    if (existing.length) {
+      throw new ConflictException('بعض المتطلبات المختارة مضافة مسبقًا؛ حدّث القائمة ثم حاول مجددًا');
+    }
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        await tx.coursePrerequisite.createMany({
+          data: prerequisiteIds.map((prerequisiteId) => ({ courseId, prerequisiteId })),
+        });
+        const added = await tx.coursePrerequisite.findMany({
+          where: { courseId, prerequisiteId: { in: prerequisiteIds } },
+          include: { course: true, prerequisite: true },
+        });
+        return { success: true, added };
+      });
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+        throw new ConflictException('تغيّرت المتطلبات بالتزامن؛ حدّث القائمة وحاول مجددًا');
+      }
+      throw error;
+    }
+  }
 
   async addPrerequisite(dto: CreateCoursePrerequisiteDto) {
     if (dto.courseId === dto.prerequisiteId) {

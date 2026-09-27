@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Patch,
+  Post,
   Query,
   Req,
   UseGuards,
@@ -64,6 +65,16 @@ export class UsersController {
     return this.usersService.findRoles();
   }
 
+  @Get('signup-attempts')
+  findSignupAttempts() {
+    return this.usersService.findSignupAttempts();
+  }
+
+  @Post(':id/reset-signup')
+  resetStudentSignup(@Req() request: AuthenticatedRequest, @Param('id') id: string) {
+    return this.usersService.resetStudentSignup(id, request.user.id);
+  }
+
   @Get(':id')
   findById(
     @Param('id')
@@ -85,6 +96,7 @@ export class UsersController {
     @Body()
     body: {
       status:
+      | 'PENDING_VERIFICATION'
       | 'ACTIVE'
       | 'SUSPENDED'
       | 'LOCKED'

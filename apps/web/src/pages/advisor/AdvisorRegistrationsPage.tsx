@@ -255,7 +255,7 @@ export default function AdvisorRegistrationsPage() {
           </Typography>
         </Box>
 
-        <Stack direction="row" sx={{ gap: 1 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ gap: 1, alignItems: { xs: 'stretch', sm: 'center' } }}>
           <Chip color="warning" label={`${pendingCount} طلبات معلقة`} />
           <Button
             variant="outlined"
@@ -307,7 +307,6 @@ export default function AdvisorRegistrationsPage() {
                     <Box>
                       <Typography variant="h6">{studentName(approval)}</Typography>
                       <Typography color="text.secondary">
-                        الرقم الجامعي: {student.universityId}
                       </Typography>
                     </Box>
 

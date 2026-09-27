@@ -37,12 +37,12 @@ import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import ClassRoundedIcon from '@mui/icons-material/ClassRounded';
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
 import DateRangeRoundedIcon from '@mui/icons-material/DateRangeRounded';
-import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import AssignmentTurnedInRoundedIcon from '@mui/icons-material/AssignmentTurnedInRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
+import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 
 import {
   useAuth,
@@ -158,6 +158,13 @@ const navigationItems: NavigationItem[] = [
       'REGISTRAR',
       'SYSTEM_ADMIN',
     ],
+  },
+
+  {
+    label: 'سجل العمليات',
+    path: '/audit-logs',
+    icon: <HistoryRoundedIcon />,
+    roles: ['REGISTRAR', 'SYSTEM_ADMIN'],
   },
 
   {
@@ -416,6 +423,7 @@ export default function DashboardLayout() {
                   selected={
                     selected
                   }
+                  aria-current={selected ? 'page' : undefined}
                   onClick={() =>
                     handleNavigate(
                       item.path,
@@ -743,18 +751,22 @@ export default function DashboardLayout() {
         >
           <Toolbar
             sx={{
-              minHeight:
-                '70px !important',
+              minHeight: {
+                xs: '58px !important',
+                sm: '66px !important',
+                md: '70px !important',
+              },
 
               px: {
-                xs: 2,
-                sm: 3,
+                xs: 1.25,
+                sm: 2.5,
                 lg: 4,
               },
             }}
           >
             {isMobile && (
               <IconButton
+                aria-label="فتح القائمة الرئيسية"
                 onClick={() =>
                   setMobileOpen(
                     true,
@@ -814,8 +826,10 @@ export default function DashboardLayout() {
               </Typography>
             </Box>
 
-            <Tooltip title="الإشعارات">
+            <Tooltip title="تسجيل الخروج">
               <IconButton
+                aria-label="تسجيل الخروج"
+                onClick={handleLogout}
                 sx={{
                   width: 40,
 
@@ -831,7 +845,7 @@ export default function DashboardLayout() {
                     '#FFFFFF',
                 }}
               >
-                <NotificationsNoneRoundedIcon fontSize="small" />
+                <LogoutRoundedIcon fontSize="small" />
               </IconButton>
             </Tooltip>
 
@@ -929,11 +943,15 @@ export default function DashboardLayout() {
             width: '100%',
 
             p: {
-              xs: 2,
+              xs: 1.5,
 
               sm: 3,
 
               lg: 4,
+            },
+            pb: {
+              xs: 'calc(24px + env(safe-area-inset-bottom))',
+              sm: 4,
             },
           }}
         >

@@ -8,6 +8,7 @@ datasource db {
 }
 
 enum UserStatus {
+  PENDING_VERIFICATION
   ACTIVE
   SUSPENDED
   LOCKED
@@ -190,6 +191,7 @@ model User {
   email        String     @unique
   passwordHash String
   status       UserStatus @default(ACTIVE)
+  lastLoginAt  DateTime?
 
   roleId String
   role   Role   @relation(fields: [roleId], references: [id])
@@ -372,10 +374,11 @@ model SectionSchedule {
 }
 
 model StudentEnrollment {
-  id         String           @id @default(uuid())
-  studentId  String
-  semesterId String
-  status     EnrollmentStatus @default(DRAFT)
+  id            String           @id @default(uuid())
+  studentId     String
+  semesterId    String
+  status        EnrollmentStatus @default(DRAFT)
+  revisionCount Int              @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -496,4 +499,14 @@ model AuditLog {
   details  String?
 
   createdAt DateTime @default(now())
+}
+
+model SignupAttempt {
+  id        String   @id @default(uuid())
+  ipHash    String
+  succeeded Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([ipHash, createdAt])
+  @@index([createdAt])
 }

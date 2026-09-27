@@ -4,6 +4,7 @@ export interface StudentUser {
   id: string;
   email: string;
   status: string;
+  lastLoginAt?: string | null;
 
   role?: {
     code: string;
@@ -27,6 +28,8 @@ export interface StudentListItem {
   familyName: string;
 
   englishName?: string | null;
+  dateOfBirth?: string | null;
+  idOrPassport?: string | null;
 
   gender?: string | null;
   nationality?: string | null;
@@ -122,6 +125,7 @@ export interface StudentDetails
 export async function getStudents(params?: {
   search?: string;
   status?: string;
+  accountStatus?: string;
 }) {
   const response =
     await apiClient.get<
@@ -141,5 +145,43 @@ export async function getStudent(
       `/students/${id}`,
     );
 
+  return response.data;
+}
+
+export interface StudentInput {
+  universityId: string;
+  firstName: string;
+  familyName: string;
+  middleName?: string | null;
+  englishName?: string | null;
+  gender?: string | null;
+  dateOfBirth?: string | null;
+  nationality?: string | null;
+  idOrPassport?: string | null;
+  universityEmail?: string | null;
+  phone?: string | null;
+  status?: string;
+  collegeId?: string | null;
+  departmentId?: string | null;
+  programId?: string | null;
+  studyPlanId?: string | null;
+  academicYearId?: string | null;
+  semesterId?: string | null;
+  advisorId?: string | null;
+  admissionDate?: string | null;
+}
+
+export async function createStudent(data: StudentInput) {
+  const response = await apiClient.post<StudentListItem>('/students', data);
+  return response.data;
+}
+
+export async function updateStudent(id: string, data: StudentInput) {
+  const response = await apiClient.patch<StudentListItem>(`/students/${id}`, data);
+  return response.data;
+}
+
+export async function getStudentAdvisors() {
+  const response = await apiClient.get<Array<{ id: string; email: string }>>('/students/advisors');
   return response.data;
 }

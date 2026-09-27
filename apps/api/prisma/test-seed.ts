@@ -98,11 +98,16 @@ async function main() {
           endDateTime,
           minCredits: 3,
           maxCredits: 18,
-          advisorApprovalRequired: false,
+          advisorApprovalRequired: true,
           dropAllowed: true,
           addDropDeadline,
         },
       });
+  } else if (!registrationPeriod.advisorApprovalRequired) {
+    registrationPeriod = await prisma.registrationPeriod.update({
+      where: { id: registrationPeriod.id },
+      data: { advisorApprovalRequired: true },
+    });
   }
 
   console.log(

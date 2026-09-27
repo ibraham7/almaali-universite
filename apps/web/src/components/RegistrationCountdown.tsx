@@ -84,14 +84,16 @@ export default function RegistrationCountdown() {
       sx={{
         position: 'fixed',
         left: { xs: 16, md: 28 },
-        bottom: { xs: 16, md: 28 },
-        zIndex: 1300,
-        px: 2,
+        bottom: 'calc(16px + env(safe-area-inset-bottom))',
+        zIndex: 1200,
+        width: { xs: 'calc(100vw - 100px)', sm: 'auto' },
+        minWidth: { xs: 0, sm: 300 },
+        maxWidth: { xs: 220, sm: 'none' },
+        px: { xs: 1.2, sm: 2 },
         py: 1.4,
         borderRadius: 3,
         border: '1px solid',
         borderColor: 'divider',
-        minWidth: { xs: 250, sm: 300 },
       }}
     >
       <Box

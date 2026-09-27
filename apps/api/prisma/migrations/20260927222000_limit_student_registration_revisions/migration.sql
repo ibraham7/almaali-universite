@@ -1,0 +1,2 @@
+ALTER TABLE "StudentEnrollment"
+ADD COLUMN "revisionCount" INTEGER NOT NULL DEFAULT 0;

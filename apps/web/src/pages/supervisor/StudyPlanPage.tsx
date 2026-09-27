@@ -35,7 +35,7 @@ import {
 import axios from 'axios';
 
 import {
-  addCoursePrerequisite,
+  addCoursePrerequisites,
   addCourseToPlan,
   getAcademicLevels,
   getCourses,
@@ -142,8 +142,8 @@ export default function StudyPlanPage() {
   const [prerequisiteDialogCourse, setPrerequisiteDialogCourse] =
     useState<PlanCourse | null>(null);
 
-  const [selectedPrerequisiteId, setSelectedPrerequisiteId] =
-    useState('');
+  const [selectedPrerequisiteIds, setSelectedPrerequisiteIds] =
+    useState<string[]>([]);
 
   const selectedPlan = useMemo(
     () =>
@@ -486,23 +486,8 @@ export default function StudyPlanPage() {
   const openPrerequisiteDialog = (
     item: PlanCourse,
   ) => {
-    const existingIds = new Set(
-      (item.course.prerequisites ?? []).map(
-        (entry) => entry.prerequisiteId,
-      ),
-    );
-
-    const firstAvailable = courses.find(
-      (course) =>
-        course.status === 'ACTIVE' &&
-        course.id !== item.courseId &&
-        !existingIds.has(course.id),
-    );
-
     setPrerequisiteDialogCourse(item);
-    setSelectedPrerequisiteId(
-      firstAvailable?.id ?? '',
-    );
+    setSelectedPrerequisiteIds([]);
     setError('');
     setSuccess('');
   };
@@ -510,7 +495,7 @@ export default function StudyPlanPage() {
   const handleAddPrerequisite = async () => {
     if (
       !prerequisiteDialogCourse ||
-      !selectedPrerequisiteId
+      !selectedPrerequisiteIds.length
     ) {
       setError(
         'اختر المقرر المتطلب السابق أولًا.',
@@ -524,11 +509,11 @@ export default function StudyPlanPage() {
 
     try {
       const response =
-        await addCoursePrerequisite({
+        await addCoursePrerequisites({
           courseId:
             prerequisiteDialogCourse.courseId,
-          prerequisiteId:
-            selectedPrerequisiteId,
+          prerequisiteIds:
+            selectedPrerequisiteIds,
         });
 
       if (!response.success) {
@@ -540,10 +525,10 @@ export default function StudyPlanPage() {
       }
 
       setPrerequisiteDialogCourse(null);
-      setSelectedPrerequisiteId('');
+      setSelectedPrerequisiteIds([]);
 
       setSuccess(
-        'تمت إضافة المتطلب السابق.',
+        `تمت إضافة ${selectedPrerequisiteIds.length} من المتطلبات السابقة.`,
       );
 
       const [coursesData] =
@@ -1473,7 +1458,7 @@ export default function StudyPlanPage() {
         onClose={() => {
           if (!actionLoading) {
             setPrerequisiteDialogCourse(null);
-            setSelectedPrerequisiteId('');
+            setSelectedPrerequisiteIds([]);
           }
         }}
         fullWidth
@@ -1493,10 +1478,19 @@ export default function StudyPlanPage() {
             <FormControl fullWidth>
               <InputLabel>المتطلب السابق</InputLabel>
               <Select
-                value={selectedPrerequisiteId}
+                multiple
+                value={selectedPrerequisiteIds}
+                renderValue={(selected) => (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {(selected as string[]).map((id) => {
+                      const course = courses.find((item) => item.id === id);
+                      return <Chip key={id} size="small" label={course ? `${course.code} — ${course.nameAr}` : id} />;
+                    })}
+                  </Box>
+                )}
                 label="المتطلب السابق"
                 onChange={(event) =>
-                  setSelectedPrerequisiteId(event.target.value)
+                  setSelectedPrerequisiteIds(typeof event.target.value === 'string' ? event.target.value.split(',') : event.target.value)
                 }
               >
                 {courses
@@ -1550,7 +1544,7 @@ export default function StudyPlanPage() {
             disabled={actionLoading}
             onClick={() => {
               setPrerequisiteDialogCourse(null);
-              setSelectedPrerequisiteId('');
+              setSelectedPrerequisiteIds([]);
             }}
           >
             إلغاء
@@ -1558,10 +1552,10 @@ export default function StudyPlanPage() {
 
           <Button
             variant="contained"
-            disabled={!selectedPrerequisiteId || actionLoading}
+            disabled={!selectedPrerequisiteIds.length || actionLoading}
             onClick={() => void handleAddPrerequisite()}
           >
-            {actionLoading ? 'جارٍ الحفظ...' : 'إضافة المتطلب'}
+            {actionLoading ? 'جارٍ الحفظ...' : 'إضافة المحدد'}
           </Button>
         </DialogActions>
       </Dialog>

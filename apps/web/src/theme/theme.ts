@@ -145,9 +145,9 @@ export const theme = createTheme({
 
       styleOverrides: {
         root: {
-          minHeight: 42,
+          minHeight: 44,
           borderRadius: 9,
-          paddingInline: 18,
+          paddingInline: 16,
           fontWeight: 600,
           textTransform: 'none',
         },
@@ -221,6 +221,15 @@ export const theme = createTheme({
       },
     },
 
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          minWidth: 44,
+          minHeight: 44,
+        },
+      },
+    },
+
     MuiInputLabel: {
       styleOverrides: {
         root: {
@@ -233,6 +242,17 @@ export const theme = createTheme({
       styleOverrides: {
         root: {
           direction: 'rtl',
+          width: '100%',
+        },
+      },
+    },
+
+    MuiTableContainer: {
+      styleOverrides: {
+        root: {
+          width: '100%',
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
         },
       },
     },
@@ -283,6 +303,13 @@ export const theme = createTheme({
       styleOverrides: {
         paper: {
           borderRadius: 16,
+          '@media (max-width:600px)': {
+            width: 'calc(100% - 24px)',
+            maxWidth: 'calc(100% - 24px)',
+            maxHeight: 'calc(100% - 24px)',
+            margin: 12,
+            borderRadius: 14,
+          },
         },
       },
     },

@@ -1,5 +1,6 @@
 import {
   Body,
+  BadRequestException,
   Controller,
   Get,
   Param,
@@ -84,6 +85,13 @@ export class StudentEnrollmentsController {
       return { success: true };
     }
 
+    if (enrollment.revisionCount >= 2) {
+      return {
+        success: false,
+        errors: ['تم استنفاد مرتي تعديل التسجيل المسموحتين'],
+      };
+    }
+
     if (enrollment.status === 'DRAFT') {
       return { success: true, enrollment };
     }
@@ -123,19 +131,26 @@ export class StudentEnrollmentsController {
     }
 
     const updatedEnrollment = await this.prisma.$transaction(async (tx) => {
-      await tx.advisorApproval.deleteMany({
-        where: {
-          enrollmentId: enrollment.id,
-        },
-      });
-
-      const updated = await tx.studentEnrollment.update({
+      const reopened = await tx.studentEnrollment.updateMany({
         where: {
           id: enrollment.id,
+          status: enrollment.status,
+          revisionCount: { lt: 2 },
         },
         data: {
           status: 'DRAFT',
+          revisionCount: { increment: 1 },
         },
+      });
+
+      if (!reopened.count) {
+        throw new BadRequestException('تم استنفاد مرتي تعديل التسجيل المسموحتين');
+      }
+
+      await tx.advisorApproval.deleteMany({ where: { enrollmentId: enrollment.id } });
+
+      const updated = await tx.studentEnrollment.findUnique({
+        where: { id: enrollment.id },
       });
 
       await tx.auditLog.create({

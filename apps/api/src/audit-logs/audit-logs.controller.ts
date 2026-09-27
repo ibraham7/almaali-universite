@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Param,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 
@@ -28,8 +29,14 @@ export class AuditLogsController {
   ) { }
 
   @Get()
-  findAll() {
-    return this.auditLogsService.findAll();
+  findAll(@Query('page') page?: string) {
+    const parsedPage = Number(page);
+    const pageNumber =
+      Number.isSafeInteger(parsedPage) && parsedPage > 0
+        ? parsedPage
+        : 1;
+
+    return this.auditLogsService.findAll(pageNumber);
   }
 
   @Get(':entity/:entityId')

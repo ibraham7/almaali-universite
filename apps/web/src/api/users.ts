@@ -3,6 +3,7 @@ import {
 } from './client';
 
 export type UserStatus =
+    | 'PENDING_VERIFICATION'
     | 'ACTIVE'
     | 'SUSPENDED'
     | 'LOCKED'
@@ -56,6 +57,8 @@ export interface SystemUser {
     createdAt: string;
 
     updatedAt: string;
+
+    lastLoginAt?: string | null;
 }
 
 export async function getUsers(
@@ -83,6 +86,16 @@ export async function getRoles() {
             Role[]
         >('/users/roles');
 
+    return response.data;
+}
+
+export async function getSignupAttempts() {
+    const response = await apiClient.get<{ failedCount: number; attempts: Array<{ id: string; succeeded: boolean; createdAt: string }> }>('/users/signup-attempts');
+    return response.data;
+}
+
+export async function resetStudentSignup(id: string) {
+    const response = await apiClient.post<{ reset: boolean }>(`/users/${id}/reset-signup`);
     return response.data;
 }
 

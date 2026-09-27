@@ -249,6 +249,17 @@ export async function addCoursePrerequisite(input: {
   return data;
 }
 
+export async function addCoursePrerequisites(input: {
+  courseId: string;
+  prerequisiteIds: string[];
+}) {
+  const { data } = await apiClient.post<PrerequisiteMutationResponse>(
+    `/courses/${input.courseId}/prerequisites/bulk`,
+    { prerequisiteIds: input.prerequisiteIds },
+  );
+  return data;
+}
+
 export async function removeCoursePrerequisite(
   courseId: string,
   prerequisiteId: string,

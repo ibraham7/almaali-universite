@@ -35,7 +35,7 @@ import {
 import axios from 'axios';
 
 import {
-  addCoursePrerequisite,
+  addCoursePrerequisites,
   createCourse,
   getCourses,
   removeCoursePrerequisite,
@@ -146,7 +146,7 @@ export default function CoursesPage() {
   const [prerequisiteDialogOpen, setPrerequisiteDialogOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [prerequisiteCourse, setPrerequisiteCourse] = useState<Course | null>(null);
-  const [selectedPrerequisiteId, setSelectedPrerequisiteId] = useState('');
+  const [selectedPrerequisiteIds, setSelectedPrerequisiteIds] = useState<string[]>([]);
   const [form, setForm] = useState<CourseForm>(emptyForm);
 
   const loadData = useCallback(async () => {
@@ -281,7 +281,7 @@ export default function CoursesPage() {
 
   function openPrerequisites(course: Course) {
     setPrerequisiteCourse(course);
-    setSelectedPrerequisiteId('');
+    setSelectedPrerequisiteIds([]);
     setError('');
     setSuccess('');
     setPrerequisiteDialogOpen(true);
@@ -377,15 +377,15 @@ export default function CoursesPage() {
   }
 
   async function handleAddPrerequisite() {
-    if (!prerequisiteCourse || !selectedPrerequisiteId) return;
+    if (!prerequisiteCourse || !selectedPrerequisiteIds.length) return;
 
     try {
       setActionLoading(true);
       setError('');
 
-      const response = await addCoursePrerequisite(
+      const response = await addCoursePrerequisites(
         prerequisiteCourse.id,
-        selectedPrerequisiteId,
+        selectedPrerequisiteIds,
       );
 
       if (response.success === false) {
@@ -393,8 +393,8 @@ export default function CoursesPage() {
         return;
       }
 
-      setSuccess('تمت إضافة المتطلب السابق.');
-      setSelectedPrerequisiteId('');
+      setSuccess(`تمت إضافة ${selectedPrerequisiteIds.length} من المتطلبات السابقة.`);
+      setSelectedPrerequisiteIds([]);
 
       const responseCourses = await getCourses();
       setCourses(responseCourses.courses);
@@ -543,7 +543,7 @@ export default function CoursesPage() {
         </CardContent>
       </Card>
 
-      <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 1, mb: 2 }}>
         <Typography variant="h6" sx={{ fontWeight: 700 }}>
           قائمة المقررات
         </Typography>
@@ -878,7 +878,12 @@ export default function CoursesPage() {
 
       <Dialog
         open={prerequisiteDialogOpen}
-        onClose={() => !actionLoading && setPrerequisiteDialogOpen(false)}
+        onClose={() => {
+          if (!actionLoading) {
+            setPrerequisiteDialogOpen(false);
+            setSelectedPrerequisiteIds([]);
+          }
+        }}
         fullWidth
         maxWidth="sm"
       >
@@ -896,8 +901,17 @@ export default function CoursesPage() {
                   <InputLabel>المقرر</InputLabel>
                   <Select
                     label="المقرر"
-                    value={selectedPrerequisiteId}
-                    onChange={(event) => setSelectedPrerequisiteId(event.target.value)}
+                    multiple
+                    value={selectedPrerequisiteIds}
+                    renderValue={(selected) => (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {(selected as string[]).map((id) => {
+                          const course = prerequisiteOptions.find((item) => item.id === id);
+                          return <Chip key={id} size="small" label={course ? `${course.code} — ${course.nameAr}` : id} />;
+                        })}
+                      </Box>
+                    )}
+                    onChange={(event) => setSelectedPrerequisiteIds(typeof event.target.value === 'string' ? event.target.value.split(',') : event.target.value)}
                   >
                     {prerequisiteOptions.map((course) => (
                       <MenuItem key={course.id} value={course.id}>
@@ -910,10 +924,10 @@ export default function CoursesPage() {
                 <Button
                   variant="contained"
                   onClick={() => void handleAddPrerequisite()}
-                  disabled={!selectedPrerequisiteId || actionLoading}
+                  disabled={!selectedPrerequisiteIds.length || actionLoading}
                   sx={{ minWidth: 110 }}
                 >
-                  إضافة
+                  إضافة المحدد
                 </Button>
               </Stack>
 
@@ -964,7 +978,7 @@ export default function CoursesPage() {
         </DialogContent>
 
         <DialogActions>
-          <Button onClick={() => setPrerequisiteDialogOpen(false)}>إغلاق</Button>
+          <Button onClick={() => { setPrerequisiteDialogOpen(false); setSelectedPrerequisiteIds([]); }}>إغلاق</Button>
         </DialogActions>
       </Dialog>
     </Box>

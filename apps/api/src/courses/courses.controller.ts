@@ -51,32 +51,14 @@ export class CoursesController {
 
   @Post(':courseId/prerequisites/bulk')
   @Roles('REGISTRAR', 'SYSTEM_ADMIN')
-  async addPrerequisitesBulk(
+  addPrerequisitesBulk(
     @Param('courseId') courseId: string,
     @Body() dto: SetCoursePrerequisitesDto,
   ) {
-    const added: unknown[] = [];
-    const errors: string[] = [];
-
-    for (const prerequisiteId of dto.prerequisiteIds) {
-      const result = await this.coursesService.addPrerequisite({
-        courseId,
-        prerequisiteId,
-      });
-
-      if (result.success === false) {
-        errors.push(...(result.errors ?? []));
-        continue;
-      }
-
-      added.push(result.prerequisite);
-    }
-
-    return {
-      success: errors.length === 0,
-      added,
-      errors,
-    };
+    return this.coursesService.addPrerequisitesBulk(
+      courseId,
+      dto.prerequisiteIds,
+    );
   }
 
   @Delete(':courseId/prerequisites/:prerequisiteId')

@@ -17,6 +17,8 @@ import {
   UsersModule,
 } from '../users/users.module.js';
 
+import { PrismaModule } from '../prisma/prisma.module.js';
+
 import {
   AuthService,
 } from './auth.service.js';
@@ -45,6 +47,7 @@ import {
 @Module({
   imports: [
     UsersModule,
+    PrismaModule,
 
     PassportModule.register({
       defaultStrategy: 'jwt',

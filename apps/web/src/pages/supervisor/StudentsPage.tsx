@@ -1,6 +1,7 @@
 import {
     Alert,
     Box,
+    Button,
     Card,
     CardContent,
     Chip,
@@ -23,6 +24,7 @@ import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined';
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
+import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 
 import {
     useCallback,
@@ -39,6 +41,10 @@ import {
     type StudentDetails,
     type StudentListItem,
 } from '../../api/students';
+import { useAuth } from '../../auth/AuthContext';
+import StudentFormDialog from './StudentFormDialog';
+import StudentImportDialog from './StudentImportDialog';
+import { getColleges, getDepartments, getPrograms, type College, type Department, type Program } from '../../api/academicStructure';
 
 function getErrorMessage(
     error: unknown,
@@ -106,6 +112,9 @@ function statusLabel(
         case 'DISABLED':
             return 'معطل';
 
+        case 'PENDING_VERIFICATION':
+            return 'بانتظار التفعيل';
+
         case 'DRAFT':
             return 'مسودة';
 
@@ -132,7 +141,31 @@ function statusLabel(
     }
 }
 
+function exportStudentsCsv(items: StudentListItem[]) {
+    const cell = (value: unknown) => {
+        let text = String(value ?? '');
+        if (/^[=+@\-\t\r]/.test(text)) text = `'${text}`;
+        return `"${text.replaceAll('"', '""')}"`;
+    };
+    const rows = [
+        ['الرقم الجامعي', 'اسم الطالب', 'البريد', 'حالة الطالب', 'حالة الحساب', 'آخر دخول'],
+        ...items.map((student) => [student.universityId, fullName(student), student.user?.email ?? student.universityEmail ?? '', student.status, student.user ? statusLabel(student.user.status) : 'لا يوجد حساب', student.user?.lastLoginAt ?? '']),
+    ];
+    const csv = `\uFEFF${rows.map((row) => row.map(cell).join(',')).join('\r\n')}`;
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'students-export.csv';
+    anchor.click();
+    URL.revokeObjectURL(url);
+}
+
 export default function StudentsPage() {
+    const { user } = useAuth();
+    const canManage = user?.role === 'REGISTRAR' || user?.role === 'SYSTEM_ADMIN';
+    const [formOpen, setFormOpen] = useState(false);
+    const [importOpen, setImportOpen] = useState(false);
+    const [editingStudent, setEditingStudent] = useState<StudentListItem | null>(null);
     const [students, setStudents] =
         useState<StudentListItem[]>([]);
 
@@ -149,6 +182,13 @@ export default function StudentsPage() {
 
     const [status, setStatus] =
         useState('');
+    const [accountStatus, setAccountStatus] = useState('');
+    const [collegeId, setCollegeId] = useState('');
+    const [departmentId, setDepartmentId] = useState('');
+    const [programId, setProgramId] = useState('');
+    const [colleges, setColleges] = useState<College[]>([]);
+    const [departments, setDepartments] = useState<Department[]>([]);
+    const [programs, setPrograms] = useState<Program[]>([]);
 
     const [loading, setLoading] =
         useState(true);
@@ -189,6 +229,20 @@ export default function StudentsPage() {
         void loadStudents();
     }, [loadStudents]);
 
+    useEffect(() => {
+        let active = true;
+        Promise.all([getColleges(), getDepartments(), getPrograms()])
+            .then(([collegeItems, departmentItems, programItems]) => {
+                if (active) {
+                    setColleges(collegeItems);
+                    setDepartments(departmentItems);
+                    setPrograms(programItems);
+                }
+            })
+            .catch(() => { if (active) setError('تعذر تحميل خيارات تصفية الطلاب.'); });
+        return () => { active = false; };
+    }, []);
+
     const filteredStudents =
         useMemo(() => {
             const normalized =
@@ -204,6 +258,12 @@ export default function StudentsPage() {
                     ) {
                         return false;
                     }
+                    if (accountStatus === 'NO_ACCOUNT' && student.user) return false;
+                    if (accountStatus === 'HAS_ACCOUNT' && !student.user) return false;
+                    if (accountStatus === 'PENDING_VERIFICATION' && student.user?.status !== 'PENDING_VERIFICATION') return false;
+                    if (collegeId && student.collegeId !== collegeId) return false;
+                    if (departmentId && student.departmentId !== departmentId) return false;
+                    if (programId && student.programId !== programId) return false;
 
                     if (!normalized) {
                         return true;
@@ -233,6 +293,10 @@ export default function StudentsPage() {
             students,
             search,
             status,
+            accountStatus,
+            collegeId,
+            departmentId,
+            programId,
         ]);
 
     async function openStudent(
@@ -288,7 +352,8 @@ export default function StudentsPage() {
 
     return (
         <Box>
-            <Box sx={{ mb: 3 }}>
+            <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+              <Box>
                 <Typography
                     variant="h4"
                     sx={{
@@ -310,6 +375,12 @@ export default function StudentsPage() {
                     وبياناتهم الأكاديمية
                     وحالة التسجيل.
                 </Typography>
+              </Box>
+              {canManage && <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
+                <Button fullWidth sx={{ width: { sm: 'auto' } }} variant="outlined" startIcon={<DownloadRoundedIcon />} onClick={() => exportStudentsCsv(filteredStudents)}>تصدير CSV</Button>
+                <Button fullWidth sx={{ width: { sm: 'auto' } }} variant="outlined" onClick={() => setImportOpen(true)}>استيراد Excel</Button>
+                <Button fullWidth sx={{ width: { sm: 'auto' } }} variant="contained" onClick={() => { setEditingStudent(null); setFormOpen(true); }}>إضافة طالب</Button>
+              </Stack>}
             </Box>
 
             {error && (
@@ -335,7 +406,7 @@ export default function StudentsPage() {
                             display: 'grid',
                             gridTemplateColumns: {
                                 xs: '1fr',
-                                md: 'minmax(0, 1fr) 220px',
+                                md: 'repeat(2, minmax(0, 1fr))',
                             },
                             gap: 2,
                         }}
@@ -396,6 +467,29 @@ export default function StudentsPage() {
                                 </MenuItem>
                             </Select>
                         </FormControl>
+
+                        {canManage && <TextField select label="حالة الحساب" value={accountStatus} onChange={(event) => setAccountStatus(event.target.value)}>
+                            <MenuItem value="">جميع الحسابات</MenuItem>
+                            <MenuItem value="NO_ACCOUNT">لا يوجد حساب</MenuItem>
+                            <MenuItem value="PENDING_VERIFICATION">بانتظار التفعيل</MenuItem>
+                            <MenuItem value="HAS_ACCOUNT">لديه حساب</MenuItem>
+                        </TextField>}
+
+                        <TextField select label="الكلية" value={collegeId}
+                            onChange={(event) => { setCollegeId(event.target.value); setDepartmentId(''); setProgramId(''); }}>
+                            <MenuItem value="">جميع الكليات</MenuItem>
+                            {colleges.map((item) => <MenuItem key={item.id} value={item.id}>{item.nameAr}</MenuItem>)}
+                        </TextField>
+                        <TextField select label="القسم" value={departmentId} disabled={!collegeId}
+                            onChange={(event) => { setDepartmentId(event.target.value); setProgramId(''); }}>
+                            <MenuItem value="">جميع الأقسام</MenuItem>
+                            {departments.filter((item) => item.collegeId === collegeId).map((item) => <MenuItem key={item.id} value={item.id}>{item.nameAr}</MenuItem>)}
+                        </TextField>
+                        <TextField select label="البرنامج / التخصص" value={programId} disabled={!departmentId}
+                            onChange={(event) => setProgramId(event.target.value)}>
+                            <MenuItem value="">جميع البرامج</MenuItem>
+                            {programs.filter((item) => item.departmentId === departmentId).map((item) => <MenuItem key={item.id} value={item.id}>{item.nameAr}</MenuItem>)}
+                        </TextField>
                     </Box>
                 </CardContent>
             </Card>
@@ -681,8 +775,9 @@ export default function StudentsPage() {
                 fullWidth
                 maxWidth="md"
             >
-                <DialogTitle>
+                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     تفاصيل الطالب
+                    {canManage && selectedStudent && <Button onClick={() => { setEditingStudent(selectedStudent); setDialogOpen(false); setFormOpen(true); }}>تعديل البيانات</Button>}
                 </DialogTitle>
 
                 <DialogContent dividers>
@@ -1026,6 +1121,12 @@ export default function StudentsPage() {
                     )}
                 </DialogContent>
             </Dialog>
+            {canManage && <StudentFormDialog open={formOpen} student={editingStudent}
+                onClose={() => setFormOpen(false)}
+                onSaved={() => { void loadStudents(); }} />}
+            {canManage && <StudentImportDialog open={importOpen}
+                onClose={() => setImportOpen(false)}
+                onImported={() => { void loadStudents(); }} />}
         </Box>
     );
 }

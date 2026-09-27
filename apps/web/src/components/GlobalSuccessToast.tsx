@@ -19,7 +19,12 @@ export default function GlobalSuccessToast() {
         .filter(Boolean)
         .at(-1);
 
-      if (!latest || latest === lastMessageRef.current) {
+      if (!latest) {
+        lastMessageRef.current = '';
+        return;
+      }
+
+      if (latest === lastMessageRef.current) {
         return;
       }
 

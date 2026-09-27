@@ -185,6 +185,7 @@ export interface StudentEnrollment {
   studentId: string;
   semesterId: string;
   status: EnrollmentStatus;
+  revisionCount?: number;
   items: EnrollmentItem[];
   approvals: AdvisorApproval[];
 }

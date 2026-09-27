@@ -1,6 +1,8 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, HttpCode, Post, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { AuthService } from './auth.service.js';
 import { LoginDto } from './dto/login.dto.js';
+import { StudentSignupDto } from './dto/student-signup.dto.js';
 
 @Controller('auth')
 export class AuthController {
@@ -9,5 +11,11 @@ export class AuthController {
   @Post('login')
   login(@Body() body: LoginDto) {
     return this.authService.login(body.username, body.password);
+  }
+
+  @Post('student-signup')
+  @HttpCode(200)
+  signupStudent(@Body() body: StudentSignupDto, @Req() request: Request) {
+    return this.authService.signupStudent(body, request.ip ?? 'unknown');
   }
 }

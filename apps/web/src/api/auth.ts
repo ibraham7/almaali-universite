@@ -15,3 +15,19 @@ export async function loginRequest(
 
   return response.data;
 }
+
+export async function studentSignupRequest(data: {
+  universityId: string;
+  firstName: string;
+  middleName?: string;
+  familyName: string;
+  dateOfBirth?: string;
+  idOrPassport?: string;
+  email: string;
+  password: string;
+}) {
+  const response = await apiClient.post<{ message: string }>(
+    '/auth/student-signup', data,
+  );
+  return response.data;
+}

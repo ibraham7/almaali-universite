@@ -13,6 +13,7 @@ import EnrollmentMessagesPanel from './components/EnrollmentMessagesPanel';
 import AdvisorEnrollmentMessagesDock from './components/AdvisorEnrollmentMessagesDock';
 
 import LoginPage from './pages/auth/LoginPage';
+import StudentSignupPage from './pages/auth/StudentSignupPage';
 import DashboardPage from './pages/shared/DashboardPage';
 import StudentRegistrationPage from './pages/student/StudentRegistrationPage';
 import StudentSchedulePage from './pages/student/StudentSchedulePage';
@@ -27,6 +28,7 @@ import UsersPage from './pages/supervisor/UsersPage';
 import SettingsPage from './pages/supervisor/SettingsPage';
 import GradeScalePage from './pages/supervisor/GradeScalePage';
 import ResultsImportPage from './pages/supervisor/ResultsImportPage';
+import AuditLogsPage from './pages/supervisor/AuditLogsPage';
 
 function App() {
   const location = useLocation();
@@ -39,6 +41,7 @@ function App() {
     <>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<StudentSignupPage />} />
 
         <Route element={<ProtectedRoute />}>
           <Route element={<DashboardLayout />}>
@@ -106,6 +109,10 @@ function App() {
             <Route
               path="/results/import"
               element={<ResultsImportPage />}
+            />
+            <Route
+              path="/audit-logs"
+              element={<AuditLogsPage />}
             />
           </Route>
         </Route>

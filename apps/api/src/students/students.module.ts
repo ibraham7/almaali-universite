@@ -5,6 +5,8 @@ import { AuthModule } from '../auth/auth.module.js';
 
 import { StudentsController } from './students.controller.js';
 import { StudentsService } from './students.service.js';
+import { StudentImportsController } from './student-imports.controller.js';
+import { StudentImportsService } from './student-imports.service.js';
 
 @Module({
   imports: [
@@ -14,10 +16,12 @@ import { StudentsService } from './students.service.js';
 
   controllers: [
     StudentsController,
+    StudentImportsController,
   ],
 
   providers: [
     StudentsService,
+    StudentImportsService,
   ],
 
   exports: [

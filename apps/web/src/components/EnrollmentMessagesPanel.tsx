@@ -6,12 +6,15 @@ import {
   CardContent,
   CircularProgress,
   Divider,
+  Fab,
+  IconButton,
   Stack,
   TextField,
   Typography,
 } from '@mui/material';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
@@ -51,6 +54,7 @@ export default function EnrollmentMessagesPanel({
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [floatingOpen, setFloatingOpen] = useState(false);
 
   const loadMessages = useCallback(async () => {
     if (mode === 'advisor' && !approvalId) return;
@@ -100,17 +104,35 @@ export default function EnrollmentMessagesPanel({
     }
   };
 
+  if (floating && !floatingOpen) {
+    return (
+      <Fab
+        color="primary"
+        aria-label="فتح رسائل طلب التسجيل"
+        onClick={() => setFloatingOpen(true)}
+        sx={{
+          position: 'fixed',
+          right: { xs: 16, md: 28 },
+          bottom: 'calc(16px + env(safe-area-inset-bottom))',
+          zIndex: 1250,
+        }}
+      >
+        <ChatBubbleOutlineRoundedIcon />
+      </Fab>
+    );
+  }
+
   return (
     <Card
       sx={
         floating
           ? {
               position: 'fixed',
-              right: { xs: 16, md: 28 },
-              bottom: { xs: 16, md: 28 },
+              right: { xs: 12, md: 28 },
+              bottom: 'calc(12px + env(safe-area-inset-bottom))',
               zIndex: 1250,
-              width: { xs: 'calc(100% - 32px)', sm: 360 },
-              maxHeight: 470,
+              width: { xs: 'calc(100vw - 24px)', sm: 360 },
+              maxHeight: { xs: 'min(72dvh, 560px)', sm: 470 },
               boxShadow: '0 16px 45px rgba(0,0,0,0.18)',
             }
           : { mt: 2 }
@@ -119,7 +141,7 @@ export default function EnrollmentMessagesPanel({
       <CardContent sx={{ p: '18px !important' }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1.5 }}>
           <ChatBubbleOutlineRoundedIcon color="primary" />
-          <Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography sx={{ fontWeight: 700 }}>
               التواصل حول طلب التسجيل
             </Typography>
@@ -127,6 +149,15 @@ export default function EnrollmentMessagesPanel({
               الرسائل مرتبطة بطلب التسجيل الحالي فقط
             </Typography>
           </Box>
+          {floating && (
+            <IconButton
+              aria-label="إغلاق الرسائل"
+              onClick={() => setFloatingOpen(false)}
+              size="small"
+            >
+              <CloseRoundedIcon />
+            </IconButton>
+          )}
         </Stack>
 
         <Divider sx={{ mb: 1.5 }} />

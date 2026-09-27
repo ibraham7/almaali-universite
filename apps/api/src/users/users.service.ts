@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 
 type UserStatusValue =
+  | 'PENDING_VERIFICATION'
   | 'ACTIVE'
   | 'SUSPENDED'
   | 'LOCKED'
@@ -146,7 +147,8 @@ export class UsersService {
       select: {
         id: true,
         email: true,
-        status: true,
+            status: true,
+            lastLoginAt: true,
 
         roleId: true,
 
@@ -192,6 +194,7 @@ export class UsersService {
           id: true,
           email: true,
           status: true,
+          lastLoginAt: true,
 
           roleId: true,
 
@@ -236,6 +239,39 @@ export class UsersService {
     });
   }
 
+  async findSignupAttempts() {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const [failedCount, attempts] = await Promise.all([
+      this.prisma.signupAttempt.count({ where: { succeeded: false, createdAt: { gte: since } } }),
+      this.prisma.signupAttempt.findMany({
+        where: { createdAt: { gte: since } },
+        select: { id: true, succeeded: true, createdAt: true },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+    ]);
+    return { failedCount, attempts };
+  }
+
+  async resetStudentSignup(id: string, actingUserId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: { role: true, student: true },
+    });
+    if (!user || user.role.code !== 'STUDENT' || user.status !== 'PENDING_VERIFICATION' || !user.student) {
+      throw new BadRequestException('Only pending student signup accounts can be reset');
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.student.update({ where: { id: user.student!.id }, data: { userId: null } });
+      await tx.user.delete({ where: { id } });
+      await tx.auditLog.create({ data: {
+        action: 'STUDENT_SIGNUP_RESET', entity: 'User', entityId: id,
+        userId: actingUserId, details: JSON.stringify({ studentId: user.student!.id }),
+      } });
+    });
+    return { reset: true };
+  }
+
   async updateStatus(
     id: string,
     status: UserStatusValue,
@@ -244,6 +280,7 @@ export class UsersService {
     const allowedStatuses:
       UserStatusValue[] = [
       'ACTIVE',
+      'PENDING_VERIFICATION',
       'SUSPENDED',
       'LOCKED',
       'DISABLED',

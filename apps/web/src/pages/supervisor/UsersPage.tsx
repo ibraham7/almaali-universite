@@ -18,6 +18,11 @@ import {
     Select,
     Stack,
     TextField,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableRow,
     Typography,
 } from '@mui/material';
 
@@ -41,6 +46,8 @@ import {
     getUsers,
     updateUserRole,
     updateUserStatus,
+    getSignupAttempts,
+    resetStudentSignup,
     type Role,
     type RoleCode,
     type SystemUser,
@@ -107,6 +114,8 @@ function statusLabel(
     status: UserStatus,
 ) {
     switch (status) {
+        case 'PENDING_VERIFICATION':
+            return 'بانتظار التفعيل';
         case 'ACTIVE':
             return 'نشط';
 
@@ -155,6 +164,8 @@ export default function UsersPage() {
 
     const [success, setSuccess] =
         useState('');
+    const [attemptDialogOpen, setAttemptDialogOpen] = useState(false);
+    const [signupAttempts, setSignupAttempts] = useState<{ failedCount: number; attempts: Array<{ id: string; succeeded: boolean; createdAt: string }> } | null>(null);
 
     const [search, setSearch] =
         useState('');
@@ -221,7 +232,16 @@ export default function UsersPage() {
             } finally {
                 setLoading(false);
             }
-        }, []);
+    }, []);
+
+    async function openAttemptLog() {
+        try {
+            setSignupAttempts(await getSignupAttempts());
+            setAttemptDialogOpen(true);
+        } catch (requestError) {
+            setError(getErrorMessage(requestError));
+        }
+    }
 
     useEffect(() => {
         void loadData();
@@ -349,6 +369,22 @@ export default function UsersPage() {
         }
     }
 
+    async function resetPendingSignup() {
+        if (!selectedUser || selectedUser.status !== 'PENDING_VERIFICATION') return;
+        if (!window.confirm('سيُفصل الحساب المعلّق عن سجل الطالب وحذفه، ويمكن للطالب إرسال طلب جديد. هل تريد المتابعة؟')) return;
+        try {
+            setSaving(true);
+            await resetStudentSignup(selectedUser.id);
+            setDialogOpen(false);
+            setSuccess('تمت إعادة طلب التسجيل، ويمكن للطالب المحاولة من جديد.');
+            await loadData();
+        } catch (requestError) {
+            setError(getErrorMessage(requestError));
+        } finally {
+            setSaving(false);
+        }
+    }
+
     if (loading) {
         return (
             <Box
@@ -380,7 +416,8 @@ export default function UsersPage() {
 
     return (
         <Box>
-            <Box sx={{ mb: 3 }}>
+            <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+              <Box>
                 <Typography
                     variant="h4"
                     sx={{
@@ -404,6 +441,8 @@ export default function UsersPage() {
                     إدارة حسابات النظام
                     والأدوار وحالات الحسابات.
                 </Typography>
+              </Box>
+              <Button fullWidth sx={{ width: { sm: 'auto' } }} variant="outlined" onClick={() => void openAttemptLog()}>محاولات إنشاء الحساب</Button>
             </Box>
 
             {error && (
@@ -519,6 +558,10 @@ export default function UsersPage() {
 
                                 <MenuItem value="ACTIVE">
                                     نشط
+                                </MenuItem>
+
+                                <MenuItem value="PENDING_VERIFICATION">
+                                    بانتظار التفعيل
                                 </MenuItem>
 
                                 <MenuItem value="SUSPENDED">
@@ -791,6 +834,9 @@ export default function UsersPage() {
                                                         }
                                                     </Typography>
                                                 )}
+                                                <Typography color="text.secondary" sx={{ fontSize: 11, mt: 1 }}>
+                                                    آخر دخول: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString('ar') : 'لم يسجل دخولًا بعد'}
+                                                </Typography>
                                             </Box>
                                         </Stack>
                                     </CardContent>
@@ -858,6 +904,12 @@ export default function UsersPage() {
                                         }
                                     </Typography>
                                 )}
+                                <Typography color="text.secondary" sx={{ fontSize: 12, mt: 1 }}>
+                                    تاريخ إنشاء الحساب: {new Date(selectedUser.createdAt).toLocaleString('ar')}
+                                </Typography>
+                                <Typography color="text.secondary" sx={{ fontSize: 12, mt: 0.5 }}>
+                                    آخر دخول: {selectedUser.lastLoginAt ? new Date(selectedUser.lastLoginAt).toLocaleString('ar') : 'لم يسجل دخولًا بعد'}
+                                </Typography>
                             </Box>
 
                             <FormControl fullWidth>
@@ -915,6 +967,10 @@ export default function UsersPage() {
                                         نشط
                                     </MenuItem>
 
+                                    <MenuItem value="PENDING_VERIFICATION">
+                                        بانتظار التفعيل
+                                    </MenuItem>
+
                                     <MenuItem value="SUSPENDED">
                                         موقوف
                                     </MenuItem>
@@ -945,6 +1001,7 @@ export default function UsersPage() {
                 </DialogContent>
 
                 <DialogActions>
+                    {selectedUser?.status === 'PENDING_VERIFICATION' && <Button color="error" disabled={saving} onClick={() => void resetPendingSignup()}>إعادة طلب التسجيل</Button>}
                     <Button
                         disabled={saving}
                         onClick={() =>
@@ -966,6 +1023,19 @@ export default function UsersPage() {
                             : 'حفظ التغييرات'}
                     </Button>
                 </DialogActions>
+            </Dialog>
+            <Dialog open={attemptDialogOpen} onClose={() => setAttemptDialogOpen(false)} fullWidth maxWidth="sm">
+                <DialogTitle>محاولات إنشاء حسابات الطلاب</DialogTitle>
+                <DialogContent dividers>
+                    {signupAttempts && <>
+                        <Alert severity="info" sx={{ mb: 2 }}>عدد المحاولات غير المطابقة خلال آخر 24 ساعة: {signupAttempts.failedCount}. لا تُعرض بيانات الطالب أو عنوان IP في هذه القائمة.</Alert>
+                        <Table size="small">
+                            <TableHead><TableRow><TableCell>الوقت</TableCell><TableCell>النتيجة</TableCell></TableRow></TableHead>
+                            <TableBody>{signupAttempts.attempts.map((attempt) => <TableRow key={attempt.id}><TableCell>{new Date(attempt.createdAt).toLocaleString('ar')}</TableCell><TableCell>{attempt.succeeded ? 'مطابقة' : 'غير مطابقة'}</TableCell></TableRow>)}</TableBody>
+                        </Table>
+                    </>}
+                </DialogContent>
+                <DialogActions><Button onClick={() => setAttemptDialogOpen(false)}>إغلاق</Button></DialogActions>
             </Dialog>
         </Box>
     );

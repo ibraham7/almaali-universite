@@ -14,6 +14,7 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 
 import {
+  Link,
   Navigate,
   useNavigate,
 } from 'react-router-dom';
@@ -35,6 +36,9 @@ function getDefaultRoute(role: string) {
 }
 
 export default function LoginPage() {
+  const showTestLogins =
+    import.meta.env.VITE_ENABLE_TEST_LOGINS === 'true' &&
+    import.meta.env.MODE !== 'production';
   const navigate = useNavigate();
 
   const {
@@ -345,8 +349,14 @@ export default function LoginPage() {
                 fontSize: 14,
               }}
             >
-              أدخل اسم المستخدم وكلمة المرور للوصول إلى النظام الأكاديمي.
+              أدخل بريدك الجامعي وكلمة المرور للوصول إلى النظام الأكاديمي.
             </Typography>
+
+            {showTestLogins && (
+              <Alert severity="info" sx={{ mb: 2.5 }}>
+                دخول الاختبار: 01 / 01 للمدير، 02 / 02 للمرشد، 03 / 03 للطالب.
+              </Alert>
+            )}
 
             {error && (
               <Alert
@@ -371,7 +381,7 @@ export default function LoginPage() {
 
             <TextField
               fullWidth
-              placeholder="مثال: 01"
+              placeholder={showTestLogins ? 'البريد الإلكتروني أو 01 / 02 / 03' : 'البريد الإلكتروني'}
               type="text"
               value={username}
               onChange={(event) =>
@@ -381,7 +391,7 @@ export default function LoginPage() {
               required
               slotProps={{
                 htmlInput: {
-                  inputMode: 'numeric',
+                  inputMode: showTestLogins ? 'text' : 'email',
                 },
               }}
               sx={{ mb: 2.5 }}
@@ -436,6 +446,10 @@ export default function LoginPage() {
                 'دخول إلى النظام'
               )}
             </Button>
+            <Typography align="center" sx={{ mt: 2, fontSize: 14 }}>
+              طالب ولا تملك حسابًا؟{' '}
+              <Link to="/signup" style={{ color: '#0B4277', fontWeight: 600 }}>إنشاء حساب</Link>
+            </Typography>
           </Paper>
 
           <Typography
