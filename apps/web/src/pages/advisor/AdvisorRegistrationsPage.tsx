@@ -19,11 +19,15 @@ import {
 import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlineRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 
 import {
+  advisorCancelRegistration,
+  advisorRemoveRegistrationCourse,
   getMyAdvisorApprovals,
   updateAdvisorApproval,
   type AdvisorApproval,
@@ -33,10 +37,13 @@ type Decision = 'APPROVED' | 'REJECTED';
 
 function getErrorMessage(error: unknown) {
   if (axios.isAxiosError(error)) {
-    const message = error.response?.data?.message;
+    const data = error.response?.data as
+      | { message?: string | string[]; errors?: string[] }
+      | undefined;
 
-    if (Array.isArray(message)) return message.join('، ');
-    if (typeof message === 'string') return message;
+    if (data?.errors?.length) return data.errors.join('، ');
+    if (Array.isArray(data?.message)) return data.message.join('، ');
+    if (typeof data?.message === 'string') return data.message;
   }
 
   return 'حدث خطأ غير متوقع.';
@@ -44,7 +51,6 @@ function getErrorMessage(error: unknown) {
 
 function studentName(approval: AdvisorApproval) {
   const student = approval.enrollment.student;
-
   return [student.firstName, student.middleName, student.familyName]
     .filter(Boolean)
     .join(' ');
@@ -52,12 +58,9 @@ function studentName(approval: AdvisorApproval) {
 
 function statusLabel(status: AdvisorApproval['status']) {
   switch (status) {
-    case 'PENDING':
-      return 'معلق';
-    case 'APPROVED':
-      return 'مقبول';
-    case 'REJECTED':
-      return 'مرفوض';
+    case 'PENDING': return 'معلق';
+    case 'APPROVED': return 'مقبول';
+    case 'REJECTED': return 'مرفوض';
   }
 }
 
@@ -70,11 +73,11 @@ export default function AdvisorRegistrationsPage() {
   const [selected, setSelected] = useState<AdvisorApproval | null>(null);
   const [decision, setDecision] = useState<Decision | null>(null);
   const [note, setNote] = useState('');
+  const [cancelTarget, setCancelTarget] = useState<AdvisorApproval | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError('');
-
     try {
       setApprovals(await getMyAdvisorApprovals());
     } catch (err) {
@@ -93,10 +96,7 @@ export default function AdvisorRegistrationsPage() {
     [approvals],
   );
 
-  const openDecision = (
-    approval: AdvisorApproval,
-    value: Decision,
-  ) => {
+  const openDecision = (approval: AdvisorApproval, value: Decision) => {
     setSelected(approval);
     setDecision(value);
     setNote('');
@@ -136,6 +136,51 @@ export default function AdvisorRegistrationsPage() {
     }
   };
 
+  const removeCourse = async (
+    approval: AdvisorApproval,
+    enrollmentItemId: string,
+  ) => {
+    setSaving(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      await advisorRemoveRegistrationCourse(
+        approval.id,
+        enrollmentItemId,
+      );
+      setSuccess('تم حذف المقرر من تسجيل الطالب.');
+      await loadData();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const cancelRegistration = async () => {
+    if (!cancelTarget) return;
+
+    setSaving(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      await advisorCancelRegistration(
+        cancelTarget.id,
+        note.trim() || undefined,
+      );
+      setSuccess('تم إلغاء تسجيل الطالب.');
+      setCancelTarget(null);
+      setNote('');
+      await loadData();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Box>
       <Box
@@ -151,7 +196,7 @@ export default function AdvisorRegistrationsPage() {
         <Box>
           <Typography variant="h4">طلبات تسجيل الطلاب</Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            مراجعة التسجيلات والموافقة عليها أو رفضها.
+            مراجعة التسجيلات وتعديلها والموافقة عليها أو رفضها.
           </Typography>
         </Box>
 
@@ -191,10 +236,7 @@ export default function AdvisorRegistrationsPage() {
 
             const academicDetails = [
               { label: 'الكلية', value: student.college?.nameAr },
-              {
-                label: 'التخصص',
-                value: student.program?.nameAr ?? student.department?.nameAr,
-              },
+              { label: 'التخصص', value: student.program?.nameAr ?? student.department?.nameAr },
               { label: 'الخطة الدراسية', value: student.studyPlan?.nameAr },
               { label: 'السنة / المستوى', value: student.academicYear?.nameAr },
               { label: 'الفصل', value: student.semester?.nameAr },
@@ -208,9 +250,7 @@ export default function AdvisorRegistrationsPage() {
                     sx={{ justifyContent: 'space-between', gap: 2 }}
                   >
                     <Box>
-                      <Typography variant="h6">
-                        {studentName(approval)}
-                      </Typography>
+                      <Typography variant="h6">{studentName(approval)}</Typography>
                       <Typography color="text.secondary">
                         الرقم الجامعي: {student.universityId}
                       </Typography>
@@ -248,11 +288,7 @@ export default function AdvisorRegistrationsPage() {
                       {academicDetails.map((item) => (
                         <Box
                           key={item.label}
-                          sx={{
-                            p: 1.4,
-                            borderRadius: 2,
-                            bgcolor: 'action.hover',
-                          }}
+                          sx={{ p: 1.4, borderRadius: 2, bgcolor: 'action.hover' }}
                         >
                           <Typography variant="caption" color="text.secondary">
                             {item.label}
@@ -271,18 +307,39 @@ export default function AdvisorRegistrationsPage() {
                     {approval.enrollment.items.map((item) => (
                       <Box
                         key={item.id}
-                        sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 2 }}
+                        sx={{
+                          p: 1.5,
+                          bgcolor: 'action.hover',
+                          borderRadius: 2,
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          gap: 2,
+                        }}
                       >
-                        <Typography sx={{ fontWeight: 700 }}>
-                          {item.course.code} — {item.course.nameAr}
-                        </Typography>
-                        <Typography color="text.secondary" sx={{ fontSize: 13 }}>
-                          الشعبة {item.section.sectionNumber}
-                          {' • '}
-                          {item.course.credits} ساعات
-                          {' • '}
-                          {item.section.teacher?.name ?? 'بدون مدرس'}
-                        </Typography>
+                        <Box>
+                          <Typography sx={{ fontWeight: 700 }}>
+                            {item.course.code} — {item.course.nameAr}
+                          </Typography>
+                          <Typography color="text.secondary" sx={{ fontSize: 13 }}>
+                            الشعبة {item.section.sectionNumber}
+                            {' • '}{item.course.credits} ساعات
+                            {' • '}{item.section.teacher?.name ?? 'بدون مدرس'}
+                          </Typography>
+                        </Box>
+
+                        {approval.status === 'PENDING' && (
+                          <Button
+                            size="small"
+                            color="error"
+                            variant="outlined"
+                            disabled={saving}
+                            startIcon={<DeleteOutlineRoundedIcon />}
+                            onClick={() => void removeCourse(approval, item.id)}
+                          >
+                            حذف
+                          </Button>
+                        )}
                       </Box>
                     ))}
                   </Stack>
@@ -295,9 +352,21 @@ export default function AdvisorRegistrationsPage() {
 
                   {approval.status === 'PENDING' && (
                     <Stack
-                      direction="row"
+                      direction={{ xs: 'column', sm: 'row' }}
                       sx={{ justifyContent: 'flex-end', gap: 1, mt: 2 }}
                     >
+                      <Button
+                        color="error"
+                        variant="text"
+                        startIcon={<CancelOutlinedIcon />}
+                        onClick={() => {
+                          setCancelTarget(approval);
+                          setNote('');
+                        }}
+                      >
+                        إلغاء التسجيل
+                      </Button>
+
                       <Button
                         color="error"
                         variant="outlined"
@@ -306,6 +375,7 @@ export default function AdvisorRegistrationsPage() {
                       >
                         رفض
                       </Button>
+
                       <Button
                         color="success"
                         variant="contained"
@@ -332,7 +402,6 @@ export default function AdvisorRegistrationsPage() {
         <DialogTitle>
           {decision === 'APPROVED' ? 'تأكيد الموافقة' : 'رفض التسجيل'}
         </DialogTitle>
-
         <DialogContent>
           <TextField
             fullWidth
@@ -344,7 +413,6 @@ export default function AdvisorRegistrationsPage() {
             onChange={(event) => setNote(event.target.value)}
           />
         </DialogContent>
-
         <DialogActions>
           <Button disabled={saving} onClick={() => setSelected(null)}>
             إلغاء
@@ -356,6 +424,41 @@ export default function AdvisorRegistrationsPage() {
             onClick={() => void submit()}
           >
             تأكيد
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(cancelTarget)}
+        onClose={() => !saving && setCancelTarget(null)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>إلغاء تسجيل الطالب</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            سيتم حذف جميع المقررات من التسجيل وإلغاء الطلب بالكامل.
+          </Alert>
+          <TextField
+            fullWidth
+            multiline
+            minRows={3}
+            label="سبب الإلغاء أو ملاحظة"
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button disabled={saving} onClick={() => setCancelTarget(null)}>
+            رجوع
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            disabled={saving}
+            onClick={() => void cancelRegistration()}
+          >
+            تأكيد الإلغاء
           </Button>
         </DialogActions>
       </Dialog>
