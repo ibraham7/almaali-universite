@@ -87,6 +87,20 @@ export class AdvisorApprovalsController {
     );
   }
 
+  @Post(':approvalId/cancel-registration')
+  @Roles('ADVISOR')
+  cancelRegistration(
+    @Param('approvalId') approvalId: string,
+    @Body() body: { note?: string },
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.advisorApprovalsService.cancelRegistration(
+      approvalId,
+      request.user.id,
+      body.note,
+    );
+  }
+
   @Get(':approvalId')
   @Roles('REGISTRAR', 'SYSTEM_ADMIN')
   findById(@Param('approvalId') approvalId: string) {
