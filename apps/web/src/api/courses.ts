@@ -1,6 +1,4 @@
-import {
-    apiClient,
-} from './client';
+import { apiClient } from './client';
 
 export type CourseType =
     | 'THEORY'
@@ -16,76 +14,50 @@ export type CourseStatus =
 
 export interface Course {
     id: string;
-
     code: string;
-
     nameAr: string;
-
     nameEn?: string | null;
-
     credits: number;
-
     ects?: number | null;
-
     type: CourseType;
-
-    requirement:
-    CourseRequirement;
-
-    description?:
-    | string
-    | null;
-
+    requirement: CourseRequirement;
+    description?: string | null;
     status: CourseStatus;
 
     prerequisites: Array<{
         id: string;
-
         courseId: string;
-
         prerequisiteId: string;
-
         prerequisite: {
             id: string;
-
             code: string;
-
             nameAr: string;
-
-            nameEn?:
-            | string
-            | null;
+            nameEn?: string | null;
         };
     }>;
 }
 
 export interface CoursePayload {
     code: string;
-
     nameAr: string;
-
     nameEn?: string;
-
     credits: number;
-
     ects?: number;
-
     type: CourseType;
-
-    requirement:
-    CourseRequirement;
-
+    requirement: CourseRequirement;
     description?: string;
-
     status?: CourseStatus;
 }
 
 interface CoursesResponse {
     success: boolean;
-
     count: number;
-
     courses: Course[];
+}
+
+export interface PrerequisiteMutationResponse {
+    success: boolean;
+    errors?: string[];
 }
 
 export async function getCourses() {
@@ -122,20 +94,27 @@ export async function updateCourse(
     return response.data;
 }
 
+export async function addCoursePrerequisites(
+    courseId: string,
+    prerequisiteIds: string[],
+) {
+    const response =
+        await apiClient.post<PrerequisiteMutationResponse>(
+            `/courses/${courseId}/prerequisites/bulk`,
+            { prerequisiteIds },
+        );
+
+    return response.data;
+}
+
 export async function addCoursePrerequisite(
     courseId: string,
     prerequisiteId: string,
 ) {
-    const response =
-        await apiClient.post(
-            '/courses/prerequisites',
-            {
-                courseId,
-                prerequisiteId,
-            },
-        );
-
-    return response.data;
+    return addCoursePrerequisites(
+        courseId,
+        [prerequisiteId],
+    );
 }
 
 export async function removeCoursePrerequisite(
@@ -143,7 +122,7 @@ export async function removeCoursePrerequisite(
     prerequisiteId: string,
 ) {
     const response =
-        await apiClient.delete(
+        await apiClient.delete<PrerequisiteMutationResponse>(
             `/courses/${courseId}/prerequisites/${prerequisiteId}`,
         );
 
