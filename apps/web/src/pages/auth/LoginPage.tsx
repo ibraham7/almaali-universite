@@ -379,8 +379,10 @@ export default function LoginPage() {
               }
               autoComplete="username"
               required
-              inputProps={{
-                inputMode: 'numeric',
+              slotProps={{
+                htmlInput: {
+                  inputMode: 'numeric',
+                },
               }}
               sx={{ mb: 2.5 }}
             />
