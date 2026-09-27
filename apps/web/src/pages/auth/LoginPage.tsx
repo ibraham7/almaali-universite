@@ -43,7 +43,7 @@ export default function LoginPage() {
     user,
   } = useAuth();
 
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
   const [loading, setLoading] =
@@ -71,7 +71,7 @@ export default function LoginPage() {
 
     try {
       const loggedInUser = await login({
-        email,
+        username,
         password,
       });
 
@@ -83,7 +83,7 @@ export default function LoginPage() {
       );
     } catch {
       setError(
-        'تعذر تسجيل الدخول. تأكد من البريد الإلكتروني وكلمة المرور.',
+        'تعذر تسجيل الدخول. تأكد من اسم المستخدم وكلمة المرور.',
       );
     } finally {
       setLoading(false);
@@ -102,30 +102,23 @@ export default function LoginPage() {
         bgcolor: '#F4F7FA',
       }}
     >
-      {/* القسم الأزرق */}
       <Box
         sx={{
           display: {
             xs: 'none',
             md: 'flex',
           },
-
           position: 'relative',
           overflow: 'hidden',
-
           flexDirection: 'column',
           justifyContent: 'space-between',
-
           p: {
             md: 5,
             lg: 7,
           },
-
           color: '#FFFFFF',
-
           background:
             'linear-gradient(145deg, #041F3C 0%, #062D56 55%, #0B4277 100%)',
-
           '&::before': {
             content: '""',
             position: 'absolute',
@@ -137,7 +130,6 @@ export default function LoginPage() {
             top: -140,
             left: -140,
           },
-
           '&::after': {
             content: '""',
             position: 'absolute',
@@ -260,21 +252,17 @@ export default function LoginPage() {
         </Typography>
       </Box>
 
-      {/* نموذج الدخول */}
       <Box
         sx={{
           position: 'relative',
-
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-
           px: {
             xs: 2,
             sm: 4,
             lg: 8,
           },
-
           py: 5,
         }}
       >
@@ -284,14 +272,12 @@ export default function LoginPage() {
             maxWidth: 440,
           }}
         >
-          {/* شعار الموبايل */}
           <Box
             sx={{
               display: {
                 xs: 'flex',
                 md: 'none',
               },
-
               justifyContent: 'center',
               mb: 4,
             }}
@@ -317,10 +303,8 @@ export default function LoginPage() {
                 xs: 3,
                 sm: 4.5,
               },
-
               border: '1px solid',
               borderColor: 'divider',
-
               boxShadow:
                 '0 16px 50px rgba(6,45,86,0.07)',
             }}
@@ -330,14 +314,11 @@ export default function LoginPage() {
                 width: 50,
                 height: 50,
                 borderRadius: 2.5,
-
                 display: 'grid',
                 placeItems: 'center',
-
                 bgcolor:
                   'rgba(216,170,75,0.16)',
                 color: '#B98B31',
-
                 mb: 3,
               }}
             >
@@ -364,8 +345,7 @@ export default function LoginPage() {
                 fontSize: 14,
               }}
             >
-              أدخل بيانات حسابك للوصول إلى
-              النظام الأكاديمي.
+              أدخل اسم المستخدم وكلمة المرور للوصول إلى النظام الأكاديمي.
             </Typography>
 
             {error && (
@@ -386,19 +366,22 @@ export default function LoginPage() {
                 mb: 0.8,
               }}
             >
-              البريد الإلكتروني
+              اسم المستخدم
             </Typography>
 
             <TextField
               fullWidth
-              placeholder="example@university.edu"
-              type="email"
-              value={email}
+              placeholder="مثال: 01"
+              type="text"
+              value={username}
               onChange={(event) =>
-                setEmail(event.target.value)
+                setUsername(event.target.value)
               }
-              autoComplete="email"
+              autoComplete="username"
               required
+              inputProps={{
+                inputMode: 'numeric',
+              }}
               sx={{ mb: 2.5 }}
             />
 
