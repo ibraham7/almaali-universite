@@ -16,21 +16,10 @@ export class AdvisorApprovalsService {
     private readonly studentEnrollmentsService: StudentEnrollmentsService,
   ) {}
 
-  private readonly studentDetails = {
-    include: {
-      college: true,
-      department: true,
-      program: true,
-      studyPlan: true,
-      academicYear: true,
-      semester: true,
-    },
-  } as const;
-
   private readonly includeDetails = {
     enrollment: {
       include: {
-        student: this.studentDetails,
+        student: true,
         items: {
           include: {
             course: true,
@@ -46,6 +35,90 @@ export class AdvisorApprovalsService {
       },
     },
   } as const;
+
+  private async enrichStudent<T extends {
+    collegeId: string | null;
+    departmentId: string | null;
+    programId: string | null;
+    studyPlanId: string | null;
+    academicYearId: string | null;
+    semesterId: string | null;
+  }>(student: T) {
+    const [
+      college,
+      department,
+      program,
+      studyPlan,
+      academicYear,
+      semester,
+    ] = await Promise.all([
+      student.collegeId
+        ? this.prisma.college.findUnique({
+            where: { id: student.collegeId },
+          })
+        : null,
+      student.departmentId
+        ? this.prisma.department.findUnique({
+            where: { id: student.departmentId },
+          })
+        : null,
+      student.programId
+        ? this.prisma.program.findUnique({
+            where: { id: student.programId },
+          })
+        : null,
+      student.studyPlanId
+        ? this.prisma.studyPlan.findUnique({
+            where: { id: student.studyPlanId },
+          })
+        : null,
+      student.academicYearId
+        ? this.prisma.academicYear.findUnique({
+            where: { id: student.academicYearId },
+          })
+        : null,
+      student.semesterId
+        ? this.prisma.semester.findUnique({
+            where: { id: student.semesterId },
+          })
+        : null,
+    ]);
+
+    return {
+      ...student,
+      college,
+      department,
+      program,
+      studyPlan,
+      academicYear,
+      semester,
+    };
+  }
+
+  private async enrichApproval<T extends {
+    enrollment: {
+      student: {
+        collegeId: string | null;
+        departmentId: string | null;
+        programId: string | null;
+        studyPlanId: string | null;
+        academicYearId: string | null;
+        semesterId: string | null;
+      };
+    };
+  }>(approval: T) {
+    const student = await this.enrichStudent(
+      approval.enrollment.student,
+    );
+
+    return {
+      ...approval,
+      enrollment: {
+        ...approval.enrollment,
+        student,
+      },
+    };
+  }
 
   private async getPendingOwnedApproval(
     approvalId: string,
@@ -85,18 +158,26 @@ export class AdvisorApprovalsService {
   }
 
   async findForAdvisor(advisorId: string) {
-    return this.prisma.advisorApproval.findMany({
+    const approvals = await this.prisma.advisorApproval.findMany({
       where: { advisorId },
       include: this.includeDetails,
       orderBy: { createdAt: 'desc' },
     });
+
+    return Promise.all(
+      approvals.map((approval) => this.enrichApproval(approval)),
+    );
   }
 
   async findAll() {
-    return this.prisma.advisorApproval.findMany({
+    const approvals = await this.prisma.advisorApproval.findMany({
       include: this.includeDetails,
       orderBy: { createdAt: 'desc' },
     });
+
+    return Promise.all(
+      approvals.map((approval) => this.enrichApproval(approval)),
+    );
   }
 
   async findOneForAdvisor(
@@ -118,7 +199,7 @@ export class AdvisorApprovalsService {
       );
     }
 
-    return approval;
+    return this.enrichApproval(approval);
   }
 
   async findOne(approvalId: string) {
@@ -131,7 +212,7 @@ export class AdvisorApprovalsService {
       throw new NotFoundException('طلب الموافقة غير موجود');
     }
 
-    return approval;
+    return this.enrichApproval(approval);
   }
 
   async getAvailableCoursesForAdvisor(
@@ -143,19 +224,25 @@ export class AdvisorApprovalsService {
       advisorId,
     );
 
-    const student = await this.prisma.student.findUnique({
-      where: { id: approval.enrollment.studentId },
-      include: {
-        studyPlan: {
-          include: {
-            program: {
-              include: {
-                department: {
-                  include: {
-                    college: {
-                      include: {
-                        university: true,
-                      },
+    const student = approval.enrollment.student;
+
+    if (!student.studyPlanId || !student.academicYearId) {
+      throw new BadRequestException(
+        'بيانات الطالب الأكاديمية غير مكتملة',
+      );
+    }
+
+    const [studyPlan, academicYear] = await Promise.all([
+      this.prisma.studyPlan.findUnique({
+        where: { id: student.studyPlanId },
+        include: {
+          program: {
+            include: {
+              department: {
+                include: {
+                  college: {
+                    include: {
+                      university: true,
                     },
                   },
                 },
@@ -163,27 +250,23 @@ export class AdvisorApprovalsService {
             },
           },
         },
-        academicYear: true,
-      },
-    });
+      }),
+      this.prisma.academicYear.findUnique({
+        where: { id: student.academicYearId },
+      }),
+    ]);
 
-    if (
-      !student ||
-      !student.studyPlanId ||
-      !student.academicYear ||
-      !student.studyPlan
-    ) {
+    if (!studyPlan || !academicYear) {
       throw new BadRequestException(
         'بيانات الطالب الأكاديمية غير مكتملة',
       );
     }
 
     const university =
-      student.studyPlan.program.department.college.university;
+      studyPlan.program.department.college.university;
 
     const maxLevel =
-      student.academicYear.levelNumber +
-      university.allowedFutureYears;
+      academicYear.levelNumber + university.allowedFutureYears;
 
     const currentItems = await this.prisma.enrollmentItem.findMany({
       where: { enrollmentId: approval.enrollmentId },
@@ -199,7 +282,7 @@ export class AdvisorApprovalsService {
         studyPlanId: student.studyPlanId,
         academicYear: {
           levelNumber: {
-            gte: student.academicYear.levelNumber,
+            gte: academicYear.levelNumber,
             lte: maxLevel,
           },
         },
