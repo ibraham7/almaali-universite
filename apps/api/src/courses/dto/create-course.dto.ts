@@ -4,6 +4,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   Min,
 } from 'class-validator';
@@ -33,32 +34,27 @@ export class CreateCourseDto {
   @Min(0)
   ects?: number;
 
-  @IsIn([
-    'THEORY',
-    'PRACTICAL',
-  ])
-  type!:
-    | 'THEORY'
-    | 'PRACTICAL';
+  @IsIn(['THEORY', 'PRACTICAL'])
+  type!: 'THEORY' | 'PRACTICAL';
 
-  @IsIn([
-    'MANDATORY',
-    'ELECTIVE',
-  ])
-  requirement!:
-    | 'MANDATORY'
-    | 'ELECTIVE';
+  @IsIn(['MANDATORY', 'ELECTIVE'])
+  requirement!: 'MANDATORY' | 'ELECTIVE';
 
   @IsOptional()
   @IsString()
   description?: string;
 
   @IsOptional()
-  @IsIn([
-    'ACTIVE',
-    'INACTIVE',
-  ])
-  status?:
-    | 'ACTIVE'
-    | 'INACTIVE';
+  @IsIn(['ACTIVE', 'INACTIVE'])
+  status?: 'ACTIVE' | 'INACTIVE';
+
+  // المقرر عند إنشائه يجب أن يوضع مباشرة داخل مساره الأكاديمي.
+  @IsUUID()
+  studyPlanId!: string;
+
+  @IsUUID()
+  academicYearId!: string;
+
+  @IsUUID()
+  semesterId!: string;
 }
