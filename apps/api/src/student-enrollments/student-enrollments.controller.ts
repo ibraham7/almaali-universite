@@ -148,7 +148,9 @@ export class StudentEnrollmentsController {
 
   @Get('me/registration')
   @Roles('STUDENT')
-  getMyRegistration(@Req() request: AuthenticatedRequest) {
+  async getMyRegistration(@Req() request: AuthenticatedRequest) {
+    await this.reopenForStudent(request.user.id);
+
     return this.studentEnrollmentsService.getMyRegistration(
       request.user.id,
     );
