@@ -4,18 +4,15 @@ import {
   Get,
   Param,
   Patch,
+  Post,
   Req,
   UseGuards,
 } from '@nestjs/common';
 
 import { JwtGuard } from '../auth/guards/jwt/jwt.guard.js';
-
 import { RolesGuard } from '../auth/guards/roles/roles.guard.js';
-
 import { Roles } from '../auth/decorators/roles.decorator.js';
-
 import { AdvisorApprovalsService } from './advisor-approvals.service.js';
-
 import { UpdateAdvisorApprovalDto } from './dto/update-advisor-approval.dto.js';
 
 interface AuthUser {
@@ -29,31 +26,22 @@ interface AuthenticatedRequest {
 }
 
 @Controller('advisor-approvals')
-@UseGuards(
-  JwtGuard,
-  RolesGuard,
-)
+@UseGuards(JwtGuard, RolesGuard)
 export class AdvisorApprovalsController {
   constructor(
     private readonly advisorApprovalsService: AdvisorApprovalsService,
-  ) { }
+  ) {}
 
   @Get('me')
   @Roles('ADVISOR')
-  findMine(
-    @Req()
-    request: AuthenticatedRequest,
-  ) {
+  findMine(@Req() request: AuthenticatedRequest) {
     return this.advisorApprovalsService.findForAdvisor(
       request.user.id,
     );
   }
 
   @Get()
-  @Roles(
-    'REGISTRAR',
-    'SYSTEM_ADMIN',
-  )
+  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
   findAll() {
     return this.advisorApprovalsService.findAll();
   }
@@ -61,11 +49,8 @@ export class AdvisorApprovalsController {
   @Get('me/:approvalId')
   @Roles('ADVISOR')
   findMineById(
-    @Param('approvalId')
-    approvalId: string,
-
-    @Req()
-    request: AuthenticatedRequest,
+    @Param('approvalId') approvalId: string,
+    @Req() request: AuthenticatedRequest,
   ) {
     return this.advisorApprovalsService.findOneForAdvisor(
       approvalId,
@@ -73,31 +58,47 @@ export class AdvisorApprovalsController {
     );
   }
 
-  @Get(':approvalId')
-  @Roles(
-    'REGISTRAR',
-    'SYSTEM_ADMIN',
-  )
-  findById(
-    @Param('approvalId')
-    approvalId: string,
+  @Post(':approvalId/courses')
+  @Roles('ADVISOR')
+  addCourse(
+    @Param('approvalId') approvalId: string,
+    @Body() body: { courseId: string; sectionId: string },
+    @Req() request: AuthenticatedRequest,
   ) {
-    return this.advisorApprovalsService.findOne(
+    return this.advisorApprovalsService.addCourse(
       approvalId,
+      request.user.id,
+      body.courseId,
+      body.sectionId,
     );
+  }
+
+  @Post(':approvalId/courses/remove')
+  @Roles('ADVISOR')
+  removeCourse(
+    @Param('approvalId') approvalId: string,
+    @Body() body: { enrollmentItemId: string },
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.advisorApprovalsService.removeCourse(
+      approvalId,
+      request.user.id,
+      body.enrollmentItemId,
+    );
+  }
+
+  @Get(':approvalId')
+  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  findById(@Param('approvalId') approvalId: string) {
+    return this.advisorApprovalsService.findOne(approvalId);
   }
 
   @Patch(':approvalId')
   @Roles('ADVISOR')
   updateDecision(
-    @Param('approvalId')
-    approvalId: string,
-
-    @Body()
-    dto: UpdateAdvisorApprovalDto,
-
-    @Req()
-    request: AuthenticatedRequest,
+    @Param('approvalId') approvalId: string,
+    @Body() dto: UpdateAdvisorApprovalDto,
+    @Req() request: AuthenticatedRequest,
   ) {
     return this.advisorApprovalsService.updateDecision(
       approvalId,
