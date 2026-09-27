@@ -134,6 +134,138 @@ export class AdvisorApprovalsService {
     return approval;
   }
 
+  async getAvailableCoursesForAdvisor(
+    approvalId: string,
+    advisorId: string,
+  ) {
+    const approval = await this.getPendingOwnedApproval(
+      approvalId,
+      advisorId,
+    );
+
+    const student = await this.prisma.student.findUnique({
+      where: { id: approval.enrollment.studentId },
+      include: {
+        studyPlan: {
+          include: {
+            program: {
+              include: {
+                department: {
+                  include: {
+                    college: {
+                      include: {
+                        university: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        academicYear: true,
+      },
+    });
+
+    if (
+      !student ||
+      !student.studyPlanId ||
+      !student.academicYear ||
+      !student.studyPlan
+    ) {
+      throw new BadRequestException(
+        'بيانات الطالب الأكاديمية غير مكتملة',
+      );
+    }
+
+    const university =
+      student.studyPlan.program.department.college.university;
+
+    const maxLevel =
+      student.academicYear.levelNumber +
+      university.allowedFutureYears;
+
+    const currentItems = await this.prisma.enrollmentItem.findMany({
+      where: { enrollmentId: approval.enrollmentId },
+      select: { courseId: true },
+    });
+
+    const existingCourseIds = new Set(
+      currentItems.map((item) => item.courseId),
+    );
+
+    const planCourses = await this.prisma.studyPlanCourse.findMany({
+      where: {
+        studyPlanId: student.studyPlanId,
+        academicYear: {
+          levelNumber: {
+            gte: student.academicYear.levelNumber,
+            lte: maxLevel,
+          },
+        },
+        course: {
+          status: 'ACTIVE',
+        },
+      },
+      include: {
+        academicYear: true,
+        semester: true,
+        course: {
+          include: {
+            sections: {
+              where: {
+                status: 'OPEN',
+              },
+              include: {
+                teacher: true,
+                classroom: true,
+                schedules: true,
+              },
+              orderBy: {
+                sectionNumber: 'asc',
+              },
+            },
+          },
+        },
+      },
+      orderBy: [
+        {
+          academicYear: {
+            levelNumber: 'asc',
+          },
+        },
+        {
+          semester: {
+            semesterNumber: 'asc',
+          },
+        },
+        {
+          priority: 'asc',
+        },
+      ],
+    });
+
+    return planCourses
+      .filter(
+        (planCourse) =>
+          !existingCourseIds.has(planCourse.courseId),
+      )
+      .map((planCourse) => ({
+        id: planCourse.course.id,
+        code: planCourse.course.code,
+        nameAr: planCourse.course.nameAr,
+        credits: planCourse.course.credits,
+        academicYear: planCourse.academicYear,
+        semester: planCourse.semester,
+        sections: planCourse.course.sections.filter(
+          (section) =>
+            section.semesterId === planCourse.semesterId &&
+            section.enrolledCount < section.maxCapacity,
+        ),
+      }))
+      .filter((course) => course.sections.length > 0);
+  }
+
   async addCourse(
     approvalId: string,
     advisorId: string,
@@ -307,7 +439,9 @@ export class AdvisorApprovalsService {
         where: { id: approvalId },
         data: {
           status: 'REJECTED',
-          note: note?.trim() || 'تم إلغاء التسجيل بواسطة المرشد الأكاديمي',
+          note:
+            note?.trim() ||
+            'تم إلغاء التسجيل بواسطة المرشد الأكاديمي',
         },
       });
 
@@ -317,7 +451,9 @@ export class AdvisorApprovalsService {
           entity: 'StudentEnrollment',
           entityId: approval.enrollmentId,
           userId: advisorId,
-          details: JSON.stringify({ note: note?.trim() || null }),
+          details: JSON.stringify({
+            note: note?.trim() || null,
+          }),
         },
       });
     });
