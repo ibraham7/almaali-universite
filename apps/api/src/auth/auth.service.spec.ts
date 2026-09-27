@@ -77,20 +77,17 @@ describe('AuthService', () => {
     }
   });
 
-  it('allows authentication if only the lastLoginAt column is missing', async () => {
+  it('authenticates without writing to the optional lastLoginAt column', async () => {
     usersService.findByEmail.mockResolvedValue({
       id: 'student-1', email: 'student@example.edu', status: 'ACTIVE',
       passwordHash: await argon2.hash('valid-password'), role: { code: 'STUDENT' },
-    });
-    prisma.user.update.mockRejectedValue({
-      code: 'P2022',
-      meta: { column: 'User.lastLoginAt' },
     });
 
     await expect(service.login('student@example.edu', 'valid-password')).resolves.toMatchObject({
       user: { email: 'student@example.edu', role: 'STUDENT' },
       access_token: 'token',
     });
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
   it('blocks short test logins in production even if the flag is set', async () => {

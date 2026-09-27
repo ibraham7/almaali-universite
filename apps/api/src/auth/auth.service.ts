@@ -51,28 +51,6 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    try {
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { lastLoginAt: new Date() },
-      });
-    } catch (error) {
-      // Permit login while a deployment is waiting for the lastLoginAt
-      // migration to reach the database. Other database errors still fail.
-      const isMissingLastLoginAt =
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        error.code === 'P2022' &&
-        'meta' in error &&
-        typeof error.meta === 'object' &&
-        error.meta !== null &&
-        'column' in error.meta &&
-        error.meta.column === 'User.lastLoginAt';
-
-      if (!isMissingLastLoginAt) throw error;
-    }
-
     const payload = {
       sub: user.id,
       email: user.email,
