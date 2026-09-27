@@ -12,7 +12,7 @@ services:
       - key: NODE_VERSION
         value: 24.11.1
       - key: VITE_API_URL
-        value: https://api.uni.novanoai.online
+        value: https://almaali-api.onrender.com
     routes:
       - type: rewrite
         source: /*
@@ -43,7 +43,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: CORS_ORIGINS
-        value: https://uni.novanoai.online
+        value: https://almaali-web.onrender.com,https://uni.novanoai.online
 
 databases:
   - name: almaali-db

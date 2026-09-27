@@ -9,15 +9,12 @@ async function bootstrap() {
       AppModule,
     );
 
-  const allowedOrigins = (
-    process.env.CORS_ORIGINS ??
-    'http://localhost:5173'
-  )
-    .split(',')
-    .map((origin) =>
-      origin.trim(),
-    )
-    .filter(Boolean);
+  const allowedOrigins = new Set([
+    'http://localhost:5173',
+    'https://almaali-web.onrender.com',
+    'https://uni.novanoai.online',
+    ...(process.env.CORS_ORIGINS ?? '').split(','),
+  ].map((origin) => origin.trim()).filter(Boolean));
 
   app.enableCors({
     origin: (
@@ -29,7 +26,7 @@ async function bootstrap() {
     ) => {
       if (
         !origin ||
-        allowedOrigins.includes(
+        allowedOrigins.has(
           origin,
         )
       ) {
