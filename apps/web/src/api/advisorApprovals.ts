@@ -5,6 +5,12 @@ export type AdvisorApprovalStatus =
     | 'APPROVED'
     | 'REJECTED';
 
+interface AcademicEntity {
+    id: string;
+    nameAr: string;
+    nameEn?: string | null;
+}
+
 export interface AdvisorApproval {
     id: string;
     enrollmentId: string;
@@ -27,6 +33,16 @@ export interface AdvisorApproval {
             familyName: string;
             englishName?: string | null;
             universityEmail?: string | null;
+            college?: AcademicEntity | null;
+            department?: AcademicEntity | null;
+            program?: AcademicEntity | null;
+            studyPlan?: AcademicEntity | null;
+            academicYear?: (AcademicEntity & {
+                levelNumber: number;
+            }) | null;
+            semester?: (AcademicEntity & {
+                semesterNumber: number;
+            }) | null;
         };
 
         items: Array<{
@@ -66,9 +82,9 @@ export interface AdvisorApproval {
 }
 
 export async function getMyAdvisorApprovals() {
-    const { data } = await apiClient.get<
-        AdvisorApproval[]
-    >('/advisor-approvals/me');
+    const { data } = await apiClient.get<AdvisorApproval[]>(
+        '/advisor-approvals/me',
+    );
 
     return data;
 }
@@ -80,11 +96,10 @@ export async function updateAdvisorApproval(
         note?: string;
     },
 ) {
-    const { data } =
-        await apiClient.patch<AdvisorApproval>(
-            `/advisor-approvals/${approvalId}`,
-            payload,
-        );
+    const { data } = await apiClient.patch<AdvisorApproval>(
+        `/advisor-approvals/${approvalId}`,
+        payload,
+    );
 
     return data;
 }
