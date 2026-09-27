@@ -5,18 +5,14 @@ import {
 } from 'react-router-dom';
 
 import ProtectedRoute from './routes/ProtectedRoute';
-
 import DashboardLayout from './layouts/DashboardLayout';
+import GlobalSuccessToast from './components/GlobalSuccessToast';
 
 import LoginPage from './pages/auth/LoginPage';
-
 import DashboardPage from './pages/shared/DashboardPage';
-
 import StudentRegistrationPage from './pages/student/StudentRegistrationPage';
 import StudentSchedulePage from './pages/student/StudentSchedulePage';
-
 import AdvisorRegistrationsPage from './pages/advisor/AdvisorRegistrationsPage';
-
 import StudyPlanPage from './pages/supervisor/StudyPlanPage';
 import SectionsPage from './pages/supervisor/SectionsPage';
 import RegistrationPeriodsPage from './pages/supervisor/RegistrationPeriodsPage';
@@ -30,219 +26,93 @@ import ResultsImportPage from './pages/supervisor/ResultsImportPage';
 
 function App() {
   return (
-    <Routes>
-      <Route
-        path="/login"
-        element={<LoginPage />}
-      />
+    <>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
 
-      {/* أي مستخدم مسجل دخول */}
-      <Route
-        element={<ProtectedRoute />}
-      >
+        <Route element={<ProtectedRoute />}>
+          <Route element={<DashboardLayout />}>
+            <Route path="/dashboard" element={<DashboardPage />} />
+          </Route>
+        </Route>
+
+        <Route element={<ProtectedRoute allowedRoles={['STUDENT']} />}>
+          <Route element={<DashboardLayout />}>
+            <Route
+              path="/student/registration"
+              element={<StudentRegistrationPage />}
+            />
+            <Route
+              path="/student/schedule"
+              element={<StudentSchedulePage />}
+            />
+          </Route>
+        </Route>
+
+        <Route element={<ProtectedRoute allowedRoles={['ADVISOR']} />}>
+          <Route element={<DashboardLayout />}>
+            <Route
+              path="/advisor/registrations"
+              element={<AdvisorRegistrationsPage />}
+            />
+          </Route>
+        </Route>
+
         <Route
           element={
-            <DashboardLayout />
+            <ProtectedRoute
+              allowedRoles={['ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN']}
+            />
           }
         >
-          <Route
-            path="/dashboard"
-            element={
-              <DashboardPage />
-            }
-          />
+          <Route element={<DashboardLayout />}>
+            <Route path="/students" element={<StudentsPage />} />
+            <Route
+              path="/supervisor/study-plan"
+              element={<StudyPlanPage />}
+            />
+          </Route>
         </Route>
-      </Route>
 
-      {/* الطالب */}
-      <Route
-        element={
-          <ProtectedRoute
-            allowedRoles={[
-              'STUDENT',
-            ]}
-          />
-        }
-      >
         <Route
           element={
-            <DashboardLayout />
+            <ProtectedRoute allowedRoles={['REGISTRAR', 'SYSTEM_ADMIN']} />
           }
         >
-          <Route
-            path="/student/registration"
-            element={
-              <StudentRegistrationPage />
-            }
-          />
-
-          <Route
-            path="/student/schedule"
-            element={
-              <StudentSchedulePage />
-            }
-          />
+          <Route element={<DashboardLayout />}>
+            <Route path="/courses" element={<CoursesPage />} />
+            <Route
+              path="/supervisor/sections"
+              element={<SectionsPage />}
+            />
+            <Route
+              path="/supervisor/registration-periods"
+              element={<RegistrationPeriodsPage />}
+            />
+            <Route
+              path="/academic-structure"
+              element={<AcademicStructurePage />}
+            />
+            <Route
+              path="/results/import"
+              element={<ResultsImportPage />}
+            />
+          </Route>
         </Route>
-      </Route>
 
-      {/* المرشد الأكاديمي */}
-      <Route
-        element={
-          <ProtectedRoute
-            allowedRoles={[
-              'ADVISOR',
-            ]}
-          />
-        }
-      >
-        <Route
-          element={
-            <DashboardLayout />
-          }
-        >
-          <Route
-            path="/advisor/registrations"
-            element={
-              <AdvisorRegistrationsPage />
-            }
-          />
+        <Route element={<ProtectedRoute allowedRoles={['SYSTEM_ADMIN']} />}>
+          <Route element={<DashboardLayout />}>
+            <Route path="/users" element={<UsersPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/grade-scale" element={<GradeScalePage />} />
+          </Route>
         </Route>
-      </Route>
 
-      {/* المرشد + المسجل + مدير النظام */}
-      <Route
-        element={
-          <ProtectedRoute
-            allowedRoles={[
-              'ADVISOR',
-              'REGISTRAR',
-              'SYSTEM_ADMIN',
-            ]}
-          />
-        }
-      >
-        <Route
-          element={
-            <DashboardLayout />
-          }
-        >
-          <Route
-            path="/students"
-            element={
-              <StudentsPage />
-            }
-          />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
 
-          <Route
-            path="/supervisor/study-plan"
-            element={
-              <StudyPlanPage />
-            }
-          />
-        </Route>
-      </Route>
-
-      {/* المسجل + مدير النظام */}
-      <Route
-        element={
-          <ProtectedRoute
-            allowedRoles={[
-              'REGISTRAR',
-              'SYSTEM_ADMIN',
-            ]}
-          />
-        }
-      >
-        <Route
-          element={
-            <DashboardLayout />
-          }
-        >
-          <Route
-            path="/courses"
-            element={
-              <CoursesPage />
-            }
-          />
-
-          <Route
-            path="/supervisor/sections"
-            element={
-              <SectionsPage />
-            }
-          />
-
-          <Route
-            path="/supervisor/registration-periods"
-            element={
-              <RegistrationPeriodsPage />
-            }
-          />
-
-          <Route
-            path="/academic-structure"
-            element={
-              <AcademicStructurePage />
-            }
-          />
-
-          <Route
-            path="/results/import"
-            element={
-              <ResultsImportPage />
-            }
-          />
-        </Route>
-      </Route>
-
-      {/* مدير النظام فقط */}
-      <Route
-        element={
-          <ProtectedRoute
-            allowedRoles={[
-              'SYSTEM_ADMIN',
-            ]}
-          />
-        }
-      >
-        <Route
-          element={
-            <DashboardLayout />
-          }
-        >
-          <Route
-            path="/users"
-            element={
-              <UsersPage />
-            }
-          />
-
-          <Route
-            path="/settings"
-            element={
-              <SettingsPage />
-            }
-          />
-
-          <Route
-            path="/grade-scale"
-            element={
-              <GradeScalePage />
-            }
-          />
-        </Route>
-      </Route>
-
-      <Route
-        path="*"
-        element={
-          <Navigate
-            to="/login"
-            replace
-          />
-        }
-      />
-    </Routes>
+      <GlobalSuccessToast />
+    </>
   );
 }
 
