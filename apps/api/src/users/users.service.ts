@@ -39,8 +39,16 @@ export class UsersService {
         email,
       },
 
-      include: {
-        role: true,
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        status: true,
+        role: {
+          select: {
+            code: true,
+          },
+        },
       },
     });
   }
