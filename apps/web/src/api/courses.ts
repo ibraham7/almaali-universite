@@ -35,6 +35,47 @@ export interface Course {
             nameEn?: string | null;
         };
     }>;
+
+    planCourses?: Array<{
+        id: string;
+        studyPlanId: string;
+        academicYearId: string;
+        semesterId: string;
+        priority: number;
+        requirement: CourseRequirement;
+        academicYear: {
+            id: string;
+            nameAr: string;
+            nameEn?: string | null;
+            levelNumber: number;
+        };
+        semester: {
+            id: string;
+            nameAr: string;
+            nameEn?: string | null;
+            semesterNumber: number;
+        };
+        studyPlan: {
+            id: string;
+            nameAr: string;
+            nameEn?: string | null;
+            program: {
+                id: string;
+                nameAr: string;
+                nameEn?: string | null;
+                department: {
+                    id: string;
+                    nameAr: string;
+                    nameEn?: string | null;
+                    college: {
+                        id: string;
+                        nameAr: string;
+                        nameEn?: string | null;
+                    };
+                };
+            };
+        };
+    }>;
 }
 
 export interface CoursePayload {
@@ -47,6 +88,9 @@ export interface CoursePayload {
     requirement: CourseRequirement;
     description?: string;
     status?: CourseStatus;
+    studyPlanId?: string;
+    academicYearId?: string;
+    semesterId?: string;
 }
 
 interface CoursesResponse {
