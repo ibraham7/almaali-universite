@@ -71,8 +71,8 @@ export default function SupportTicketsPage() {
       <Typography variant="h6" sx={{ mb: 2 }}>تذكرة جديدة</Typography>
       <Stack spacing={2}>
         <TextField select label="النوع" value={category} onChange={(event) => setCategory(event.target.value)}>{Object.entries(categories).map(([key, label]) => <MenuItem key={key} value={key}>{label}</MenuItem>)}</TextField>
-        <TextField label="العنوان" value={title} onChange={(event) => setTitle(event.target.value)} slotProps={{ htmlInput: { maxLength: 120 } }} required />
-        <TextField label="شرح المشكلة أو الاقتراح" value={description} onChange={(event) => setDescription(event.target.value)} multiline minRows={3} slotProps={{ htmlInput: { maxLength: 3000 } }} required />
+        <TextField label="العنوان" value={title} onChange={(event) => setTitle(event.target.value)} slotProps={{ htmlInput: { maxLength: 120 } }} helperText={title.trim().length < 5 ? 'اكتب عنوانًا من 5 أحرف على الأقل، مثل: مشكلة في التسجيل' : ' '} error={title.length > 0 && title.trim().length < 5} required />
+        <TextField label="شرح المشكلة أو الاقتراح" value={description} onChange={(event) => setDescription(event.target.value)} multiline minRows={3} slotProps={{ htmlInput: { maxLength: 3000 } }} helperText={description.trim().length < 10 ? 'اكتب شرحًا من 10 أحرف على الأقل.' : ' '} error={description.length > 0 && description.trim().length < 10} required />
         <Button component="label" variant="outlined">{imageData ? 'تم اختيار صورة' : 'إرفاق صورة اختيارية'}<input hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => void uploadImage(event)} /></Button>
         <Button type="submit" variant="contained" disabled={busy || title.trim().length < 5 || description.trim().length < 10}>{busy ? <CircularProgress size={20} /> : 'إنشاء التذكرة'}</Button>
       </Stack>
