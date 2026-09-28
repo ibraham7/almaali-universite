@@ -26,7 +26,7 @@ services:
     region: frankfurt
     rootDir: apps/api
     plan: free
-    buildCommand: pnpm install --frozen-lockfile && pnpm exec prisma generate --config prisma7.config.ts && pnpm run build && pnpm exec prisma migrate deploy --config prisma7.config.ts
+    buildCommand: pnpm install --frozen-lockfile --prod=false && pnpm exec prisma generate --config prisma7.config.ts && pnpm run build && pnpm exec prisma migrate deploy --config prisma7.config.ts
     startCommand: node dist/main.js
     healthCheckPath: /
     autoDeployTrigger: commit
