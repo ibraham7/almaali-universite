@@ -1,0 +1,63 @@
+-- Isolated fictional catalog for the public TEST-U-001 signup trial.
+-- It does not assign plans or courses to any other student.
+INSERT INTO "University" ("id", "nameAr", "nameEn", "createdAt", "updatedAt")
+VALUES ('d6100000-0000-4000-8000-000000000001', 'جامعة اختبار التسجيل', 'Registration Demo University', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("id") DO NOTHING;
+
+INSERT INTO "College" ("id", "universityId", "nameAr", "nameEn", "createdAt", "updatedAt")
+VALUES ('d6100000-0000-4000-8000-000000000002', 'd6100000-0000-4000-8000-000000000001', 'كلية تجريبية', 'Demo College', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("id") DO NOTHING;
+
+INSERT INTO "Department" ("id", "collegeId", "nameAr", "nameEn", "createdAt", "updatedAt")
+VALUES ('d6100000-0000-4000-8000-000000000003', 'd6100000-0000-4000-8000-000000000002', 'قسم اختبار النظام', 'Demo Department', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("id") DO NOTHING;
+
+INSERT INTO "Program" ("id", "departmentId", "nameAr", "nameEn", "createdAt", "updatedAt")
+VALUES ('d6100000-0000-4000-8000-000000000004', 'd6100000-0000-4000-8000-000000000003', 'برنامج اختبار التسجيل', 'Registration Demo Program', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("id") DO NOTHING;
+
+INSERT INTO "StudyPlan" ("id", "programId", "nameAr", "nameEn", "createdAt", "updatedAt")
+VALUES ('d6100000-0000-4000-8000-000000000005', 'd6100000-0000-4000-8000-000000000004', 'الخطة التجريبية', 'Demo Study Plan', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("id") DO NOTHING;
+
+INSERT INTO "AcademicYear" ("id", "studyPlanId", "nameAr", "nameEn", "levelNumber", "createdAt", "updatedAt")
+VALUES ('d6100000-0000-4000-8000-000000000006', 'd6100000-0000-4000-8000-000000000005', 'المستوى الأول', 'Level 1', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("id") DO NOTHING;
+
+INSERT INTO "Semester" ("id", "academicYearId", "nameAr", "nameEn", "semesterNumber", "createdAt", "updatedAt")
+VALUES ('d6100000-0000-4000-8000-000000000007', 'd6100000-0000-4000-8000-000000000006', 'الفصل الأول', 'Semester 1', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("id") DO NOTHING;
+
+UPDATE "Student" SET
+  "collegeId" = 'd6100000-0000-4000-8000-000000000002',
+  "departmentId" = 'd6100000-0000-4000-8000-000000000003',
+  "programId" = 'd6100000-0000-4000-8000-000000000004',
+  "studyPlanId" = 'd6100000-0000-4000-8000-000000000005',
+  "academicYearId" = 'd6100000-0000-4000-8000-000000000006',
+  "semesterId" = 'd6100000-0000-4000-8000-000000000007',
+  "updatedAt" = CURRENT_TIMESTAMP
+WHERE "universityId" = 'TEST-U-001' AND "studyPlanId" IS NULL;
+
+INSERT INTO "Course" ("id", "code", "nameAr", "nameEn", "credits", "type", "requirement", "status", "createdAt", "updatedAt") VALUES
+  ('d6100000-0000-4000-8000-000000000008', 'TEST-CS101', 'مقدمة في علوم الحاسوب (تجريبي)', 'Computer Science Demo', 3, 'THEORY', 'MANDATORY', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('d6100000-0000-4000-8000-000000000009', 'TEST-CS102', 'مبادئ البرمجة (تجريبي)', 'Programming Demo', 3, 'THEORY', 'ELECTIVE', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("id") DO NOTHING;
+
+INSERT INTO "StudyPlanCourse" ("id", "studyPlanId", "academicYearId", "semesterId", "courseId", "priority", "requirement", "createdAt", "updatedAt") VALUES
+  ('d6100000-0000-4000-8000-000000000010', 'd6100000-0000-4000-8000-000000000005', 'd6100000-0000-4000-8000-000000000006', 'd6100000-0000-4000-8000-000000000007', 'd6100000-0000-4000-8000-000000000008', 1, 'MANDATORY', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('d6100000-0000-4000-8000-000000000011', 'd6100000-0000-4000-8000-000000000005', 'd6100000-0000-4000-8000-000000000006', 'd6100000-0000-4000-8000-000000000007', 'd6100000-0000-4000-8000-000000000009', 2, 'ELECTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("id") DO NOTHING;
+
+INSERT INTO "CourseSection" ("id", "sectionNumber", "courseId", "semesterId", "maxCapacity", "status", "createdAt", "updatedAt") VALUES
+  ('d6100000-0000-4000-8000-000000000012', 'TEST-01', 'd6100000-0000-4000-8000-000000000008', 'd6100000-0000-4000-8000-000000000007', 30, 'OPEN', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('d6100000-0000-4000-8000-000000000013', 'TEST-01', 'd6100000-0000-4000-8000-000000000009', 'd6100000-0000-4000-8000-000000000007', 30, 'OPEN', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("id") DO NOTHING;
+
+INSERT INTO "SectionSchedule" ("id", "sectionId", "day", "startTime", "endTime", "createdAt", "updatedAt") VALUES
+  ('d6100000-0000-4000-8000-000000000014', 'd6100000-0000-4000-8000-000000000012', 'MONDAY', '09:00', '10:30', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('d6100000-0000-4000-8000-000000000015', 'd6100000-0000-4000-8000-000000000013', 'TUESDAY', '11:00', '12:30', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("id") DO NOTHING;
+
+INSERT INTO "RegistrationPeriod" ("id", "semesterId", "startDateTime", "endDateTime", "minCredits", "maxCredits", "advisorApprovalRequired", "dropAllowed", "addDropDeadline", "createdAt", "updatedAt")
+VALUES ('d6100000-0000-4000-8000-000000000016', 'd6100000-0000-4000-8000-000000000007', CURRENT_TIMESTAMP - INTERVAL '1 day', CURRENT_TIMESTAMP + INTERVAL '30 days', 3, 18, false, true, CURRENT_TIMESTAMP + INTERVAL '15 days', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("id") DO NOTHING;
