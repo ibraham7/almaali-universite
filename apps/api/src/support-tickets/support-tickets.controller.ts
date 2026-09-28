@@ -13,7 +13,7 @@ class CommentDto {
   @IsString() @MinLength(1) @MaxLength(2000) body!: string;
 }
 class StatusDto {
-  @IsString() @IsIn(['NEW', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED']) status!: string;
+  @IsString() @IsIn(['IN_REVIEW']) status!: string;
 }
 type AuthRequest = { user: { id: string; role: string } };
 
@@ -22,13 +22,13 @@ type AuthRequest = { user: { id: string; role: string } };
 export class SupportTicketsController {
   constructor(private readonly service: SupportTicketsService) {}
   @Get()
-  list(@Query('page') page?: string) { return this.service.list(page); }
+  list(@Req() request: AuthRequest, @Query('page') page?: string) { return this.service.list(request.user, page); }
   @Get(':id')
-  one(@Param('id') id: string) { return this.service.one(id); }
+  one(@Param('id') id: string, @Req() request: AuthRequest) { return this.service.one(id, request.user); }
   @Post()
-  create(@Body() data: CreateTicketDto, @Req() request: AuthRequest) { return this.service.create(data, request.user.id); }
+  create(@Body() data: CreateTicketDto, @Req() request: AuthRequest) { return this.service.create(data, request.user); }
   @Post(':id/messages')
-  comment(@Param('id') id: string, @Body() data: CommentDto, @Req() request: AuthRequest) { return this.service.comment(id, data.body, request.user.id); }
+  comment(@Param('id') id: string, @Body() data: CommentDto, @Req() request: AuthRequest) { return this.service.reply(id, data.body, request.user); }
   @Patch(':id/status')
   updateStatus(@Param('id') id: string, @Body() data: StatusDto, @Req() request: AuthRequest) { return this.service.updateStatus(id, data.status, request.user.role); }
 }
