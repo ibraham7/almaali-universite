@@ -8,7 +8,7 @@ import * as argon2 from 'argon2';
 describe('AuthService', () => {
   let service: AuthService;
   const usersService = { findByEmail: vi.fn() };
-  const jwtService = { signAsync: vi.fn().mockResolvedValue('token') };
+  const jwtService = { signAsync: vi.fn().mockResolvedValue('token'), verifyAsync: vi.fn() };
   const prisma = {
     user: { update: vi.fn().mockResolvedValue({}), findUnique: vi.fn() },
     student: { findUnique: vi.fn(), update: vi.fn() },
@@ -118,41 +118,44 @@ describe('AuthService', () => {
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
-  it('returns the same public signup response when no student record matches', async () => {
+  it('rejects unmatched identity data without issuing a signup token', async () => {
     process.env.JWT_SECRET = 'test-secret';
     prisma.student.findUnique.mockResolvedValue(null);
     prisma.user.findUnique.mockResolvedValue(null);
     prisma.role.findUnique.mockResolvedValue({ id: 'student-role', isActive: true });
-    const response = await service.signupStudent({
-      universityId: 'missing', firstName: 'Test', familyName: 'Student',
-      email: 'student@example.edu', password: 'a-long-test-password',
-    }, '127.0.0.1');
-    expect(response.message).toContain('إذا كانت البيانات مطابقة');
+    await expect(service.signupStudent({
+      universityId: 'missing', fullName: 'Test Student', fatherName: 'A', motherName: 'B',
+      nationalId: 'N-1', applicationNumber: 'A-1', birthPlace: 'C',
+    }, '127.0.0.1')).rejects.toThrow('لم تتطابق');
+    expect(jwtService.signAsync).not.toHaveBeenCalled();
     expect(prisma.signupAttempt.create).toHaveBeenCalledWith(expect.objectContaining({ data: { ipHash: expect.any(String), succeeded: false } }));
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it('creates a pending student account only after matching the registry record', async () => {
+  it('issues a short lived token and creates an active account after password selection', async () => {
     process.env.JWT_SECRET = 'test-secret';
     prisma.student.findUnique.mockResolvedValue({
-      id: 'student-1', universityId: 'U-1', firstName: 'Sara', middleName: null,
-      familyName: 'Ali', dateOfBirth: null, idOrPassport: null,
-      universityEmail: 'sara@example.edu', userId: null,
+      id: 'student-1', universityId: 'U-1', firstName: 'Sara', fullName: 'Sara Ali', middleName: 'Omar',
+      familyName: 'Ali', motherName: 'Mona', nationalId: 'N-1', applicationNumber: 'A-1', birthPlace: 'Aleppo', userId: null,
     });
     prisma.user.findUnique.mockResolvedValue(null);
     prisma.role.findUnique.mockResolvedValue({ id: 'student-role', isActive: true });
     const tx = {
       user: { create: vi.fn().mockResolvedValue({ id: 'user-1' }) },
-      student: { update: vi.fn() },
+      student: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
       auditLog: { create: vi.fn() },
     };
     prisma.$transaction.mockImplementation((callback: (transaction: typeof tx) => unknown) => callback(tx));
-    await service.signupStudent({
-      universityId: 'U-1', firstName: 'Sara', familyName: 'Ali',
-      email: 'SARA@example.edu', password: 'a-long-test-password',
+    const verification = await service.signupStudent({
+      universityId: 'U-1', fullName: 'Sara Ali', fatherName: 'Omar', motherName: 'Mona',
+      nationalId: 'N-1', applicationNumber: 'A-1', birthPlace: 'Aleppo',
     }, '127.0.0.1');
-    expect(tx.user.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'PENDING_VERIFICATION', email: 'sara@example.edu' }) }));
-    expect(tx.student.update).toHaveBeenCalledWith({ where: { id: 'student-1' }, data: { userId: 'user-1' } });
+    expect(verification.verificationToken).toBe('token');
+    expect(jwtService.signAsync).toHaveBeenCalledWith(expect.objectContaining({ purpose: 'student-signup' }), { expiresIn: '5m' });
+    jwtService.verifyAsync.mockResolvedValue(jwtService.signAsync.mock.calls[0][0]);
+    await service.completeStudentSignup({ verificationToken: 'token', password: 'a-long-test-password' }, '127.0.0.1');
+    expect(tx.user.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'ACTIVE', email: 'U-1@students.local' }) }));
+    expect(tx.student.updateMany).toHaveBeenCalledWith({ where: { id: 'student-1', userId: null }, data: { userId: 'user-1' } });
     expect(prisma.signupAttempt.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ succeeded: true }) }));
   });
 });

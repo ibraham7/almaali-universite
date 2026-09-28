@@ -1,48 +1,25 @@
-import {
-  IsDateString,
-  IsEmail,
-  IsOptional,
-  IsString,
-  MaxLength,
-  MinLength,
-} from 'class-validator';
+import { IsString, MaxLength, MinLength } from 'class-validator';
 
 export class StudentSignupDto {
-  @IsString()
-  @MinLength(1)
-  @MaxLength(50)
+  @IsString() @MinLength(1) @MaxLength(50)
   universityId!: string;
+  @IsString() @MinLength(1) @MaxLength(100)
+  fullName!: string;
+  @IsString() @MinLength(1) @MaxLength(100)
+  fatherName!: string;
+  @IsString() @MinLength(1) @MaxLength(100)
+  motherName!: string;
+  @IsString() @MinLength(1) @MaxLength(100)
+  nationalId!: string;
+  @IsString() @MinLength(1) @MaxLength(100)
+  applicationNumber!: string;
+  @IsString() @MinLength(1) @MaxLength(100)
+  birthPlace!: string;
+}
 
-  @IsString()
-  @MinLength(1)
-  @MaxLength(100)
-  firstName!: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  middleName?: string;
-
-  @IsString()
-  @MinLength(1)
-  @MaxLength(100)
-  familyName!: string;
-
-  @IsOptional()
-  @IsDateString()
-  dateOfBirth?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  idOrPassport?: string;
-
-  @IsEmail()
-  @MaxLength(200)
-  email!: string;
-
-  @IsString()
-  @MinLength(12)
-  @MaxLength(128)
+export class CompleteStudentSignupDto {
+  @IsString() @MinLength(1)
+  verificationToken!: string;
+  @IsString() @MinLength(12) @MaxLength(128)
   password!: string;
 }

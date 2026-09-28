@@ -43,6 +43,7 @@ import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import AssignmentTurnedInRoundedIcon from '@mui/icons-material/AssignmentTurnedInRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
+import ForumRoundedIcon from '@mui/icons-material/ForumRounded';
 
 import {
   useAuth,
@@ -62,6 +63,12 @@ interface NavigationItem {
 }
 
 const navigationItems: NavigationItem[] = [
+  {
+    label: 'المشكلات والاقتراحات',
+    path: '/support-tickets',
+    icon: <ForumRoundedIcon />,
+    roles: ['STUDENT', 'ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN'],
+  },
   {
     label: 'الرئيسية',
     path: '/dashboard',

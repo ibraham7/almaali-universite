@@ -7,6 +7,7 @@ import {
 
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StudentInputDto } from './dto/student-input.dto.js';
+import * as XLSX from 'xlsx';
 
 interface FindStudentsOptions {
   search?: string;
@@ -19,6 +20,49 @@ export class StudentsService {
   constructor(
     private readonly prisma: PrismaService,
   ) {}
+
+  async importStudents(file?: { buffer: Buffer; originalname: string }) {
+    if (!file || !/\.(xlsx|csv)$/i.test(file.originalname)) {
+      throw new BadRequestException('ارفع ملف Excel أو CSV صالحًا.');
+    }
+    let rows: Record<string, unknown>[];
+    try {
+      const workbook = /\.csv$/i.test(file.originalname)
+        ? XLSX.read(file.buffer.toString('utf8'), { type: 'string' })
+        : XLSX.read(file.buffer, { type: 'buffer', cellText: true, cellDates: false });
+      rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(workbook.Sheets[workbook.SheetNames[0]], { defval: '', raw: false });
+    } catch {
+      throw new BadRequestException('تعذر قراءة ملف الطلاب.');
+    }
+    const columns = ['الرقم الجامعي', 'اسم الطالب', 'الأب', 'الأم', 'الرقم الوطني', 'رقم الاكتتاب', 'مكان الولادة'];
+    const clean = (value: string) => value.trim().replace(/\s+/g, ' ');
+    const header = Object.keys(rows[0] ?? {}).map(clean);
+    if (!columns.every((column) => header.includes(column))) {
+      throw new BadRequestException(`الملف يحتاج الأعمدة: ${columns.join('، ')}`);
+    }
+    if (!rows.length || rows.length > 5000) throw new BadRequestException('يجب أن يحتوي الملف على 1 إلى 5000 طالب.');
+    const students = rows.map((row, index) => {
+      const get = (name: string) => clean(String(Object.entries(row).find(([key]) => clean(key) === name)?.[1] ?? ''));
+      const [universityId, fullName, fatherName, motherName, nationalId, applicationNumber, birthPlace] = columns.map(get);
+      if ([universityId, fullName, fatherName, motherName, nationalId, applicationNumber, birthPlace].some((value) => !value)) {
+        throw new BadRequestException(`بيانات مطلوبة ناقصة في الصف ${index + 2}.`);
+      }
+      const nameParts = fullName.split(' ');
+      return { universityId, fullName, firstName: nameParts[0], familyName: nameParts.slice(1).join(' ') || nameParts[0], middleName: fatherName, motherName, nationalId, applicationNumber, birthPlace };
+    });
+    if (new Set(students.map(({ universityId }) => universityId)).size !== students.length) {
+      throw new BadRequestException('يوجد رقم جامعي مكرر في الملف.');
+    }
+    const ids = students.map(({ universityId }) => universityId);
+    const registered = await this.prisma.student.findFirst({ where: { universityId: { in: ids }, userId: { not: null } }, select: { id: true } });
+    if (registered) throw new BadRequestException('يحتوي الملف على طالب يملك حسابًا؛ لن تُستبدل بياناته.');
+    await this.prisma.$transaction(async (tx) => {
+      for (const student of students) {
+        await tx.student.upsert({ where: { universityId: student.universityId }, create: { ...student, status: 'ACTIVE' }, update: student });
+      }
+    }, { timeout: 120000 });
+    return { imported: students.length };
+  }
 
   async findAdvisors() {
     return this.prisma.user.findMany({
