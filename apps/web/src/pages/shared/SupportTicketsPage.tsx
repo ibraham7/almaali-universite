@@ -91,7 +91,7 @@ export default function SupportTicketsPage() {
     catch { setError('تعذر تغيير الحالة.'); } finally { setBusy(false); }
   }
   const staffReply = selected?.messages?.filter((message) => message.authorId !== selected.authorId).at(-1);
-  return <Box sx={{ maxWidth: 1000, mx: 'auto', p: { xs: 1, md: 3 } }}>
+  return <Box sx={{ maxWidth: 1500, mx: 'auto', p: { xs: 1, md: 3 } }}>
     <Typography variant="h4" sx={{ mb: 1 }}>{isStaff ? 'تذاكر الطلاب' : 'تذاكري'}</Typography>
     <Typography color="text.secondary" sx={{ mb: 3 }}>{isStaff ? 'تظهر تذاكر الطلاب هنا فور إرسالها لمراجعتها والرد عليها.' : 'تذاكرك خاصة بك وبالمشرفين. يمكنك متابعة حالة كل تذكرة هنا.'}</Typography>
     {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
@@ -107,7 +107,7 @@ export default function SupportTicketsPage() {
       </Stack>
     </CardContent></Card>}
     <ClickAwayListener onClickAway={() => { if (activeTicketId.current) closeDetails(); }}>
-    <Box sx={{ display: 'grid', gridTemplateColumns: selected ? { xs: 'minmax(0, 1fr)', md: 'minmax(0, 1fr) minmax(0, 1fr)' } : 'minmax(0, 1fr)', gap: 2, alignItems: 'start', direction: 'rtl' }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: selected ? { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' } : 'minmax(0, 1fr)', gap: 2, alignItems: 'start', direction: 'rtl' }}>
     <Card sx={{ borderRadius: 3, overflow: 'hidden', minWidth: 0 }}><Box sx={{ overflowX: 'auto' }}>
       <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', minWidth: 540, '& th, & td': { p: 1.5, textAlign: 'right', borderBottom: '1px solid', borderColor: 'divider' } }}>
         <thead><tr><th>العنوان</th><th>النوع</th><th>الحالة</th><th>التاريخ</th></tr></thead>
@@ -122,7 +122,7 @@ export default function SupportTicketsPage() {
       <Stack direction="row" sx={{ p: 1, justifyContent: 'center' }}><Button disabled={page === 1} onClick={() => setPage(page - 1)}>السابق</Button><Button disabled={tickets.length < 30} onClick={() => setPage(page + 1)}>التالي</Button></Stack>
     </Card>
     <Grow in={Boolean(selected)} mountOnEnter unmountOnExit timeout={220} style={{ transformOrigin: 'center right' }}>
-    <Card sx={{ borderRadius: 3, boxShadow: 3, minWidth: 0, maxHeight: { xs: 'none', md: 'min(75vh, 760px)' }, overflowY: 'auto' }}><CardContent>
+    <Card sx={{ borderRadius: 3, boxShadow: 3, minWidth: 0, maxHeight: { xs: 'none', lg: 'min(75vh, 760px)' }, overflowY: 'auto' }}><CardContent>
       {selected && <>
       <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
         <Box><Typography variant="h6">{selected.title}</Typography><Typography variant="caption" color="text.secondary">{categories[selected.category]} · {new Date(selected.createdAt).toLocaleString('ar')}</Typography></Box>
