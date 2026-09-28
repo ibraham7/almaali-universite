@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
-import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, MenuItem, Popper, Stack, TextField, Typography } from '@mui/material';
 import { apiClient } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 
@@ -12,6 +12,9 @@ export default function SupportTicketsPage() {
   const isStaff = ['ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN'].includes(user?.role ?? '');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [selected, setSelected] = useState<Ticket | null>(null);
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const activeTicketId = useRef<string | null>(null);
+  const requestSequence = useRef(0);
   const [page, setPage] = useState(1);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -33,11 +36,27 @@ export default function SupportTicketsPage() {
     const timer = window.setInterval(() => { void refresh(); }, 10000);
     return () => window.clearInterval(timer);
   }, [refresh, isStaff]);
-  async function open(ticketId: string) {
+  async function open(ticketId: string, anchor?: HTMLElement) {
+    const sequence = ++requestSequence.current;
     try {
       const response = await apiClient.get<Ticket>(`/support-tickets/${ticketId}`);
+      if (sequence !== requestSequence.current) return;
       setSelected(response.data);
-    } catch { setError('تعذر تحميل التذكرة.'); }
+      if (anchor) setAnchorEl(anchor);
+    } catch { if (sequence === requestSequence.current) setError('تعذر تحميل التذكرة.'); }
+  }
+  function toggle(ticketId: string, anchor: HTMLElement) {
+    if (activeTicketId.current === ticketId) {
+      activeTicketId.current = null;
+      requestSequence.current++;
+      setSelected(null);
+      setAnchorEl(null);
+      return;
+    }
+    activeTicketId.current = ticketId;
+    setSelected(null);
+    setAnchorEl(anchor);
+    void open(ticketId, anchor);
   }
   async function uploadImage(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -54,9 +73,10 @@ export default function SupportTicketsPage() {
   async function create(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setError('');
     try {
-      const response = await apiClient.post<Ticket>('/support-tickets', { title, description, category, imageData: imageData || undefined });
+      await apiClient.post<Ticket>('/support-tickets', { title, description, category, imageData: imageData || undefined });
       setTitle(''); setDescription(''); setImageData('');
-      await refresh(); await open(response.data.id);
+      activeTicketId.current = null; requestSequence.current++;
+      setSelected(null); setAnchorEl(null); await refresh();
       setNotice('تم إرسال التذكرة إلى المشرف بنجاح.');
     } catch { setError('تعذر إنشاء التذكرة. تحقق من البيانات وحاول لاحقًا.'); }
     finally { setBusy(false); }
@@ -90,7 +110,7 @@ export default function SupportTicketsPage() {
     <Card sx={{ borderRadius: 3, overflow: 'hidden' }}><Box sx={{ overflowX: 'auto' }}>
       <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', minWidth: 540, '& th, & td': { p: 1.5, textAlign: 'right', borderBottom: '1px solid', borderColor: 'divider' } }}>
         <thead><tr><th>العنوان</th><th>النوع</th><th>الحالة</th><th>التاريخ</th></tr></thead>
-        <tbody>{tickets.map((ticket) => <tr key={ticket.id} onClick={() => void open(ticket.id)} style={{ cursor: 'pointer' }}>
+        <tbody>{tickets.map((ticket) => <tr key={ticket.id} role="button" tabIndex={0} aria-expanded={selected?.id === ticket.id} onClick={(event) => toggle(ticket.id, event.currentTarget)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggle(ticket.id, event.currentTarget); } }} style={{ cursor: 'pointer' }}>
           <td><strong>{ticket.title}</strong></td><td>{categories[ticket.category] ?? ticket.category}</td>
           <td><Chip size="small" color={['ANSWERED', 'RESOLVED'].includes(ticket.status) ? 'success' : ticket.status === 'NEW' ? 'default' : 'info'} label={statuses[ticket.status] ?? ticket.status} /></td>
           <td>{new Date(ticket.createdAt).toLocaleDateString('ar')}</td>
@@ -100,11 +120,13 @@ export default function SupportTicketsPage() {
       {tickets.length === 0 && <Typography color="text.secondary" sx={{ p: 3, textAlign: 'center' }}>{isStaff ? 'لا توجد تذاكر واردة.' : 'لم ترسل تذاكر بعد.'}</Typography>}
       <Stack direction="row" sx={{ p: 1, justifyContent: 'center' }}><Button disabled={page === 1} onClick={() => setPage(page - 1)}>السابق</Button><Button disabled={tickets.length < 30} onClick={() => setPage(page + 1)}>التالي</Button></Stack>
     </Card>
-    {selected && <Card sx={{ mt: 2, borderRadius: 3 }}><CardContent>
+    <Popper open={Boolean(selected && anchorEl)} anchorEl={anchorEl} placement="bottom-start" sx={{ zIndex: (theme) => theme.zIndex.modal, width: { xs: 'calc(100vw - 24px)', sm: 560 }, maxWidth: 'calc(100vw - 24px)' }} modifiers={[{ name: 'offset', options: { offset: [0, 8] } }, { name: 'preventOverflow', options: { padding: 12 } }]}>
+    {selected && <Card sx={{ borderRadius: 3, boxShadow: 8, maxHeight: 'min(70vh, 680px)', overflowY: 'auto' }}><CardContent>
       <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
         <Box><Typography variant="h6">{selected.title}</Typography><Typography variant="caption" color="text.secondary">{categories[selected.category]} · {new Date(selected.createdAt).toLocaleString('ar')}</Typography></Box>
         <Chip size="small" color={['ANSWERED', 'RESOLVED'].includes(selected.status) ? 'success' : 'info'} label={statuses[selected.status] ?? selected.status} />
       </Stack>
+      <Button size="small" onClick={() => { activeTicketId.current = null; requestSequence.current++; setSelected(null); setAnchorEl(null); }} sx={{ mt: 1 }}>إغلاق التفاصيل</Button>
       <Typography variant="subtitle2" sx={{ mt: 2 }}>الوصف</Typography>
       <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{selected.description}</Box>
       {selected.imageData && <Box component="img" src={selected.imageData} alt="مرفق التذكرة" sx={{ maxWidth: '100%', maxHeight: 400, mt: 2, borderRadius: 2 }} />}
@@ -112,6 +134,7 @@ export default function SupportTicketsPage() {
       {isStaff && selected.status === 'NEW' && <Button variant="outlined" disabled={busy} onClick={() => void markReviewing()} sx={{ mt: 2 }}>بدء المراجعة</Button>}
       {isStaff && !['ANSWERED', 'RESOLVED'].includes(selected.status) && <Box component="form" onSubmit={sendReply} sx={{ mt: 2 }}><Stack spacing={1}><TextField label="رد المشرف على الطالب" value={reply} onChange={(event) => setReply(event.target.value)} multiline minRows={2} required slotProps={{ htmlInput: { maxLength: 2000 } }} /><Button type="submit" variant="contained" disabled={busy || !reply.trim()}>إرسال الرد</Button></Stack></Box>}
     </CardContent></Card>}
+    </Popper>
     {notice && <Alert severity="success" sx={{ mt: 2 }} onClose={() => setNotice('')}>{notice}</Alert>}
   </Box>;
 }

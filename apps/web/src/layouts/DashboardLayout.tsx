@@ -64,12 +64,6 @@ interface NavigationItem {
 
 const navigationItems: NavigationItem[] = [
   {
-    label: 'المشكلات والاقتراحات',
-    path: '/support-tickets',
-    icon: <ForumRoundedIcon />,
-    roles: ['STUDENT', 'ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN'],
-  },
-  {
     label: 'الرئيسية',
     path: '/dashboard',
     icon: <DashboardRoundedIcon />,
@@ -187,6 +181,12 @@ const navigationItems: NavigationItem[] = [
     path: '/settings',
     icon: <SettingsRoundedIcon />,
     roles: ['SYSTEM_ADMIN'],
+  },
+  {
+    label: 'المشكلات والاقتراحات',
+    path: '/support-tickets',
+    icon: <ForumRoundedIcon />,
+    roles: ['STUDENT', 'ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN'],
   },
 ];
 
