@@ -1,5 +1,12 @@
 import { apiClient } from './client';
 
+export async function importStudentsFile(file: File) {
+  const form = new FormData();
+  form.append('file', file);
+  const response = await apiClient.post<{ imported: number }>('/students/import', form);
+  return response.data;
+}
+
 export interface StudentUser {
   id: string;
   email: string;

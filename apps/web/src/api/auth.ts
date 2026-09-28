@@ -18,16 +18,20 @@ export async function loginRequest(
 
 export async function studentSignupRequest(data: {
   universityId: string;
-  firstName: string;
-  middleName?: string;
-  familyName: string;
-  dateOfBirth?: string;
-  idOrPassport?: string;
-  email: string;
-  password: string;
+  fullName: string;
+  fatherName: string;
+  motherName: string;
+  nationalId: string;
+  applicationNumber: string;
+  birthPlace: string;
 }) {
-  const response = await apiClient.post<{ message: string }>(
+  const response = await apiClient.post<{ verificationToken: string }>(
     '/auth/student-signup', data,
   );
+  return response.data;
+}
+
+export async function completeStudentSignupRequest(data: { verificationToken: string; password: string }) {
+  const response = await apiClient.post<{ message: string }>('/auth/student-signup/complete', data);
   return response.data;
 }

@@ -1,5 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { json, urlencoded } from 'express';
 
 import { AppModule } from './app.module.js';
 
@@ -7,7 +8,11 @@ async function bootstrap() {
   const app =
     await NestFactory.create(
       AppModule,
+      { bodyParser: false },
     );
+
+  app.use(json({ limit: '512kb' }));
+  app.use(urlencoded({ limit: '512kb', extended: true }));
 
   const allowedOrigins = new Set([
     'http://localhost:5173',

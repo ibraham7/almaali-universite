@@ -15,6 +15,7 @@ import AdvisorEnrollmentMessagesDock from './components/AdvisorEnrollmentMessage
 import LoginPage from './pages/auth/LoginPage';
 import StudentSignupPage from './pages/auth/StudentSignupPage';
 import DashboardPage from './pages/shared/DashboardPage';
+import SupportTicketsPage from './pages/shared/SupportTicketsPage';
 import StudentRegistrationPage from './pages/student/StudentRegistrationPage';
 import StudentSchedulePage from './pages/student/StudentSchedulePage';
 import AdvisorRegistrationsPage from './pages/advisor/AdvisorRegistrationsPage';
@@ -46,6 +47,7 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<DashboardLayout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/support-tickets" element={<SupportTicketsPage />} />
           </Route>
         </Route>
 

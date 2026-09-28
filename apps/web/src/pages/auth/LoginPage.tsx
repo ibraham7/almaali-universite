@@ -349,7 +349,7 @@ export default function LoginPage() {
                 fontSize: 14,
               }}
             >
-              أدخل بريدك الجامعي وكلمة المرور للوصول إلى النظام الأكاديمي.
+              أدخل رقمك الجامعي أو بريد موظف الجامعة وكلمة المرور للوصول إلى النظام الأكاديمي.
             </Typography>
 
             {showTestLogins && (
@@ -381,7 +381,7 @@ export default function LoginPage() {
 
             <TextField
               fullWidth
-              placeholder={showTestLogins ? 'البريد الإلكتروني أو 01 / 02 / 03' : 'البريد الإلكتروني'}
+              placeholder={showTestLogins ? 'الرقم الجامعي أو البريد أو 01 / 02 / 03' : 'الرقم الجامعي أو بريد موظف الجامعة'}
               type="text"
               value={username}
               onChange={(event) =>

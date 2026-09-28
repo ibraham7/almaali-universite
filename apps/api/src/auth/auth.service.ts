@@ -1,14 +1,14 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { createHash } from 'node:crypto';
 import { UsersService } from '../users/users.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { StudentSignupDto } from './dto/student-signup.dto.js';
+import { CompleteStudentSignupDto, StudentSignupDto } from './dto/student-signup.dto.js';
 
 const SIGNUP_WINDOW_MS = 15 * 60 * 1000;
 const SIGNUP_MAX_ATTEMPTS = 5;
-const SIGNUP_MESSAGE = 'إذا كانت البيانات مطابقة لسجل الجامعة، فسيُنشأ الحساب بعد مراجعة الإدارة.';
+const SIGNUP_MESSAGE = 'لم تتطابق البيانات مع سجل طالب غير مسجّل. راجع بياناتك لدى الجامعة.';
 const TEST_SHORT_LOGIN_EMAILS: Record<string, string> = {
   '01': 'admin.test@university.local',
   '02': 'advisor.test@university.local',
@@ -35,7 +35,13 @@ export class AuthService {
     const shortcutEmail = testLoginsEnabled
       ? TEST_SHORT_LOGIN_EMAILS[normalizedUsername]
       : undefined;
-    const email = shortcutEmail ?? normalizedUsername;
+    const studentLogin = !shortcutEmail && !normalizedUsername.includes('@')
+      ? await this.prisma.student.findUnique({
+          where: { universityId: username.trim() },
+          select: { user: { select: { email: true } } },
+        })
+      : null;
+    const email = shortcutEmail ?? studentLogin?.user?.email ?? normalizedUsername;
 
     const user = await this.usersService.findByEmail(email);
 
@@ -63,7 +69,7 @@ export class AuthService {
       access_token: accessToken,
       user: {
         id: user.id,
-        email: user.email,
+        email: studentLogin?.user?.email ? username.trim() : user.email,
         role: user.role.code,
       },
     };
@@ -84,44 +90,55 @@ export class AuthService {
       where: { ipHash, createdAt: { gte: cutoff } },
     });
     if (recentAttempts >= SIGNUP_MAX_ATTEMPTS) {
-      return { message: SIGNUP_MESSAGE };
+      throw new BadRequestException('عدد المحاولات كبير. حاول مرة أخرى بعد 15 دقيقة.');
     }
 
-    const email = input.email.trim().toLocaleLowerCase();
     const student = await this.prisma.student.findUnique({ where: { universityId: input.universityId.trim() } });
     let matched = Boolean(student && !student.userId);
     if (student) {
-      matched = matched && normalize(student.firstName) === normalize(input.firstName)
-        && normalize(student.familyName) === normalize(input.familyName)
-        && (!student.middleName || normalize(student.middleName) === normalize(input.middleName))
-        && (!student.dateOfBirth || Boolean(input.dateOfBirth && student.dateOfBirth.toISOString().slice(0, 10) === input.dateOfBirth.slice(0, 10)))
-        && (!student.idOrPassport || normalize(student.idOrPassport) === normalize(input.idOrPassport));
-      if (student.universityEmail) matched = matched && normalize(student.universityEmail) === normalize(email);
+      matched = matched && normalize(student.fullName ?? `${student.firstName} ${student.familyName}`) === normalize(input.fullName)
+        && normalize(student.middleName) === normalize(input.fatherName)
+        && Boolean(student.motherName && normalize(student.motherName) === normalize(input.motherName))
+        && Boolean(student.nationalId && normalize(student.nationalId) === normalize(input.nationalId))
+        && Boolean(student.applicationNumber && normalize(student.applicationNumber) === normalize(input.applicationNumber))
+        && Boolean(student.birthPlace && normalize(student.birthPlace) === normalize(input.birthPlace));
     }
+    await this.prisma.signupAttempt.create({ data: { ipHash, succeeded: matched } });
+    if (!matched || !student) throw new BadRequestException(SIGNUP_MESSAGE);
+    const verificationToken = await this.jwtService.signAsync(
+      { sub: student.id, purpose: 'student-signup', ipHash },
+      { expiresIn: '5m' },
+    );
+    return { verificationToken };
+  }
 
-    const existingEmail = await this.prisma.user.findUnique({ where: { email }, select: { id: true } });
+  async completeStudentSignup(input: CompleteStudentSignupDto, ip: string) {
+    let claim: { sub: string; purpose: string; ipHash: string };
+    try {
+      claim = await this.jwtService.verifyAsync(input.verificationToken);
+    } catch {
+      throw new BadRequestException('انتهت صلاحية التحقق. أعد إدخال بيانات الطالب.');
+    }
+    if (claim.purpose !== 'student-signup' || claim.ipHash !== this.hashIp(ip || 'unknown')) {
+      throw new BadRequestException('انتهت صلاحية التحقق. أعد إدخال بيانات الطالب.');
+    }
     const role = await this.prisma.role.findUnique({ where: { code: 'STUDENT' }, select: { id: true, isActive: true } });
-    let succeeded = Boolean(matched && !existingEmail && role?.isActive);
-    if (succeeded && student && role) {
-      const passwordHash = await argon2.hash(input.password);
-      try {
-        await this.prisma.$transaction(async (tx) => {
-          const user = await tx.user.create({
-            data: { email, passwordHash, roleId: role.id, status: 'PENDING_VERIFICATION' },
-          });
-          await tx.student.update({ where: { id: student.id }, data: { userId: user.id } });
-          await tx.auditLog.create({ data: {
-            action: 'STUDENT_SIGNUP_PENDING', entity: 'User', entityId: user.id,
-            details: JSON.stringify({ studentId: student.id }),
-          } });
-        });
-      } catch {
-        // Keep responses identical if an account was created concurrently.
-        succeeded = false;
-      }
+    if (!role?.isActive) throw new BadRequestException('تعذر إنشاء الحساب حاليًا.');
+    const student = await this.prisma.student.findUnique({ where: { id: claim.sub }, select: { id: true, universityId: true, userId: true } });
+    if (!student || student.userId) throw new BadRequestException('هذا الحساب مسجل مسبقًا.');
+    const passwordHash = await argon2.hash(input.password);
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({ data: {
+          email: `${student.universityId}@students.local`, passwordHash, roleId: role.id, status: 'ACTIVE',
+        } });
+        const claimed = await tx.student.updateMany({ where: { id: student.id, userId: null }, data: { userId: user.id } });
+        if (claimed.count !== 1) throw new Error('Already claimed');
+        await tx.auditLog.create({ data: { action: 'STUDENT_SIGNUP', entity: 'User', entityId: user.id, details: JSON.stringify({ studentId: student.id }) } });
+      });
+    } catch {
+      throw new BadRequestException('تعذر إنشاء الحساب أو أنه مسجل مسبقًا.');
     }
-
-    await this.prisma.signupAttempt.create({ data: { ipHash, succeeded } });
-    return { message: SIGNUP_MESSAGE };
+    return { message: 'تم إنشاء الحساب. سجّل الدخول باستخدام الرقم الجامعي.' };
   }
 }
