@@ -37,12 +37,14 @@ import {
     useEffect,
     useMemo,
     useState,
+    type FormEvent,
 } from 'react';
 
 import axios from 'axios';
 import { importStudentsFile } from '../../api/students';
 
 import {
+    createStaffUser,
     getRoles,
     getUsers,
     updateUserRole,
@@ -166,6 +168,11 @@ export default function UsersPage() {
     const [success, setSuccess] =
         useState('');
     const [attemptDialogOpen, setAttemptDialogOpen] = useState(false);
+    const [createStaffDialogOpen, setCreateStaffDialogOpen] = useState(false);
+    const [staffName, setStaffName] = useState('');
+    const [staffUsername, setStaffUsername] = useState('');
+    const [staffPassword, setStaffPassword] = useState('');
+    const [staffRole, setStaffRole] = useState<Exclude<RoleCode, 'STUDENT'>>('ADVISOR');
     const [signupAttempts, setSignupAttempts] = useState<{ failedCount: number; attempts: Array<{ id: string; succeeded: boolean; createdAt: string }> } | null>(null);
 
     const [search, setSearch] =
@@ -278,10 +285,12 @@ export default function UsersPage() {
                     }
 
                     const name =
-                        studentName(user);
+                        studentName(user) ?? user.displayName ?? user.username;
 
                     return [
                         user.email,
+                        user.username,
+                        user.displayName,
                         user.student
                             ?.universityId,
                         name,
@@ -386,6 +395,31 @@ export default function UsersPage() {
         }
     }
 
+    async function submitStaffAccount(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        try {
+            setSaving(true);
+            setError('');
+            setSuccess('');
+            await createStaffUser({
+                displayName: staffName.trim(),
+                username: staffUsername.trim(),
+                password: staffPassword,
+                roleCode: staffRole,
+            });
+            setCreateStaffDialogOpen(false);
+            setStaffName('');
+            setStaffUsername('');
+            setStaffPassword('');
+            setSuccess(`تم إنشاء حساب ${roleLabel(staffRole)} بنجاح. سلّم الموظف اسم الدخول وكلمة المرور التي أدخلتها مباشرة.`);
+            await loadData();
+        } catch (requestError) {
+            setError(getErrorMessage(requestError));
+        } finally {
+            setSaving(false);
+        }
+    }
+
     if (loading) {
         return (
             <Box
@@ -444,6 +478,7 @@ export default function UsersPage() {
                 </Typography>
               </Box>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                <Button variant="contained" onClick={() => setCreateStaffDialogOpen(true)}>إنشاء حساب إداري</Button>
                 <Button component="label" variant="contained" disabled={saving}>
                   استيراد طلاب من Excel
                   <input hidden type="file" accept=".xlsx,.csv" onChange={async (event) => {
@@ -680,7 +715,7 @@ export default function UsersPage() {
                     {filteredUsers.map(
                         (user) => {
                             const name =
-                                studentName(user);
+                                studentName(user) ?? user.displayName ?? user.username;
 
                             return (
                                 <Card
@@ -800,7 +835,7 @@ export default function UsersPage() {
                                                                     12,
                                                             }}
                                                         >
-                                                            {user.student?.universityId ?? user.email}
+                                                            {user.student?.universityId ?? user.username ?? user.email}
                                                         </Typography>
                                                     </Stack>
                                                 )}
@@ -869,6 +904,37 @@ export default function UsersPage() {
             )}
 
             <Dialog
+                open={createStaffDialogOpen}
+                onClose={() => !saving && setCreateStaffDialogOpen(false)}
+                fullWidth
+                maxWidth="sm"
+            >
+                <DialogTitle>إنشاء حساب إداري</DialogTitle>
+                <DialogContent dividers>
+                    <Stack component="form" id="create-staff-account" onSubmit={(event) => void submitStaffAccount(event)} spacing={2} sx={{ pt: 1 }}>
+                        <Alert severity="info">الحسابات هنا للموظفين فقط، ولن يظهر للطلاب خيار إنشاء حساب إداري.</Alert>
+                        <TextField label="اسم الموظف" value={staffName} onChange={(event) => setStaffName(event.target.value)} required slotProps={{ htmlInput: { maxLength: 100 } }} />
+                        <TextField label="اسم الدخول" value={staffUsername} onChange={(event) => setStaffUsername(event.target.value)} required slotProps={{ htmlInput: { minLength: 3, maxLength: 40, pattern: '[A-Za-z0-9._-]+' } }} helperText="3 خانات على الأقل: أحرف لاتينية أو أرقام أو . _ -" />
+                        <TextField label="كلمة مرور الحساب" type="password" value={staffPassword} onChange={(event) => setStaffPassword(event.target.value)} required slotProps={{ htmlInput: { minLength: 12, maxLength: 128 } }} helperText="12 خانة على الأقل. سلّمها للموظف مباشرة وبطريقة آمنة." />
+                        <FormControl fullWidth>
+                            <InputLabel>الدور</InputLabel>
+                            <Select label="الدور" value={staffRole} onChange={(event) => setStaffRole(event.target.value as Exclude<RoleCode, 'STUDENT'>)}>
+                                <MenuItem value="ADVISOR">مرشد أكاديمي</MenuItem>
+                                <MenuItem value="REGISTRAR">مسجل الجامعة</MenuItem>
+                                <MenuItem value="SYSTEM_ADMIN">مدير النظام</MenuItem>
+                            </Select>
+                        </FormControl>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button disabled={saving} onClick={() => setCreateStaffDialogOpen(false)}>إلغاء</Button>
+                    <Button type="submit" form="create-staff-account" variant="contained" disabled={saving || staffName.trim().length < 2 || staffUsername.trim().length < 3 || staffPassword.length < 12}>
+                        {saving ? <CircularProgress size={20} /> : 'إنشاء الحساب'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog
                 open={dialogOpen}
                 onClose={() =>
                     !saving &&
@@ -894,7 +960,7 @@ export default function UsersPage() {
                                     {studentName(
                                         selectedUser,
                                     ) ??
-                                        selectedUser.student?.universityId ?? selectedUser.email}
+                                        selectedUser.student?.universityId ?? selectedUser.displayName ?? selectedUser.username ?? selectedUser.email}
                                 </Typography>
 
                                 <Typography
@@ -904,7 +970,7 @@ export default function UsersPage() {
                                     }}
                                 >
                                     {
-                                        selectedUser.student?.universityId ?? selectedUser.email
+                                        selectedUser.student?.universityId ?? selectedUser.username ?? selectedUser.email
                                     }
                                 </Typography>
 

@@ -45,6 +45,8 @@ export interface SystemUser {
     id: string;
 
     email: string;
+    username?: string | null;
+    displayName?: string | null;
 
     status: UserStatus;
 
@@ -59,6 +61,16 @@ export interface SystemUser {
     updatedAt: string;
 
     lastLoginAt?: string | null;
+}
+
+export async function createStaffUser(data: {
+    displayName: string;
+    username: string;
+    password: string;
+    roleCode: Exclude<RoleCode, 'STUDENT'>;
+}) {
+    const response = await apiClient.post<SystemUser>('/users', data);
+    return response.data;
 }
 
 export async function getUsers(

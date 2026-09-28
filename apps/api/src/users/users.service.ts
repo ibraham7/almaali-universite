@@ -3,8 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import * as argon2 from 'argon2';
 
 import { PrismaService } from '../prisma/prisma.service.js';
+import { CreateStaffUserDto } from './dto/create-staff-user.dto.js';
 
 type UserStatusValue =
   | 'PENDING_VERIFICATION'
@@ -42,6 +44,7 @@ export class UsersService {
       select: {
         id: true,
         email: true,
+        username: true,
         passwordHash: true,
         status: true,
         role: {
@@ -51,6 +54,67 @@ export class UsersService {
         },
       },
     });
+  }
+
+  async findByUsername(username: string) {
+    return this.prisma.user.findUnique({
+      where: { username },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        passwordHash: true,
+        status: true,
+        role: { select: { code: true } },
+      },
+    });
+  }
+
+  async createStaffUser(input: CreateStaffUserDto, actingUserId: string) {
+    const username = input.username.trim().toLowerCase();
+    const displayName = input.displayName.trim();
+    const studentWithUsername = await this.prisma.student.findUnique({ where: { universityId: username }, select: { id: true } });
+    if (studentWithUsername) throw new BadRequestException('اسم الدخول مستخدم كرقم جامعي. اختر اسمًا آخر.');
+    const role = await this.prisma.role.findUnique({ where: { code: input.roleCode } });
+    if (!role?.isActive) throw new BadRequestException('الدور المحدد غير متاح.');
+
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          email: `${username}@staff.local`,
+          username,
+          displayName,
+          passwordHash: await argon2.hash(input.password),
+          status: 'ACTIVE',
+          roleId: role.id,
+        },
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          displayName: true,
+          status: true,
+          role: { select: { id: true, code: true, name: true } },
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      await this.prisma.auditLog.create({
+        data: {
+          action: 'STAFF_USER_CREATED',
+          entity: 'User',
+          entityId: user.id,
+          userId: actingUserId,
+          details: JSON.stringify({ username, role: role.code }),
+        },
+      });
+      return user;
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+        throw new BadRequestException('اسم الدخول مستخدم مسبقًا. اختر اسمًا آخر.');
+      }
+      throw error;
+    }
   }
 
   async findAll(
@@ -93,6 +157,18 @@ export class UsersService {
 
                     mode:
                       'insensitive',
+                  },
+                },
+                {
+                  username: {
+                    contains: search,
+                    mode: 'insensitive',
+                  },
+                },
+                {
+                  displayName: {
+                    contains: search,
+                    mode: 'insensitive',
                   },
                 },
 
@@ -155,6 +231,8 @@ export class UsersService {
       select: {
         id: true,
         email: true,
+        username: true,
+        displayName: true,
             status: true,
             lastLoginAt: true,
 
@@ -201,6 +279,8 @@ export class UsersService {
         select: {
           id: true,
           email: true,
+          username: true,
+          displayName: true,
           status: true,
           lastLoginAt: true,
 
@@ -343,6 +423,8 @@ export class UsersService {
         select: {
           id: true,
           email: true,
+          username: true,
+          displayName: true,
           status: true,
 
           role: {
@@ -479,6 +561,8 @@ export class UsersService {
         select: {
           id: true,
           email: true,
+          username: true,
+          displayName: true,
           status: true,
 
           role: {

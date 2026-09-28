@@ -7,7 +7,7 @@ import * as argon2 from 'argon2';
 
 describe('AuthService', () => {
   let service: AuthService;
-  const usersService = { findByEmail: vi.fn() };
+  const usersService = { findByEmail: vi.fn(), findByUsername: vi.fn() };
   const jwtService = { signAsync: vi.fn().mockResolvedValue('token'), verifyAsync: vi.fn() };
   const prisma = {
     user: { update: vi.fn().mockResolvedValue({}), findUnique: vi.fn() },
@@ -20,6 +20,7 @@ describe('AuthService', () => {
 
   beforeEach(async () => {
     usersService.findByEmail.mockReset();
+    usersService.findByUsername.mockReset();
     jwtService.signAsync.mockReset().mockResolvedValue('token');
     prisma.user.update.mockReset().mockResolvedValue({});
     prisma.user.findUnique.mockReset();
@@ -88,6 +89,20 @@ describe('AuthService', () => {
       access_token: 'token',
     });
     expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('allows staff to log in with the username created by an administrator', async () => {
+    usersService.findByUsername.mockResolvedValue({
+      id: 'staff-1', username: 'advisor01', email: 'advisor01@staff.local', status: 'ACTIVE',
+      passwordHash: await argon2.hash('a-strong-temporary-password'), role: { code: 'ADVISOR' },
+    });
+    prisma.student.findUnique.mockResolvedValue(null);
+
+    await expect(service.login('advisor01', 'a-strong-temporary-password')).resolves.toMatchObject({
+      user: { email: 'advisor01', role: 'ADVISOR' },
+      access_token: 'token',
+    });
+    expect(usersService.findByUsername).toHaveBeenCalledWith('advisor01');
   });
 
   it('blocks short test logins in production even if the flag is set', async () => {

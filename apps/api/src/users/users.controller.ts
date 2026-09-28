@@ -13,6 +13,7 @@ import {
 import type { Request } from 'express';
 
 import { UsersService } from './users.service.js';
+import { CreateStaffUserDto } from './dto/create-staff-user.dto.js';
 
 import { JwtGuard } from '../auth/guards/jwt/jwt.guard.js';
 
@@ -58,6 +59,14 @@ export class UsersController {
       status,
       role,
     });
+  }
+
+  @Post()
+  createStaffUser(
+    @Req() request: AuthenticatedRequest,
+    @Body() body: CreateStaffUserDto,
+  ) {
+    return this.usersService.createStaffUser(body, request.user.id);
   }
 
   @Get('roles')

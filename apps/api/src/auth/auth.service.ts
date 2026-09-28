@@ -41,9 +41,12 @@ export class AuthService {
           select: { user: { select: { email: true } } },
         })
       : null;
+    const staffLogin = !shortcutEmail && !studentLogin?.user?.email && !normalizedUsername.includes('@')
+      ? await this.usersService.findByUsername(normalizedUsername)
+      : null;
     const email = shortcutEmail ?? studentLogin?.user?.email ?? normalizedUsername;
 
-    const user = await this.usersService.findByEmail(email);
+    const user = staffLogin ?? await this.usersService.findByEmail(email);
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -69,7 +72,7 @@ export class AuthService {
       access_token: accessToken,
       user: {
         id: user.id,
-        email: studentLogin?.user?.email ? username.trim() : user.email,
+        email: studentLogin?.user?.email ? username.trim() : user.username ?? user.email,
         role: user.role.code,
       },
     };

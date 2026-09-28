@@ -29,6 +29,7 @@ describe('UsersService', () => {
       select: {
         id: true,
         email: true,
+        username: true,
         passwordHash: true,
         status: true,
         role: { select: { code: true } },
