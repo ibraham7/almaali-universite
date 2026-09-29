@@ -7,7 +7,7 @@ export const STUDENT_IMPORT_HEADERS = [
   'الجنس', 'تاريخ الميلاد', 'الجنسية', 'رقم الهوية أو جواز السفر',
   'البريد الجامعي', 'رقم الهاتف', 'الكلية', 'القسم', 'البرنامج',
   'الخطة الدراسية', 'المستوى الأكاديمي', 'الفصل الدراسي', 'حالة الطالب',
-  'بريد المرشد', 'تاريخ القبول',
+  'بريد المرشد', 'تاريخ القبول', 'اسم الأم', 'الرقم الوطني', 'رقم الاكتتاب', 'مكان الولادة',
 ] as const;
 
 interface ImportFile { buffer: Buffer; originalname: string }
@@ -28,8 +28,8 @@ export class StudentImportsService {
     const sheet = workbook.Sheets['الطلاب'];
     if (!sheet?.['!ref']) throw new BadRequestException('The الطلاب sheet is required');
     const bounds = XLSX.utils.decode_range(sheet['!ref']);
-    if (bounds.s.r !== 0 || bounds.s.c !== 0 || bounds.e.r > 1000 || bounds.e.c > 19) {
-      throw new BadRequestException('The file must start at A1 and have at most 1000 student rows and 20 columns');
+    if (bounds.s.r !== 0 || bounds.s.c !== 0 || bounds.e.r > 1000 || bounds.e.c >= STUDENT_IMPORT_HEADERS.length) {
+      throw new BadRequestException(`The file must start at A1 and have at most 1000 student rows and ${STUDENT_IMPORT_HEADERS.length} columns`);
     }
 
     for (const cell of Object.values(sheet)) {
@@ -81,6 +81,7 @@ export class StudentImportsService {
     let duplicateCount = 0;
     const valid: Array<{ rowNumber: number; isUpdate: boolean; providedColumns: boolean[]; data: {
       universityId: string; firstName: string; middleName: string | null; familyName: string;
+      fullName: string; motherName: string; nationalId: string; applicationNumber: string; birthPlace: string;
       englishName: string | null; gender: string | null; dateOfBirth: Date | null;
       nationality: string | null; idOrPassport: string | null; universityEmail: string | null;
       phone: string | null; collegeId: string | null; departmentId: string | null;
@@ -91,11 +92,25 @@ export class StudentImportsService {
     for (const row of parsed) {
       const [universityId, firstName, middleName, familyName, englishName, gender, birth, nationality,
         idOrPassport, universityEmail, phone, collegeName, departmentName, programName, planName,
-        yearName, semesterName, status, advisorEmail, admitted] = row.cells;
+        yearName, semesterName, status, advisorEmail, admitted, motherName, nationalId,
+        applicationNumber, birthPlace] = row.cells;
       const problems: string[] = [];
-      if (!universityId || !firstName || !familyName) problems.push('الرقم الجامعي والاسم الأول واسم العائلة مطلوبة');
+      const previous = existingById.get(universityId);
+      const values = {
+        middleName: middleName || previous?.middleName || '',
+        motherName: motherName || previous?.motherName || '',
+        nationalId: nationalId || previous?.nationalId || '',
+        applicationNumber: applicationNumber || previous?.applicationNumber || '',
+        birthPlace: birthPlace || previous?.birthPlace || '',
+      };
+      if (!universityId || !firstName || !values.middleName || !familyName || !values.motherName ||
+          !values.nationalId || !values.applicationNumber || !values.birthPlace) {
+        problems.push('لإنشاء حساب الطالب، يلزم إدخال الرقم الجامعي والاسم الأول واسم الأب واسم العائلة واسم الأم والرقم الوطني ورقم الاكتتاب ومكان الولادة');
+      }
       if (universityId.length > 50 || firstName.length > 100 || familyName.length > 100 ||
-          middleName.length > 100 || universityEmail.length > 200 || phone.length > 50) problems.push('يوجد حقل يتجاوز الطول المسموح');
+          values.middleName.length > 100 || values.motherName.length > 100 || values.nationalId.length > 100 ||
+          values.applicationNumber.length > 100 || values.birthPlace.length > 100 ||
+          universityEmail.length > 200 || phone.length > 50) problems.push('يوجد حقل يتجاوز الطول المسموح');
       const repeatedInFile = Boolean(universityId && seen.has(universityId));
       if (repeatedInFile) problems.push('الرقم الجامعي مكرر داخل الملف');
       if (repeatedInFile) duplicateCount++;
@@ -133,7 +148,10 @@ export class StudentImportsService {
         errors.push({ rowNumber: row.rowNumber, universityId, message: problems.join('؛ ') });
       } else {
         valid.push({ rowNumber: row.rowNumber, isUpdate: Boolean(existingStudent), providedColumns: row.cells.map(Boolean), college: collegeName, program: programName,
-          data: { universityId, firstName, middleName: middleName || null, familyName,
+          data: { universityId, firstName, middleName: values.middleName, familyName,
+            fullName: [firstName, values.middleName, familyName].filter(Boolean).join(' '),
+            motherName: values.motherName, nationalId: values.nationalId,
+            applicationNumber: values.applicationNumber, birthPlace: values.birthPlace,
             englishName: englishName || existingStudent?.englishName || null, gender: gender || existingStudent?.gender || null, dateOfBirth,
             nationality: nationality || existingStudent?.nationality || null, idOrPassport: idOrPassport || existingStudent?.idOrPassport || null,
             universityEmail: universityEmail || existingStudent?.universityEmail || null, phone: phone || existingStudent?.phone || null,
@@ -168,15 +186,19 @@ export class StudentImportsService {
       dateOfBirth: 6, nationality: 7, idOrPassport: 8, universityEmail: 9,
       phone: 10, collegeId: 11, departmentId: 12, programId: 13,
       studyPlanId: 14, academicYearId: 15, semesterId: 16, status: 17,
-      advisorId: 18, admissionDate: 19,
+      advisorId: 18, admissionDate: 19, motherName: 20, nationalId: 21,
+      applicationNumber: 22, birthPlace: 23,
     };
     try {
       await this.prisma.$transaction(async (tx) => {
         for (const row of result.valid) {
           if (row.isUpdate) {
-            const updateData = Object.fromEntries(Object.entries(row.data).filter(([key]) =>
-              key !== 'universityId' && row.providedColumns[fieldColumns[key] ?? -1],
-            ));
+            const nameProvided = row.providedColumns[1] || row.providedColumns[2] || row.providedColumns[3];
+            const updateData = Object.fromEntries(Object.entries(row.data).filter(([key]) => {
+              if (key === 'universityId') return false;
+              if (key === 'fullName') return nameProvided;
+              return row.providedColumns[fieldColumns[key] ?? -1];
+            }));
             await tx.student.update({ where: { universityId: row.data.universityId }, data: updateData });
             updated++;
           } else {

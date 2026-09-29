@@ -3,7 +3,10 @@ import { StudentsService } from './students.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 
 describe('Student management', () => {
-  const data = { universityId: '2026001', firstName: 'سارة', familyName: 'علي' };
+  const data = {
+    universityId: '2026001', firstName: 'سارة', middleName: 'عمر', familyName: 'علي',
+    motherName: 'منى', nationalId: 'N-1', applicationNumber: 'A-1', birthPlace: 'حلب',
+  };
 
   it('creates the student and audit record in one transaction', async () => {
     const student = { id: 'student-1', ...data };

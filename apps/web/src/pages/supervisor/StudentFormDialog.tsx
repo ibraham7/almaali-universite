@@ -23,7 +23,9 @@ function initialValues(student: StudentListItem | null): StudentInput {
   if (!student) return { ...empty };
   return {
     universityId: student.universityId, firstName: student.firstName, familyName: student.familyName,
-    middleName: student.middleName, englishName: student.englishName, gender: student.gender,
+    middleName: student.middleName, motherName: student.motherName, nationalId: student.nationalId,
+    applicationNumber: student.applicationNumber, birthPlace: student.birthPlace,
+    englishName: student.englishName, gender: student.gender,
     dateOfBirth: student.dateOfBirth?.slice(0, 10), nationality: student.nationality,
     idOrPassport: student.idOrPassport, universityEmail: student.universityEmail, phone: student.phone,
     status: student.status, collegeId: student.collegeId, departmentId: student.departmentId,
@@ -99,7 +101,9 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
 
   const fields = [
     field('universityId', 'الرقم الجامعي', true), field('firstName', 'الاسم الأول', true),
-    field('middleName', 'اسم الأب / الوسط'), field('familyName', 'اسم العائلة', true),
+    field('middleName', 'اسم الأب', true), field('familyName', 'اسم العائلة', true),
+    field('motherName', 'اسم الأم', true), field('nationalId', 'الرقم الوطني', true),
+    field('applicationNumber', 'رقم الاكتتاب', true), field('birthPlace', 'مكان الولادة', true),
     field('englishName', 'الاسم بالإنجليزية'), field('gender', 'الجنس'),
     field('dateOfBirth', 'تاريخ الميلاد', false, 'date'), field('nationality', 'الجنسية'),
     field('idOrPassport', 'رقم الهوية أو جواز السفر'), field('universityEmail', 'البريد الجامعي', false, 'email'),
@@ -128,7 +132,7 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
     </DialogContent>
     <DialogActions sx={{ p: 2 }}>
       <Button onClick={onClose} disabled={busy}>إلغاء</Button>
-      <Button variant="contained" onClick={() => void save()} disabled={busy || !catalog || !form.universityId.trim() || !form.firstName.trim() || !form.familyName.trim()}>
+      <Button variant="contained" onClick={() => void save()} disabled={busy || !catalog || !form.universityId?.trim() || !form.firstName?.trim() || !form.middleName?.trim() || !form.familyName?.trim() || !form.motherName?.trim() || !form.nationalId?.trim() || !form.applicationNumber?.trim() || !form.birthPlace?.trim()}>
         {busy ? 'جارٍ الحفظ...' : 'حفظ'}
       </Button>
     </DialogActions>

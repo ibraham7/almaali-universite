@@ -5,13 +5,10 @@ import {
   Param,
   Patch,
   Post,
-  UploadedFile,
   Query,
   Req,
   UseGuards,
-  UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 
 import type {
   Request,
@@ -46,13 +43,6 @@ export class StudentsController {
   constructor(
     private readonly studentsService: StudentsService,
   ) {}
-
-  @Post('import')
-  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 2 * 1024 * 1024 } }))
-  importStudents(@UploadedFile() file?: { buffer: Buffer; originalname: string }) {
-    return this.studentsService.importStudents(file);
-  }
 
   @Post()
   @Roles('REGISTRAR', 'SYSTEM_ADMIN')

@@ -1,12 +1,5 @@
 import { apiClient } from './client';
 
-export async function importStudentsFile(file: File) {
-  const form = new FormData();
-  form.append('file', file);
-  const response = await apiClient.post<{ imported: number }>('/students/import', form);
-  return response.data;
-}
-
 export interface StudentUser {
   id: string;
   email: string;
@@ -33,6 +26,10 @@ export interface StudentListItem {
   firstName: string;
   middleName?: string | null;
   familyName: string;
+  motherName?: string | null;
+  nationalId?: string | null;
+  applicationNumber?: string | null;
+  birthPlace?: string | null;
 
   englishName?: string | null;
   dateOfBirth?: string | null;
@@ -160,6 +157,10 @@ export interface StudentInput {
   firstName: string;
   familyName: string;
   middleName?: string | null;
+  motherName?: string | null;
+  nationalId?: string | null;
+  applicationNumber?: string | null;
+  birthPlace?: string | null;
   englishName?: string | null;
   gender?: string | null;
   dateOfBirth?: string | null;

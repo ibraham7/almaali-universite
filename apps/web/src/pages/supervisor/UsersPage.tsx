@@ -41,7 +41,7 @@ import {
 } from 'react';
 
 import axios from 'axios';
-import { importStudentsFile } from '../../api/students';
+import { useNavigate } from 'react-router-dom';
 
 import {
     createStaffUser,
@@ -150,6 +150,7 @@ function studentName(
 }
 
 export default function UsersPage() {
+    const navigate = useNavigate();
     const [users, setUsers] =
         useState<SystemUser[]>([]);
 
@@ -479,24 +480,7 @@ export default function UsersPage() {
               </Box>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
                 <Button variant="contained" onClick={() => setCreateStaffDialogOpen(true)}>إنشاء حساب إداري</Button>
-                <Button component="label" variant="contained" disabled={saving}>
-                  استيراد طلاب من Excel
-                  <input hidden type="file" accept=".xlsx,.csv" onChange={async (event) => {
-                    const file = event.target.files?.[0];
-                    if (!file) return;
-                    try {
-                      setSaving(true);
-                      const result = await importStudentsFile(file);
-                      setSuccess(`تم استيراد ${result.imported} طالبًا. يمكنهم إنشاء حساباتهم باستخدام بياناتهم.`);
-                      await loadData();
-                    } catch (requestError) {
-                      setError(getErrorMessage(requestError));
-                    } finally {
-                      setSaving(false);
-                      event.target.value = '';
-                    }
-                  }} />
-                </Button>
+                <Button variant="outlined" onClick={() => navigate('/students')}>إدارة بيانات الطلاب واستيرادها</Button>
                 <Button variant="outlined" onClick={() => void openAttemptLog()}>محاولات إنشاء الحساب</Button>
               </Stack>
             </Box>

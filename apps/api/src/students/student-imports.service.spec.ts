@@ -10,6 +10,10 @@ function file(rows: string[][]) {
   return { originalname: 'students.xlsx', buffer: XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer };
 }
 
+function row(universityId: string, firstName: string, familyName: string, birth = '') {
+  return [universityId, firstName, 'عمر', familyName, '', '', birth, '', '', '', '', '', '', '', '', '', '', '', '', '', 'منى', 'N-1', `A-${universityId}`, 'حلب'];
+}
+
 function database(ids: string[] = []) {
   const findMany = vi.fn().mockResolvedValue([]);
   const create = vi.fn().mockResolvedValue({});
@@ -20,7 +24,8 @@ function database(ids: string[] = []) {
     college: { findMany }, department: { findMany }, program: { findMany },
     studyPlan: { findMany }, academicYear: { findMany }, semester: { findMany },
     user: { findMany }, student: { findMany: vi.fn().mockResolvedValue(ids.map((universityId) => ({
-      universityId, firstName: 'سارة', middleName: null, familyName: 'علي', englishName: null,
+      universityId, firstName: 'سارة', middleName: 'عمر', familyName: 'علي', fullName: 'سارة عمر علي',
+      motherName: 'منى', nationalId: 'N-OLD', applicationNumber: 'A-OLD', birthPlace: 'حلب', englishName: null,
       gender: null, dateOfBirth: null, nationality: null, idOrPassport: null,
       universityEmail: null, phone: null, collegeId: null, departmentId: null, programId: null,
       studyPlanId: null, academicYearId: null, semesterId: null, status: 'ACTIVE', advisorId: null,
@@ -42,9 +47,9 @@ describe('Student Excel import', () => {
   it('previews duplicates and invalid dates without writing', async () => {
     const { prisma, transaction } = database(['2026001']);
     const rows = [
-      ['2026001', 'سارة', '', 'علي'],
-      ['2026002', 'هند', '', 'خالد', '', '', '2026-02-30'],
-      ['2026002', 'منى', '', 'مثال'],
+      row('2026001', 'سارة', 'علي'),
+      row('2026002', 'هند', 'خالد', '2026-02-30'),
+      row('2026002', 'منى', 'مثال'),
     ];
     const result = await new StudentImportsService(prisma).preview(file(rows));
     expect(result).toMatchObject({ total: 3, validCount: 1, updateCount: 1, errorCount: 2, duplicateCount: 1 });
@@ -56,26 +61,42 @@ describe('Student Excel import', () => {
 
   it('confirms valid rows and an audit event atomically', async () => {
     const { prisma, create, audit } = database();
-    const result = await new StudentImportsService(prisma).confirm(file([['2026003', 'هند', '', 'خالد']]), 'registrar-1');
+    const result = await new StudentImportsService(prisma).confirm(file([row('2026003', 'هند', 'خالد')]), 'registrar-1');
     expect(result).toMatchObject({ imported: 1, errors: 0 });
-    expect(create).toHaveBeenCalledWith({ data: expect.objectContaining({ universityId: '2026003', firstName: 'هند' }) });
+    expect(create).toHaveBeenCalledWith({ data: expect.objectContaining({
+      universityId: '2026003', firstName: 'هند', fullName: 'هند عمر خالد',
+      motherName: 'منى', nationalId: 'N-1', applicationNumber: 'A-2026003', birthPlace: 'حلب',
+    }) });
     expect(audit).toHaveBeenCalledWith({ data: expect.objectContaining({ action: 'STUDENTS_IMPORTED', userId: 'registrar-1' }) });
   });
 
   it('updates an existing student using only non-empty columns', async () => {
     const { prisma, update } = database(['2026001']);
-    const result = await new StudentImportsService(prisma).confirm(file([['2026001', 'مريم', '', 'علي']]), 'registrar-1');
+    const result = await new StudentImportsService(prisma).confirm(file([row('2026001', 'مريم', 'علي')]), 'registrar-1');
     expect(result).toMatchObject({ imported: 0, updated: 1 });
     expect(update).toHaveBeenCalledWith({
       where: { universityId: '2026001' },
-      data: { firstName: 'مريم', familyName: 'علي' },
+      data: {
+        firstName: 'مريم', fullName: 'مريم عمر علي', familyName: 'علي', middleName: 'عمر',
+        motherName: 'منى', nationalId: 'N-1', applicationNumber: 'A-2026001', birthPlace: 'حلب',
+      },
     });
   });
 
   it('does not import a file containing an invalid row', async () => {
     const { prisma, transaction } = database();
     const service = new StudentImportsService(prisma);
-    await expect(service.confirm(file([['', 'هند', '', 'خالد']]), 'registrar-1')).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.confirm(file([row('', 'هند', 'خالد')]), 'registrar-1')).rejects.toBeInstanceOf(BadRequestException);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects a new student row missing the sign-up matching data', async () => {
+    const { prisma, transaction } = database();
+    const incomplete = row('2026004', 'هند', 'خالد');
+    incomplete[20] = '';
+    const result = await new StudentImportsService(prisma).preview(file([incomplete]));
+    expect(result).toMatchObject({ validCount: 0, errorCount: 1 });
+    expect(result.errors[0].message).toContain('اسم الأم');
     expect(transaction).not.toHaveBeenCalled();
   });
 });

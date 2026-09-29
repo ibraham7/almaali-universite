@@ -13,6 +13,18 @@ export class StudentInputDto {
   @IsOptional() @IsString() @MaxLength(100)
   middleName?: string | null;
 
+  @IsOptional() @IsString() @MaxLength(100)
+  motherName?: string | null;
+
+  @IsOptional() @IsString() @MaxLength(100)
+  nationalId?: string | null;
+
+  @IsOptional() @IsString() @MaxLength(100)
+  applicationNumber?: string | null;
+
+  @IsOptional() @IsString() @MaxLength(100)
+  birthPlace?: string | null;
+
   @IsOptional() @IsString() @MaxLength(200)
   englishName?: string | null;
 
