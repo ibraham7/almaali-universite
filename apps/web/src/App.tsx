@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import {
   Navigate,
   Route,
@@ -12,24 +13,26 @@ import RegistrationCountdown from './components/RegistrationCountdown';
 import EnrollmentMessagesPanel from './components/EnrollmentMessagesPanel';
 import AdvisorEnrollmentMessagesDock from './components/AdvisorEnrollmentMessagesDock';
 
-import LoginPage from './pages/auth/LoginPage';
-import StudentSignupPage from './pages/auth/StudentSignupPage';
-import DashboardPage from './pages/shared/DashboardPage';
-import SupportTicketsPage from './pages/shared/SupportTicketsPage';
-import StudentRegistrationPage from './pages/student/StudentRegistrationPage';
-import StudentSchedulePage from './pages/student/StudentSchedulePage';
-import AdvisorRegistrationsPage from './pages/advisor/AdvisorRegistrationsPage';
-import StudyPlanPage from './pages/supervisor/StudyPlanPage';
-import SectionsPage from './pages/supervisor/SectionsPage';
-import RegistrationPeriodsPage from './pages/supervisor/RegistrationPeriodsPage';
-import StudentsPage from './pages/supervisor/StudentsPage';
-import AcademicStructurePage from './pages/supervisor/AcademicStructurePage';
-import CoursesPage from './pages/supervisor/CoursesPage';
-import UsersPage from './pages/supervisor/UsersPage';
-import SettingsPage from './pages/supervisor/SettingsPage';
-import GradeScalePage from './pages/supervisor/GradeScalePage';
-import ResultsImportPage from './pages/supervisor/ResultsImportPage';
-import AuditLogsPage from './pages/supervisor/AuditLogsPage';
+const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
+const StudentSignupPage = lazy(() => import('./pages/auth/StudentSignupPage'));
+const DashboardPage = lazy(() => import('./pages/shared/DashboardPage'));
+const SupportTicketsPage = lazy(() => import('./pages/shared/SupportTicketsPage'));
+const StudentRegistrationPage = lazy(() => import('./pages/student/StudentRegistrationPage'));
+const StudentSchedulePage = lazy(() => import('./pages/student/StudentSchedulePage'));
+const StudentAcademicStatusPage = lazy(() => import('./pages/student/StudentAcademicStatusPage'));
+const AdvisorRegistrationsPage = lazy(() => import('./pages/advisor/AdvisorRegistrationsPage'));
+const AdvisorStudentRegistrationPage = lazy(() => import('./pages/advisor/AdvisorStudentRegistrationPage'));
+const StudyPlanPage = lazy(() => import('./pages/supervisor/StudyPlanPage'));
+const SectionsPage = lazy(() => import('./pages/supervisor/SectionsPage'));
+const RegistrationPeriodsPage = lazy(() => import('./pages/supervisor/RegistrationPeriodsPage'));
+const StudentsPage = lazy(() => import('./pages/supervisor/StudentsPage'));
+const AcademicStructurePage = lazy(() => import('./pages/supervisor/AcademicStructurePage'));
+const CoursesPage = lazy(() => import('./pages/supervisor/CoursesPage'));
+const UsersPage = lazy(() => import('./pages/supervisor/UsersPage'));
+const SettingsPage = lazy(() => import('./pages/supervisor/SettingsPage'));
+const GradeScalePage = lazy(() => import('./pages/supervisor/GradeScalePage'));
+const ResultsImportPage = lazy(() => import('./pages/supervisor/ResultsImportPage'));
+const AuditLogsPage = lazy(() => import('./pages/supervisor/AuditLogsPage'));
 
 function App() {
   const location = useLocation();
@@ -40,6 +43,7 @@ function App() {
 
   return (
     <>
+      <Suspense fallback={<div role="status" aria-live="polite" style={{ minHeight: '50vh', display: 'grid', placeItems: 'center', color: '#60758a' }}>جارٍ تحميل الصفحة...</div>}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<StudentSignupPage />} />
@@ -61,6 +65,10 @@ function App() {
               path="/student/schedule"
               element={<StudentSchedulePage />}
             />
+            <Route
+              path="/student/academic-status"
+              element={<StudentAcademicStatusPage />}
+            />
           </Route>
         </Route>
 
@@ -69,6 +77,10 @@ function App() {
             <Route
               path="/advisor/registrations"
               element={<AdvisorRegistrationsPage />}
+            />
+            <Route
+              path="/advisor/student-registration"
+              element={<AdvisorStudentRegistrationPage />}
             />
           </Route>
         </Route>
@@ -91,7 +103,7 @@ function App() {
 
         <Route
           element={
-            <ProtectedRoute allowedRoles={['REGISTRAR', 'SYSTEM_ADMIN']} />
+            <ProtectedRoute allowedRoles={['ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN']} />
           }
         >
           <Route element={<DashboardLayout />}>
@@ -129,6 +141,7 @@ function App() {
 
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
+      </Suspense>
 
       <RegistrationCountdown />
 

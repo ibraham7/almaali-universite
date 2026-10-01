@@ -99,14 +99,29 @@ export class StudentsService {
 
   private rethrowDuplicate(error: unknown): never {
     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
-      throw new ConflictException('University ID already exists');
+      const target = 'meta' in error && error.meta && typeof error.meta === 'object' && 'target' in error.meta
+        ? String(error.meta.target)
+        : '';
+      if (target.toLowerCase().includes('nationalid')) throw new ConflictException('الرقم الوطني مسجل لطالب آخر.');
+      if (target.toLowerCase().includes('universityid')) throw new ConflictException('الرقم الجامعي مسجل لطالب آخر.');
+      throw new ConflictException('توجد بيانات مكررة لهذا الطالب.');
     }
     throw error;
+  }
+
+  private async ensureUniqueNationalId(nationalId: string | null, excludeStudentId?: string) {
+    if (!nationalId) return;
+    const existing = await this.prisma.student.findFirst({
+      where: { nationalId, ...(excludeStudentId ? { id: { not: excludeStudentId } } : {}) },
+      select: { id: true },
+    });
+    if (existing) throw new ConflictException('الرقم الوطني مسجل لطالب آخر.');
   }
 
   async create(data: StudentInputDto, actingUserId: string) {
     const normalized = this.normalize(data);
     await this.validateStructure(data);
+    await this.ensureUniqueNationalId(normalized.nationalId);
     try {
       return await this.prisma.$transaction(async (tx) => {
         const student = await tx.student.create({ data: normalized });
@@ -124,6 +139,7 @@ export class StudentsService {
     const existing = await this.prisma.student.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Student not found');
     await this.validateStructure(data);
+    await this.ensureUniqueNationalId(normalized.nationalId, id);
     try {
       return await this.prisma.$transaction(async (tx) => {
         const student = await tx.student.update({ where: { id }, data: normalized });
@@ -165,6 +181,96 @@ export class StudentsService {
     }
 
     return student;
+  }
+
+  async getMyAcademicStatus(userId: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        universityId: true,
+        studyPlanId: true,
+        academicYearId: true,
+      },
+    });
+
+    if (!student) throw new NotFoundException('No student profile is linked to this user account');
+    if (!student.studyPlanId) throw new BadRequestException('الطالب غير مرتبط بخطة دراسية. راجع الإدارة.');
+    if (!student.academicYearId) throw new BadRequestException('السنة الدراسية للطالب غير محددة. راجع الإدارة.');
+
+    const [studyPlan, academicYear, results, enrollments] = await Promise.all([
+      this.prisma.studyPlan.findUnique({
+        where: { id: student.studyPlanId },
+        select: {
+          nameAr: true,
+          planCourses: {
+            include: { course: true, academicYear: true, semester: true },
+            orderBy: [
+              { academicYear: { levelNumber: 'asc' } },
+              { semester: { semesterNumber: 'asc' } },
+              { priority: 'asc' },
+            ],
+          },
+        },
+      }),
+      this.prisma.academicYear.findUnique({
+        where: { id: student.academicYearId },
+        select: { id: true, studyPlanId: true, levelNumber: true, nameAr: true },
+      }),
+      this.prisma.courseResult.findMany({
+        where: { studentId: student.id },
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+        select: { courseId: true, score: true, gradeLabel: true, passed: true, semester: { select: { nameAr: true } } },
+      }),
+      this.prisma.studentEnrollment.findMany({
+        where: { studentId: student.id },
+        select: { status: true, items: { select: { courseId: true } } },
+      }),
+    ]);
+    if (!studyPlan) throw new BadRequestException('الخطة الدراسية للطالب غير موجودة. راجع الإدارة.');
+    if (!academicYear || academicYear.studyPlanId !== student.studyPlanId) throw new BadRequestException('السنة الدراسية للطالب غير صحيحة. راجع الإدارة.');
+
+    const latestResultByCourse = new Map<string, typeof results[number]>();
+    for (const result of results) {
+      if (!latestResultByCourse.has(result.courseId)) latestResultByCourse.set(result.courseId, result);
+    }
+    const enrolledCourseIds = new Set(
+      enrollments
+        .filter((enrollment) => ['DRAFT', 'PENDING', 'APPROVED', 'CONFIRMED'].includes(enrollment.status))
+        .flatMap((enrollment) => enrollment.items.map((item) => item.courseId)),
+    );
+
+    return {
+      student: { universityId: student.universityId, currentLevel: academicYear.nameAr },
+      studyPlan: studyPlan.nameAr,
+      courses: studyPlan.planCourses.map((planCourse) => {
+        const result = latestResultByCourse.get(planCourse.courseId);
+        const status = result?.passed
+          ? 'PASSED'
+          : enrolledCourseIds.has(planCourse.courseId)
+            ? 'REGISTERED'
+            : result
+              ? 'FAILED'
+              : planCourse.academicYear.levelNumber > academicYear.levelNumber
+                ? 'FUTURE'
+                : 'NOT_TAKEN';
+        return {
+          id: planCourse.id,
+          courseId: planCourse.courseId,
+          code: planCourse.course.code,
+          nameAr: planCourse.course.nameAr,
+          nameEn: planCourse.course.nameEn,
+          credits: planCourse.course.credits,
+          academicYear: planCourse.academicYear.nameAr,
+          levelNumber: planCourse.academicYear.levelNumber,
+          semester: planCourse.semester.nameAr,
+          status,
+          gradeLabel: result?.gradeLabel ?? null,
+          score: result?.score === undefined ? null : Number(result.score),
+          resultSemester: result?.semester.nameAr ?? null,
+        };
+      }),
+    };
   }
 
   async findAll(

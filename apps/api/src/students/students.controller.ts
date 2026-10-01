@@ -73,6 +73,12 @@ export class StudentsController {
     );
   }
 
+  @Get('me/academic-status')
+  @Roles('STUDENT')
+  getMyAcademicStatus(@Req() request: AuthenticatedRequest) {
+    return this.studentsService.getMyAcademicStatus(request.user.id);
+  }
+
   @Get()
   @Roles(
     'ADVISOR',

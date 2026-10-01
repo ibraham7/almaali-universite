@@ -24,6 +24,8 @@ import {
     TableHead,
     TableRow,
     Typography,
+    Checkbox,
+    ListItemText,
 } from '@mui/material';
 
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
@@ -42,6 +44,8 @@ import {
 
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { getPrograms, type Program } from '../../api/academicStructure';
+import { getAdvisorPrograms, setAdvisorPrograms } from '../../api/advisors';
 
 import {
     createStaffUser,
@@ -175,6 +179,10 @@ export default function UsersPage() {
     const [staffPassword, setStaffPassword] = useState('');
     const [staffRole, setStaffRole] = useState<Exclude<RoleCode, 'STUDENT'>>('ADVISOR');
     const [signupAttempts, setSignupAttempts] = useState<{ failedCount: number; attempts: Array<{ id: string; succeeded: boolean; createdAt: string }> } | null>(null);
+    const [scopeDialogOpen, setScopeDialogOpen] = useState(false);
+    const [scopeAdvisor, setScopeAdvisor] = useState<SystemUser | null>(null);
+    const [programs, setPrograms] = useState<Program[]>([]);
+    const [selectedProgramIds, setSelectedProgramIds] = useState<string[]>([]);
 
     const [search, setSearch] =
         useState('');
@@ -249,6 +257,37 @@ export default function UsersPage() {
             setAttemptDialogOpen(true);
         } catch (requestError) {
             setError(getErrorMessage(requestError));
+        }
+    }
+
+    async function openAdvisorScopes(user: SystemUser) {
+        try {
+            setError('');
+            setSaving(true);
+            const [programData, assignments] = await Promise.all([getPrograms(), getAdvisorPrograms(user.id)]);
+            setPrograms(programData);
+            setSelectedProgramIds(assignments.map((item) => item.id));
+            setScopeAdvisor(user);
+            setScopeDialogOpen(true);
+        } catch (requestError) {
+            setError(getErrorMessage(requestError));
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    async function saveAdvisorScopes() {
+        if (!scopeAdvisor) return;
+        try {
+            setSaving(true);
+            setError('');
+            await setAdvisorPrograms(scopeAdvisor.id, selectedProgramIds);
+            setScopeDialogOpen(false);
+            setSuccess(`تم حفظ ${selectedProgramIds.length} اختصاص للمسؤول ${scopeAdvisor.displayName ?? scopeAdvisor.username ?? ''}.`);
+        } catch (requestError) {
+            setError(getErrorMessage(requestError));
+        } finally {
+            setSaving(false);
         }
     }
 
@@ -877,6 +916,7 @@ export default function UsersPage() {
                                                 <Typography color="text.secondary" sx={{ fontSize: 11, mt: 1 }}>
                                                     آخر دخول: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString('ar') : 'لم يسجل دخولًا بعد'}
                                                 </Typography>
+                                                {user.role.code === 'ADVISOR' && <Button size="small" sx={{ mt: 1.5 }} onClick={(event) => { event.stopPropagation(); void openAdvisorScopes(user); }}>تعيين الكليات والاختصاصات</Button>}
                                             </Box>
                                         </Stack>
                                     </CardContent>
@@ -1107,6 +1147,37 @@ export default function UsersPage() {
                     </>}
                 </DialogContent>
                 <DialogActions><Button onClick={() => setAttemptDialogOpen(false)}>إغلاق</Button></DialogActions>
+            </Dialog>
+            <Dialog open={scopeDialogOpen} onClose={() => !saving && setScopeDialogOpen(false)} fullWidth maxWidth="md">
+                <DialogTitle>اختصاصات المسؤول</DialogTitle>
+                <DialogContent dividers>
+                    <Stack spacing={2} sx={{ pt: 1 }}>
+                        <Alert severity="info">اختر جميع البرامج التي يتولاها هذا المسؤول. يحق له تسجيل مواد الطلاب التابعين لهذه البرامج، وتُعرض الاختصاصات مجمعة بحسب الكلية والقسم.</Alert>
+                        <FormControl fullWidth>
+                            <InputLabel id="advisor-programs-label">الكلية والقسم والاختصاص</InputLabel>
+                            <Select
+                                labelId="advisor-programs-label"
+                                multiple
+                                value={selectedProgramIds}
+                                label="الكلية والقسم والاختصاص"
+                                onChange={(event) => setSelectedProgramIds(typeof event.target.value === 'string' ? event.target.value.split(',') : event.target.value)}
+                                renderValue={(selected) => `${selected.length} اختصاص محدد`}
+                            >
+                                {programs.map((program) => (
+                                    <MenuItem key={program.id} value={program.id}>
+                                        <Checkbox checked={selectedProgramIds.includes(program.id)} />
+                                        <ListItemText primary={program.nameAr} secondary={`${program.department?.nameAr ?? 'قسم غير محدد'} · ${program.department?.college?.nameAr ?? 'كلية غير محددة'}`} />
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        {programs.length === 0 && <Alert severity="warning">أضف الكليات والأقسام والاختصاصات أولًا قبل إسنادها.</Alert>}
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button disabled={saving} onClick={() => setScopeDialogOpen(false)}>إلغاء</Button>
+                    <Button variant="contained" disabled={saving} onClick={() => void saveAdvisorScopes()}>{saving ? 'جارٍ الحفظ...' : 'حفظ التعيين'}</Button>
+                </DialogActions>
             </Dialog>
         </Box>
     );

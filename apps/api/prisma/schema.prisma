@@ -106,6 +106,7 @@ model Program {
 
   department Department  @relation(fields: [departmentId], references: [id])
   studyPlans StudyPlan[]
+  advisorAssignments AdvisorProgramAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -199,9 +200,24 @@ model User {
   role   Role   @relation(fields: [roleId], references: [id])
 
   student Student?
+  advisorProgramAssignments AdvisorProgramAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model AdvisorProgramAssignment {
+  id        String   @id @default(uuid())
+  advisorId String
+  programId String
+
+  advisor User    @relation(fields: [advisorId], references: [id], onDelete: Cascade)
+  program Program @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([advisorId, programId])
+  @@index([programId])
 }
 
 model Student {

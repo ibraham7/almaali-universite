@@ -324,6 +324,39 @@ export class RegistrationValidationService {
         },
       });
 
+    if (eligiblePlanCourses.length === 0 && selectedSection && selectedSection.semesterId === enrollment.semesterId) {
+      const [pastPlanCourses, attempts] = await Promise.all([
+        this.prisma.studyPlanCourse.findMany({
+          where: {
+            studyPlanId: student.studyPlanId,
+            courseId,
+            academicYear: { levelNumber: { lt: currentLevel.levelNumber } },
+            course: { status: 'ACTIVE' },
+          },
+          include: { course: true, academicYear: true, semester: true },
+          orderBy: [{ academicYear: { levelNumber: 'desc' } }, { semester: { semesterNumber: 'asc' } }],
+        }),
+        this.prisma.courseResult.findMany({
+          where: { studentId: student.id, courseId },
+          select: { passed: true },
+        }),
+      ]);
+      if (pastPlanCourses.length && attempts.length && !attempts.some((attempt) => attempt.passed)) {
+        return {
+          valid: true,
+          errors: [],
+          planCourse: { ...pastPlanCourses[0], semesterId: enrollment.semesterId },
+          currentLevelNumber: currentLevel.levelNumber,
+          maxAllowedLevelNumber,
+          universitySettings: {
+            minGpaForFutureYears: Number(settings.minGpaForFutureYears),
+            allowedFutureYears: settings.allowedFutureYears,
+            requiredElectiveCredits: settings.requiredElectiveCredits,
+          },
+        };
+      }
+    }
+
     if (eligiblePlanCourses.length === 0) {
       return {
         valid: false,
@@ -448,7 +481,7 @@ export class RegistrationValidationService {
         )
         .map(
           (item) =>
-            item.prerequisite.code,
+            `${item.prerequisite.code} — ${item.prerequisite.nameAr}`,
         );
 
     if (missingPrerequisites.length > 0) {

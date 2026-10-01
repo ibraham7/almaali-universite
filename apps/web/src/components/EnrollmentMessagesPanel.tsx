@@ -56,11 +56,11 @@ export default function EnrollmentMessagesPanel({
   const [error, setError] = useState('');
   const [floatingOpen, setFloatingOpen] = useState(false);
 
-  const loadMessages = useCallback(async () => {
+  const loadMessages = useCallback(async (silent = false) => {
     if (mode === 'advisor' && !approvalId) return;
 
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError('');
       const data =
         mode === 'student'
@@ -73,12 +73,14 @@ export default function EnrollmentMessagesPanel({
         setError('تعذر تحميل رسائل طلب التسجيل.');
       }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [approvalId, mode]);
 
   useEffect(() => {
     void loadMessages();
+    const timer = window.setInterval(() => void loadMessages(true), 8000);
+    return () => window.clearInterval(timer);
   }, [loadMessages]);
 
   const send = async () => {

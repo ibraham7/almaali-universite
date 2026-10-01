@@ -19,6 +19,7 @@ export interface Department {
 
     nameAr: string;
     nameEn?: string | null;
+    college?: College;
 
     createdAt?: string;
     updatedAt?: string;
@@ -30,6 +31,9 @@ export interface Program {
 
     nameAr: string;
     nameEn?: string | null;
+    department?: Department;
+    departmentName?: string;
+    collegeName?: string;
 
     createdAt?: string;
     updatedAt?: string;

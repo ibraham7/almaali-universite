@@ -180,6 +180,7 @@ export default function StudentRegistrationPage() {
 
   const [search, setSearch] =
     useState('');
+  const [selectedLevelNumber, setSelectedLevelNumber] = useState<number | null>(null);
 
   const [
     selectedSections,
@@ -258,6 +259,12 @@ export default function StudentRegistrationPage() {
   const planCourses =
     registration?.planCourses ?? [];
 
+  const availableLevels = useMemo(() => {
+    const byNumber = new Map<number, PlanCourse['academicYear']>();
+    for (const item of planCourses) byNumber.set(item.academicYear.levelNumber, item.academicYear);
+    return [...byNumber.values()].sort((a, b) => a.levelNumber - b.levelNumber);
+  }, [planCourses]);
+
   const enrollment =
     registration?.enrollment ?? null;
 
@@ -277,12 +284,10 @@ export default function StudentRegistrationPage() {
       const normalizedSearch =
         search.trim().toLowerCase();
 
-      if (!normalizedSearch) {
-        return planCourses;
-      }
-
       return planCourses.filter(
         (planCourse) => {
+          if (selectedLevelNumber !== null && planCourse.academicYear.levelNumber !== selectedLevelNumber) return false;
+          if (!normalizedSearch) return true;
           const course =
             planCourse.course;
 
@@ -305,7 +310,7 @@ export default function StudentRegistrationPage() {
           );
         },
       );
-    }, [planCourses, search]);
+    }, [planCourses, search, selectedLevelNumber]);
 
   const groupedCourses =
     useMemo(() => {
@@ -433,9 +438,7 @@ export default function StudentRegistrationPage() {
         return;
       }
 
-      setSuccess(
-        `تمت إضافة ${course.nameAr} إلى سلة التسجيل.`,
-      );
+      setSuccess(`تم تسجيل المادة ${course.nameAr} ضمن طلب التسجيل.`);
 
       await loadRegistration();
     } catch (requestError) {
@@ -471,9 +474,7 @@ export default function StudentRegistrationPage() {
         return;
       }
 
-      setSuccess(
-        'تم حذف المقرر من سلة التسجيل.',
-      );
+      setSuccess('تم حذف المقرر من تسجيلك.');
 
       await loadRegistration();
     } catch (requestError) {
@@ -712,6 +713,20 @@ export default function StudentRegistrationPage() {
           {success}
         </Alert>
       )}
+
+      <Card sx={{ mb: 2.5 }}>
+        <CardContent sx={{ py: '16px !important' }}>
+          <Typography variant="subtitle2" sx={{ mb: 1.25, fontWeight: 700 }}>اعرض مقررات أي سنة دراسية</Typography>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+            <Button size="small" variant={selectedLevelNumber === null ? 'contained' : 'outlined'} onClick={() => setSelectedLevelNumber(null)}>كل السنوات</Button>
+            {availableLevels.map((level) => (
+              <Button key={level.id} size="small" variant={selectedLevelNumber === level.levelNumber ? 'contained' : 'outlined'} onClick={() => setSelectedLevelNumber(level.levelNumber)}>
+                {level.nameAr}
+              </Button>
+            ))}
+          </Stack>
+        </CardContent>
+      </Card>
 
       {!registration.registrationOpen && (
         <Alert
@@ -1094,6 +1109,10 @@ export default function StudentRegistrationPage() {
                             planCourse.academicYear
                               .levelNumber >
                             currentLevelNumber;
+                          const isPriorCourse =
+                            planCourse.academicYear.levelNumber < currentLevelNumber;
+                          const priorCourseBlocked =
+                            isPriorCourse && planCourse.retakeAllowed !== true;
 
                           const selectedSectionId =
                             selectedSections[
@@ -1203,6 +1222,14 @@ export default function StudentRegistrationPage() {
                                         />
                                       )}
 
+                                      {isPriorCourse && (
+                                        <Chip
+                                          size="small"
+                                          label={planCourse.retakeStatus === 'PASSED' ? 'ناجح · غير متاح للتسجيل' : planCourse.retakeStatus === 'FAILED' ? 'راسب · يمكن الإعادة' : 'من سنة سابقة · غير مسجل سابقًا'}
+                                          color={planCourse.retakeStatus === 'FAILED' ? 'warning' : planCourse.retakeStatus === 'PASSED' ? 'success' : 'default'}
+                                        />
+                                      )}
+
                                       <Chip
                                         size="small"
                                         variant="outlined"
@@ -1261,7 +1288,7 @@ export default function StudentRegistrationPage() {
                                             ) =>
                                               prerequisite
                                                 .prerequisite
-                                                .code,
+                                                .code + ' — ' + prerequisite.prerequisite.nameAr,
                                           )
                                           .join('، ')}
                                       </Typography>
@@ -1302,6 +1329,7 @@ export default function StudentRegistrationPage() {
                                             displayEmpty
                                             disabled={
                                               isRegistered ||
+                                              priorCourseBlocked ||
                                               !canEdit
                                             }
                                             onChange={(
@@ -1486,6 +1514,7 @@ export default function StudentRegistrationPage() {
                                           }
                                           disabled={
                                             isRegistered ||
+                                            priorCourseBlocked ||
                                             !selectedSectionId ||
                                             !canEdit ||
                                             actionLoading !==
@@ -1504,9 +1533,11 @@ export default function StudentRegistrationPage() {
                                               color="inherit"
                                             />
                                           ) : isRegistered ? (
-                                            'مضاف إلى السلة'
+                                            'تم التسجيل'
+                                          ) : priorCourseBlocked ? (
+                                            'إعادة التسجيل غير متاحة'
                                           ) : (
-                                            'إضافة إلى السلة'
+                                            'تسجيل المادة'
                                           )}
                                         </Button>
                                       </Stack>
@@ -1557,7 +1588,7 @@ export default function StudentRegistrationPage() {
                 <ShoppingBagOutlinedIcon />
 
                 <Typography variant="h6">
-                  سلة التسجيل
+                  مواد التسجيل
                 </Typography>
               </Stack>
 
@@ -1584,8 +1615,7 @@ export default function StudentRegistrationPage() {
                   color="text.secondary"
                   sx={{ fontSize: 13 }}
                 >
-                  لم تضف أي مقرر إلى
-                  السلة بعد.
+                  لم تسجل أي مادة بعد.
                 </Typography>
               </Box>
             ) : (

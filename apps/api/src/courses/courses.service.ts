@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -17,7 +18,40 @@ export class CoursesService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async addPrerequisitesBulk(courseId: string, prerequisiteIds: string[]) {
+  private async advisorProgramIds(actor: { id: string; role: string }) {
+    if (actor.role !== 'ADVISOR') return null;
+    const rows = await this.prisma.advisorProgramAssignment.findMany({ where: { advisorId: actor.id }, select: { programId: true } });
+    return rows.map((row) => row.programId);
+  }
+
+  private async assertPlanScope(studyPlanId: string, actor: { id: string; role: string }) {
+    const allowed = await this.advisorProgramIds(actor);
+    if (allowed && !allowed.length) throw new ForbiddenException('لم يعيّن المدير أي اختصاص لهذا الحساب.');
+    if (allowed && !(await this.prisma.studyPlan.findFirst({ where: { id: studyPlanId, programId: { in: allowed } }, select: { id: true } }))) {
+      throw new ForbiddenException('لا تملك صلاحية إدارة مقررات هذا الاختصاص.');
+    }
+  }
+
+  private async assertCourseScope(courseId: string, actor: { id: string; role: string }) {
+    const allowed = await this.advisorProgramIds(actor);
+    if (!allowed) return;
+    if (!allowed.length) throw new ForbiddenException('لم يعيّن المدير أي اختصاص لهذا الحساب.');
+    const links = await this.prisma.studyPlanCourse.findMany({
+      where: { courseId, studyPlan: { programId: { in: allowed } } },
+      select: { studyPlan: { select: { programId: true } } },
+    });
+    const allPrograms = await this.prisma.studyPlanCourse.findMany({
+      where: { courseId },
+      select: { studyPlan: { select: { programId: true } } },
+    });
+    const allProgramIds = new Set(allPrograms.map((link) => link.studyPlan.programId));
+    if (!links.length || [...allProgramIds].some((programId) => !allowed.includes(programId))) {
+      throw new ForbiddenException('لا تملك صلاحية إدارة هذا المقرر في جميع الاختصاصات المرتبطة به.');
+    }
+  }
+
+  async addPrerequisitesBulk(courseId: string, prerequisiteIds: string[], actor: { id: string; role: string }) {
+    await this.assertCourseScope(courseId, actor);
     if (!prerequisiteIds.length) {
       throw new BadRequestException('اختر متطلبًا سابقًا واحدًا على الأقل');
     }
@@ -61,7 +95,8 @@ export class CoursesService {
     }
   }
 
-  async addPrerequisite(dto: CreateCoursePrerequisiteDto) {
+  async addPrerequisite(dto: CreateCoursePrerequisiteDto, actor: { id: string; role: string }) {
+    await this.assertCourseScope(dto.courseId, actor);
     if (dto.courseId === dto.prerequisiteId) {
       return {
         success: false,
@@ -116,7 +151,8 @@ export class CoursesService {
     };
   }
 
-  async removePrerequisite(courseId: string, prerequisiteId: string) {
+  async removePrerequisite(courseId: string, prerequisiteId: string, actor: { id: string; role: string }) {
+    await this.assertCourseScope(courseId, actor);
     const relation = await this.prisma.coursePrerequisite.findFirst({
       where: { courseId, prerequisiteId },
       include: { prerequisite: true },
@@ -144,7 +180,7 @@ export class CoursesService {
     };
   }
 
-  async create(createCourseDto: CreateCourseDto) {
+  async create(createCourseDto: CreateCourseDto, actor: { id: string; role: string }) {
     const existing = await this.prisma.course.findFirst({
       where: {
         code: createCourseDto.code.trim(),
@@ -173,6 +209,7 @@ export class CoursesService {
     if (!studyPlan) {
       throw new BadRequestException('الخطة الدراسية غير موجودة');
     }
+    await this.assertPlanScope(studyPlan.id, actor);
 
     const academicYear = await this.prisma.academicYear.findUnique({
       where: { id: createCourseDto.academicYearId },
@@ -268,7 +305,8 @@ export class CoursesService {
     });
   }
 
-  async update(id: string, dto: UpdateCourseDto) {
+  async update(id: string, dto: UpdateCourseDto, actor: { id: string; role: string }) {
+    await this.assertCourseScope(id, actor);
     const course = await this.prisma.course.findUnique({
       where: { id },
     });
@@ -317,7 +355,8 @@ export class CoursesService {
     });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, actor: { id: string; role: string }) {
+    await this.assertCourseScope(id, actor);
     const course = await this.prisma.course.findUnique({
       where: { id },
       include: {
@@ -361,8 +400,10 @@ export class CoursesService {
     return course;
   }
 
-  async findAll() {
+  async findAll(actor: { id: string; role: string }) {
+    const allowed = await this.advisorProgramIds(actor);
     const courses = await this.prisma.course.findMany({
+      ...(allowed ? { where: { planCourses: { some: { studyPlan: { programId: { in: allowed } } } } } } : {}),
       include: {
         prerequisites: {
           include: { prerequisite: true },

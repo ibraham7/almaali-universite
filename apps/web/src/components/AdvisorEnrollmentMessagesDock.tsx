@@ -9,7 +9,7 @@ import {
   Select,
   Typography,
 } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 
@@ -31,23 +31,22 @@ export default function AdvisorEnrollmentMessagesDock() {
   const [approvalId, setApprovalId] = useState('');
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-
-    void getMyAdvisorApprovals()
-      .then((data) => {
-        if (!active) return;
-        setApprovals(data);
-        setApprovalId((current) => current || data[0]?.id || '');
-      })
-      .catch(() => {
-        if (active) setApprovals([]);
-      });
-
-    return () => {
-      active = false;
-    };
+  const loadApprovals = useCallback(async () => {
+    try {
+      const data = await getMyAdvisorApprovals();
+      setApprovals(data);
+      setApprovalId((current) => data.some((item) => item.id === current) ? current : data[0]?.id || '');
+    } catch {
+      setApprovals([]);
+      setApprovalId('');
+    }
   }, []);
+
+  useEffect(() => {
+    void loadApprovals();
+    const timer = window.setInterval(() => void loadApprovals(), 10000);
+    return () => window.clearInterval(timer);
+  }, [loadApprovals]);
 
   if (approvals.length === 0) return null;
 

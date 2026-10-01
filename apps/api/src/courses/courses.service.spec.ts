@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CoursesService } from './courses.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { ForbiddenException } from '@nestjs/common';
 
 describe('CoursesService', () => {
   let service: CoursesService;
@@ -8,10 +9,13 @@ describe('CoursesService', () => {
   const prisma = {
     course: { findUnique: vi.fn(), findMany: vi.fn() },
     coursePrerequisite: { findMany: vi.fn() },
+    advisorProgramAssignment: { findMany: vi.fn() },
+    studyPlanCourse: { findFirst: vi.fn(), findMany: vi.fn() },
     $transaction: vi.fn(),
   };
 
   beforeEach(async () => {
+    vi.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       providers: [CoursesService, { provide: PrismaService, useValue: prisma }],
     }).compile();
@@ -31,7 +35,7 @@ describe('CoursesService', () => {
     tx.coursePrerequisite.findMany.mockResolvedValue([{ prerequisiteId: 'pre-1' }, { prerequisiteId: 'pre-2' }]);
     prisma.$transaction.mockImplementation((callback: (transaction: typeof tx) => unknown) => callback(tx));
 
-    const result = await service.addPrerequisitesBulk('course-1', ['pre-1', 'pre-2']);
+    const result = await service.addPrerequisitesBulk('course-1', ['pre-1', 'pre-2'], { id: 'admin-1', role: 'SYSTEM_ADMIN' });
 
     expect(result).toMatchObject({ success: true, added: [{ prerequisiteId: 'pre-1' }, { prerequisiteId: 'pre-2' }] });
     expect(tx.coursePrerequisite.createMany).toHaveBeenCalledWith({
@@ -40,5 +44,14 @@ describe('CoursesService', () => {
         { courseId: 'course-1', prerequisiteId: 'pre-2' },
       ],
     });
+  });
+
+  it('blocks an advisor from editing a course outside their assigned programs', async () => {
+    prisma.advisorProgramAssignment.findMany.mockResolvedValue([{ programId: 'program-a' }]);
+    prisma.studyPlanCourse.findMany.mockResolvedValue([]);
+
+    await expect(service.addPrerequisitesBulk('course-outside-scope', ['pre-1'], { id: 'advisor-1', role: 'ADVISOR' }))
+      .rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.course.findUnique).not.toHaveBeenCalled();
   });
 });

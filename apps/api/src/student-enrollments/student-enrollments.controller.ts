@@ -17,6 +17,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateStudentEnrollmentDto } from './dto/create-student-enrollment.dto.js';
 import { AddEnrollmentItemDto } from './dto/add-enrollment-item.dto.js';
 import { DropEnrollmentItemDto } from './dto/drop-enrollment-item.dto.js';
+import { DirectAdvisorRegistrationDto } from './dto/direct-advisor-registration.dto.js';
 
 import { JwtGuard } from '../auth/guards/jwt/jwt.guard.js';
 import { RolesGuard } from '../auth/guards/roles/roles.guard.js';
@@ -228,6 +229,18 @@ export class StudentEnrollmentsController {
       request.user.id,
       body.enrollmentItemId,
     );
+  }
+
+  @Get('advisor/:universityId/catalog')
+  @Roles('ADVISOR')
+  getAdvisorRegistrationCatalog(@Param('universityId') universityId: string, @Req() request: AuthenticatedRequest) {
+    return this.studentEnrollmentsService.getAdvisorRegistrationCatalog(universityId, request.user.id);
+  }
+
+  @Post('advisor/direct-register')
+  @Roles('ADVISOR')
+  registerDirectlyByAdvisor(@Body() dto: DirectAdvisorRegistrationDto, @Req() request: AuthenticatedRequest) {
+    return this.studentEnrollmentsService.registerDirectlyByAdvisor(dto.universityId, request.user.id, dto.items);
   }
 
   @Post('items/drop')

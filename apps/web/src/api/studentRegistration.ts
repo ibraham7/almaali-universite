@@ -159,6 +159,8 @@ export interface PlanCourse {
   course: Course;
   academicYear: AcademicLevel;
   semester: Semester;
+  retakeStatus?: 'PASSED' | 'FAILED' | 'NOT_TAKEN' | 'CURRENT' | 'FUTURE';
+  retakeAllowed?: boolean;
 }
 
 export interface EnrollmentItem {

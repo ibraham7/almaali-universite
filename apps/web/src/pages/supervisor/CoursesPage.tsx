@@ -622,7 +622,7 @@ export default function CoursesPage() {
                         <Typography color="text.secondary" sx={{ fontSize: 12 }}>لا يوجد</Typography>
                       ) : (
                         course.prerequisites.map((relation) => (
-                          <Chip key={relation.id} size="small" label={relation.prerequisite.code} />
+                          <Chip key={relation.id} size="small" label={`${relation.prerequisite.code} — ${relation.prerequisite.nameAr}`} />
                         ))
                       )}
                     </Stack>
@@ -725,9 +725,9 @@ export default function CoursesPage() {
                   </FormControl>
 
                   <FormControl fullWidth required disabled={!form.programId}>
-                    <InputLabel>الخطة الدراسية</InputLabel>
+                    <InputLabel>العام الدراسي</InputLabel>
                     <Select
-                      label="الخطة الدراسية"
+                      label="العام الدراسي"
                       value={form.studyPlanId}
                       onChange={(event) =>
                         setForm((current) => ({

@@ -126,6 +126,31 @@ export interface StudentDetails
   enrollments: StudentEnrollmentDetails[];
 }
 
+export interface StudentAcademicStatus {
+  student: { universityId: string; currentLevel: string };
+  studyPlan: string;
+  courses: Array<{
+    id: string;
+    courseId: string;
+    code: string;
+    nameAr: string;
+    nameEn?: string | null;
+    credits: number;
+    academicYear: string;
+    levelNumber: number;
+    semester: string;
+    status: 'PASSED' | 'FAILED' | 'REGISTERED' | 'FUTURE' | 'NOT_TAKEN';
+    gradeLabel?: string | null;
+    score?: number | null;
+    resultSemester?: string | null;
+  }>;
+}
+
+export async function getMyAcademicStatus() {
+  const response = await apiClient.get<StudentAcademicStatus>('/students/me/academic-status');
+  return response.data;
+}
+
 export async function getStudents(params?: {
   search?: string;
   status?: string;

@@ -31,8 +31,13 @@ export default function StudentSignupPage() {
         const response = await studentSignupRequest(data);
         setVerificationToken(response.verificationToken);
       }
-    } catch {
-      setError(verificationToken ? 'تعذر إنشاء الحساب. أعد التحقق من بيانات الطالب إذا انتهت المهلة.' : 'البيانات غير مطابقة لسجل طالب غير مسجل. راجع البيانات وحاول مجددًا.');
+    } catch (requestError) {
+      const responseData = (requestError as { response?: { data?: { mismatchedFields?: string[] } } }).response?.data;
+      if (!verificationToken && responseData?.mismatchedFields?.length) {
+        setError(`تحقق من الحقول التالية: ${responseData.mismatchedFields.join('، ')}.`);
+      } else {
+        setError(verificationToken ? 'تعذر إنشاء الحساب. أعد التحقق من بيانات الطالب إذا انتهت المهلة.' : 'البيانات غير مطابقة لسجل طالب غير مسجل. راجع البيانات وحاول مجددًا.');
+      }
     } finally {
       setLoading(false);
     }

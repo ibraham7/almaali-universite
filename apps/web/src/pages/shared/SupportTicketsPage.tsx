@@ -3,7 +3,7 @@ import { Alert, Box, Button, Card, CardContent, Chip, ClickAwayListener, Circula
 import { apiClient } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 
-type Ticket = { id: string; authorId: string; category: string; title: string; description: string; imageData?: string | null; status: string; createdAt: string; messages?: { id: string; body: string; authorId: string; createdAt: string }[] };
+type Ticket = { id: string; authorId: string; author?: { name: string; universityId?: string | null; programName?: string | null; departmentName?: string | null; collegeName?: string | null } | null; category: string; title: string; description: string; imageData?: string | null; status: string; createdAt: string; messages?: { id: string; body: string; authorId: string; createdAt: string }[] };
 const statuses: Record<string, string> = { NEW: 'بانتظار المراجعة', IN_REVIEW: 'قيد المراجعة', ANSWERED: 'تم الرد عليها', ACKNOWLEDGED: 'قيد المراجعة', IN_PROGRESS: 'قيد المراجعة', RESOLVED: 'تم الرد عليها' };
 const categories: Record<string, string> = { PROBLEM: 'مشكلة', SUGGESTION: 'اقتراح', CHANGE: 'طلب تعديل', OTHER: 'أخرى' };
 
@@ -109,9 +109,10 @@ export default function SupportTicketsPage() {
     <ClickAwayListener onClickAway={() => { if (activeTicketId.current) closeDetails(); }}>
     <Box sx={{ display: 'grid', gridTemplateColumns: selected ? { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' } : 'minmax(0, 1fr)', gap: 2, alignItems: 'start', direction: 'rtl' }}>
     <Card sx={{ borderRadius: 3, overflow: 'hidden', minWidth: 0 }}><Box sx={{ overflowX: 'auto' }}>
-      <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', minWidth: 540, '& th, & td': { p: 1.5, textAlign: 'right', borderBottom: '1px solid', borderColor: 'divider' } }}>
-        <thead><tr><th>العنوان</th><th>النوع</th><th>الحالة</th><th>التاريخ</th></tr></thead>
+      <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', minWidth: isStaff ? 720 : 540, '& th, & td': { p: 1.5, textAlign: 'right', borderBottom: '1px solid', borderColor: 'divider' } }}>
+        <thead><tr>{isStaff && <th>الطالب</th>}<th>العنوان</th><th>النوع</th><th>الحالة</th><th>التاريخ</th></tr></thead>
         <tbody>{tickets.map((ticket) => <tr key={ticket.id} role="button" tabIndex={0} aria-expanded={selected?.id === ticket.id} onClick={() => toggle(ticket.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggle(ticket.id); } }} style={{ cursor: 'pointer', background: selected?.id === ticket.id ? 'rgba(25, 118, 210, 0.08)' : undefined }}>
+          {isStaff && <td><strong>{ticket.author?.name ?? 'طالب'}</strong><br /><small>{ticket.author?.universityId ?? '—'}{ticket.author?.programName ? ` · ${ticket.author.programName}` : ''}</small></td>}
           <td><strong>{ticket.title}</strong></td><td>{categories[ticket.category] ?? ticket.category}</td>
           <td><Chip size="small" color={['ANSWERED', 'RESOLVED'].includes(ticket.status) ? 'success' : ticket.status === 'NEW' ? 'default' : 'info'} label={statuses[ticket.status] ?? ticket.status} /></td>
           <td>{new Date(ticket.createdAt).toLocaleDateString('ar')}</td>
@@ -128,6 +129,9 @@ export default function SupportTicketsPage() {
         <Box><Typography variant="h6">{selected.title}</Typography><Typography variant="caption" color="text.secondary">{categories[selected.category]} · {new Date(selected.createdAt).toLocaleString('ar')}</Typography></Box>
         <Chip size="small" color={['ANSWERED', 'RESOLVED'].includes(selected.status) ? 'success' : 'info'} label={statuses[selected.status] ?? selected.status} />
       </Stack>
+      {isStaff && selected.author && <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+        {selected.author.name} · الرقم الجامعي: {selected.author.universityId ?? '—'} · {selected.author.collegeName ?? '—'} / {selected.author.departmentName ?? '—'} / {selected.author.programName ?? '—'}
+      </Typography>}
       <Button size="small" onClick={closeDetails} sx={{ mt: 1 }}>إغلاق التفاصيل</Button>
       <Typography variant="subtitle2" sx={{ mt: 2 }}>الوصف</Typography>
       <Box sx={{ p: 2, bgcolor: 'action.hover', borderRadius: 2, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{selected.description}</Box>

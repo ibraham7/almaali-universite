@@ -97,17 +97,25 @@ export class AuthService {
     }
 
     const student = await this.prisma.student.findUnique({ where: { universityId: input.universityId.trim() } });
-    let matched = Boolean(student && !student.userId);
-    if (student) {
-      matched = matched && normalize(student.fullName ?? `${student.firstName} ${student.familyName}`) === normalize(input.fullName)
-        && normalize(student.middleName) === normalize(input.fatherName)
-        && Boolean(student.motherName && normalize(student.motherName) === normalize(input.motherName))
-        && Boolean(student.nationalId && normalize(student.nationalId) === normalize(input.nationalId))
-        && Boolean(student.applicationNumber && normalize(student.applicationNumber) === normalize(input.applicationNumber))
-        && Boolean(student.birthPlace && normalize(student.birthPlace) === normalize(input.birthPlace));
+    const mismatchedFields: string[] = [];
+    const matched = Boolean(student && !student.userId);
+    if (student && matched) {
+      if (normalize(student.fullName ?? `${student.firstName} ${student.familyName}`) !== normalize(input.fullName)) mismatchedFields.push('اسم الطالب');
+      if (normalize(student.middleName) !== normalize(input.fatherName)) mismatchedFields.push('اسم الأب');
+      if (!student.motherName || normalize(student.motherName) !== normalize(input.motherName)) mismatchedFields.push('اسم الأم');
+      if (!student.nationalId || normalize(student.nationalId) !== normalize(input.nationalId)) mismatchedFields.push('الرقم الوطني');
+      if (!student.applicationNumber || normalize(student.applicationNumber) !== normalize(input.applicationNumber)) mismatchedFields.push('رقم الاكتتاب');
+      if (!student.birthPlace || normalize(student.birthPlace) !== normalize(input.birthPlace)) mismatchedFields.push('مكان الولادة');
     }
-    await this.prisma.signupAttempt.create({ data: { ipHash, succeeded: matched } });
+    const identityMatches = matched && mismatchedFields.length === 0;
+    await this.prisma.signupAttempt.create({ data: { ipHash, succeeded: identityMatches } });
     if (!matched || !student) throw new BadRequestException(SIGNUP_MESSAGE);
+    if (matched && mismatchedFields.length) {
+      throw new BadRequestException({
+        message: 'راجع الحقول التالية؛ لم تطابق السجل الجامعي.',
+        mismatchedFields,
+      });
+    }
     const verificationToken = await this.jwtService.signAsync(
       { sub: student.id, purpose: 'student-signup', ipHash },
       { expiresIn: '5m' },

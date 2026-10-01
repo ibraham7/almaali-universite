@@ -90,11 +90,25 @@ const navigationItems: NavigationItem[] = [
   },
 
   {
+    label: 'الحالة الأكاديمية',
+    path: '/student/academic-status',
+    icon: <SchoolRoundedIcon />,
+    roles: ['STUDENT'],
+  },
+
+  {
     label: 'طلبات التسجيل',
     path: '/advisor/registrations',
     icon: (
       <AssignmentTurnedInRoundedIcon />
     ),
+    roles: ['ADVISOR'],
+  },
+
+  {
+    label: 'تسجيل مواد لطالب',
+    path: '/advisor/student-registration',
+    icon: <AssignmentTurnedInRoundedIcon />,
     roles: ['ADVISOR'],
   },
 
@@ -125,6 +139,7 @@ const navigationItems: NavigationItem[] = [
     path: '/courses',
     icon: <MenuBookRoundedIcon />,
     roles: [
+      'ADVISOR',
       'REGISTRAR',
       'SYSTEM_ADMIN',
     ],

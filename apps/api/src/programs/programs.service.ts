@@ -72,6 +72,11 @@ export class ProgramsService {
 
   async findAll() {
     return this.prisma.program.findMany({
+      include: {
+        department: {
+          include: { college: true },
+        },
+      },
       orderBy: {
         createdAt: 'asc',
       },

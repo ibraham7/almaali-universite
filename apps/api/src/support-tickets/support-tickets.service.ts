@@ -9,19 +9,60 @@ export class SupportTicketsService {
     return ['ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN'].includes(role);
   }
 
-  list(user: { id: string; role: string }, page?: string) {
+  async list(user: { id: string; role: string }, page?: string) {
     const parsed = Number(page ?? 1);
     const current = Number.isInteger(parsed) && parsed >= 1 ? Math.min(parsed, 1000) : 1;
-    return this.prisma.supportTicket.findMany({
+    const tickets = await this.prisma.supportTicket.findMany({
       where: this.isStaff(user.role) ? {} : { authorId: user.id },
       skip: (current - 1) * 30, take: 30, orderBy: { createdAt: 'desc' },
       select: { id: true, authorId: true, category: true, title: true, status: true, createdAt: true, updatedAt: true },
     });
+    if (!this.isStaff(user.role) || tickets.length === 0) return tickets;
+    const authors = await this.prisma.user.findMany({
+      where: { id: { in: [...new Set(tickets.map((ticket) => ticket.authorId))] } },
+      select: { id: true, displayName: true, student: { select: { fullName: true, firstName: true, middleName: true, familyName: true, universityId: true, programId: true } } },
+    });
+    const programIds = [...new Set(authors.map((author) => author.student?.programId).filter((id): id is string => Boolean(id)))];
+    const programs = await this.prisma.program.findMany({
+      where: { id: { in: programIds } },
+      select: { id: true, nameAr: true, department: { select: { nameAr: true, college: { select: { nameAr: true } } } } },
+    });
+    const programsById = new Map(programs.map((program) => [program.id, program]));
+    const authorsById = new Map(authors.map((author) => {
+      const student = author.student;
+      const program = student?.programId ? programsById.get(student.programId) : undefined;
+      return [author.id, {
+        name: student?.fullName || [student?.firstName, student?.middleName, student?.familyName].filter(Boolean).join(' ') || author.displayName || 'مستخدم',
+        universityId: student?.universityId ?? null,
+        programName: program?.nameAr ?? null,
+        departmentName: program?.department.nameAr ?? null,
+        collegeName: program?.department.college.nameAr ?? null,
+      }];
+    }));
+    return tickets.map((ticket) => ({ ...ticket, author: authorsById.get(ticket.authorId) ?? null }));
   }
   async one(id: string, user: { id: string; role: string }) {
     const ticket = await this.prisma.supportTicket.findUnique({ where: { id }, include: { messages: { orderBy: { createdAt: 'asc' } } } });
     if (!ticket || (!this.isStaff(user.role) && ticket.authorId !== user.id)) throw new NotFoundException('التذكرة غير موجودة.');
-    return ticket;
+    if (!this.isStaff(user.role)) return ticket;
+    const author = await this.prisma.user.findUnique({
+      where: { id: ticket.authorId },
+      select: { id: true, displayName: true, student: { select: { fullName: true, firstName: true, middleName: true, familyName: true, universityId: true, programId: true } } },
+    });
+    const program = author?.student?.programId
+      ? await this.prisma.program.findUnique({ where: { id: author.student.programId }, select: { nameAr: true, department: { select: { nameAr: true, college: { select: { nameAr: true } } } } } })
+      : null;
+    const student = author?.student;
+    return {
+      ...ticket,
+      author: author ? {
+        name: student?.fullName || [student?.firstName, student?.middleName, student?.familyName].filter(Boolean).join(' ') || author.displayName || 'مستخدم',
+        universityId: student?.universityId ?? null,
+        programName: program?.nameAr ?? null,
+        departmentName: program?.department.nameAr ?? null,
+        collegeName: program?.department.college.nameAr ?? null,
+      } : null,
+    };
   }
   async create(data: { category: string; title: string; description: string; imageData?: string }, user: { id: string; role: string }) {
     if (user.role !== 'STUDENT') throw new ForbiddenException();

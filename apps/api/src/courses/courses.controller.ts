@@ -7,7 +7,9 @@ import {
   Patch,
   Post,
   UseGuards,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
 
 import { CoursesService } from './courses.service.js';
 import { CreateCourseDto } from './dto/create-course.dto.js';
@@ -27,55 +29,61 @@ export class CoursesController {
   ) {}
 
   @Post()
-  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
-  create(@Body() createCourseDto: CreateCourseDto) {
-    return this.coursesService.create(createCourseDto);
+  @Roles('ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN')
+  create(@Body() createCourseDto: CreateCourseDto, @Req() request: Request & { user: { id: string; role: string } }) {
+    return this.coursesService.create(createCourseDto, request.user);
   }
 
   @Patch(':id')
-  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Roles('ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN')
   update(
     @Param('id') id: string,
     @Body() dto: UpdateCourseDto,
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
-    return this.coursesService.update(id, dto);
+    return this.coursesService.update(id, dto, request.user);
   }
 
   @Post('prerequisites')
-  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Roles('ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN')
   addPrerequisite(
     @Body() dto: CreateCoursePrerequisiteDto,
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
-    return this.coursesService.addPrerequisite(dto);
+    return this.coursesService.addPrerequisite(dto, request.user);
   }
 
   @Post(':courseId/prerequisites/bulk')
-  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Roles('ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN')
   addPrerequisitesBulk(
     @Param('courseId') courseId: string,
     @Body() dto: SetCoursePrerequisitesDto,
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
     return this.coursesService.addPrerequisitesBulk(
       courseId,
       dto.prerequisiteIds,
+      request.user,
     );
   }
 
   @Delete(':courseId/prerequisites/:prerequisiteId')
-  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Roles('ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN')
   removePrerequisite(
     @Param('courseId') courseId: string,
     @Param('prerequisiteId') prerequisiteId: string,
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
     return this.coursesService.removePrerequisite(
       courseId,
       prerequisiteId,
+      request.user,
     );
   }
 
   @Get()
-  findAll() {
-    return this.coursesService.findAll();
+  findAll(@Req() request: Request & { user: { id: string; role: string } }) {
+    return this.coursesService.findAll(request.user);
   }
 
   @Get('available-for-student/:studentId')
@@ -86,7 +94,7 @@ export class CoursesController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.coursesService.findOne(id);
+  findOne(@Param('id') id: string, @Req() request: Request & { user: { id: string; role: string } }) {
+    return this.coursesService.findOne(id, request.user);
   }
 }

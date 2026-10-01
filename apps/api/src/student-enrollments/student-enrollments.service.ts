@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateStudentEnrollmentDto } from './dto/create-student-enrollment.dto.js';
 import { AddEnrollmentItemDto } from './dto/add-enrollment-item.dto.js';
@@ -37,6 +37,102 @@ export class StudentEnrollmentsService {
         student: true,
       },
     });
+  }
+
+  private async getStudentForAdvisorRegistration(universityId: string, advisorId: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { universityId },
+      select: { id: true, universityId: true, firstName: true, middleName: true, familyName: true, collegeId: true, departmentId: true, programId: true, studyPlanId: true, academicYearId: true, semesterId: true, advisorId: true },
+    });
+    if (!student) throw new NotFoundException('لم يُعثر على طالب بهذا الرقم الجامعي.');
+    const directlyAssigned = student.advisorId === advisorId;
+    const programAssignment = student.programId
+      ? await this.prisma.advisorProgramAssignment.findUnique({
+          where: { advisorId_programId: { advisorId, programId: student.programId } },
+          select: { id: true },
+        })
+      : null;
+    if (!directlyAssigned && !programAssignment) throw new ForbiddenException('هذا الطالب خارج الاختصاصات المسندة إلى حسابك.');
+    if (!student.studyPlanId || !student.academicYearId) throw new ForbiddenException('بيانات الخطة أو المستوى الدراسي للطالب غير مكتملة.');
+    return student;
+  }
+
+  async getAdvisorRegistrationCatalog(universityId: string, advisorId: string) {
+    const student = await this.getStudentForAdvisorRegistration(universityId, advisorId);
+    const [plan, level] = await Promise.all([
+      this.prisma.studyPlan.findUnique({
+        where: { id: student.studyPlanId! },
+        select: {
+          id: true,
+          nameAr: true,
+          program: {
+            select: {
+              nameAr: true,
+              department: {
+                select: {
+                  nameAr: true,
+                  college: {
+                    select: {
+                      nameAr: true,
+                      university: { select: { allowedFutureYears: true } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.academicYear.findUnique({ where: { id: student.academicYearId! }, select: { levelNumber: true, studyPlanId: true } }),
+    ]);
+    if (!plan || !level || level.studyPlanId !== plan.id) throw new ForbiddenException('الخطة أو المستوى الدراسي غير صالح.');
+    const maxLevel = level.levelNumber + (plan.program.department.college.university.allowedFutureYears ?? 0);
+    const courses = await this.prisma.studyPlanCourse.findMany({
+      where: { studyPlanId: plan.id, academicYear: { levelNumber: { gte: level.levelNumber, lte: maxLevel } }, course: { status: 'ACTIVE' } },
+      include: { academicYear: true, semester: true, course: { include: { sections: { include: { teacher: true, classroom: true, schedules: true } } } } },
+      orderBy: [{ academicYear: { levelNumber: 'asc' } }, { semester: { semesterNumber: 'asc' } }, { priority: 'asc' }],
+    });
+    return {
+      student: { id: student.id, universityId: student.universityId, name: [student.firstName, student.middleName, student.familyName].filter(Boolean).join(' '), programId: student.programId },
+      plan: { id: plan.id, nameAr: plan.nameAr, programName: plan.program.nameAr, departmentName: plan.program.department.nameAr, collegeName: plan.program.department.college.nameAr },
+      courses: courses.map((item) => ({ ...item, course: { ...item.course, sections: item.course.sections.filter((section) => section.semesterId === item.semesterId) } })),
+    };
+  }
+
+  async registerDirectlyByAdvisor(universityId: string, advisorId: string, items: Array<{ courseId: string; sectionId: string }>) {
+    const student = await this.getStudentForAdvisorRegistration(universityId, advisorId);
+    if (!items.length) return { success: false, errors: ['اختر مادة واحدة على الأقل.'] };
+    const sections = await Promise.all(items.map(({ sectionId }) => this.prisma.courseSection.findUnique({ where: { id: sectionId }, select: { id: true, semesterId: true } })));
+    if (sections.some((section) => !section)) return { success: false, errors: ['إحدى الشعب المحددة غير موجودة.'] };
+    const semesterIds = new Set(sections.map((section) => section!.semesterId));
+    if (semesterIds.size !== 1) return { success: false, errors: ['سجّل مواد فصل دراسي واحد في كل عملية.'] };
+    const semesterId = sections[0]!.semesterId;
+    const period = await this.prisma.registrationPeriod.findFirst({
+      where: { semesterId, startDateTime: { lte: new Date() }, endDateTime: { gte: new Date() } },
+      orderBy: { startDateTime: 'desc' },
+      select: { id: true },
+    });
+    if (!period) return { success: false, errors: ['فترة تسجيل هذا الفصل مغلقة.'] };
+
+    let enrollment = await this.prisma.studentEnrollment.findUnique({ where: { studentId_semesterId: { studentId: student.id, semesterId } } });
+    if (enrollment && enrollment.status !== 'DRAFT') return { success: false, errors: ['يوجد تسجيل مرسل لهذا الفصل. أعد فتحه قبل إضافة مواد جديدة.'] };
+    if (!enrollment) enrollment = await this.prisma.studentEnrollment.create({ data: { studentId: student.id, semesterId } });
+
+    const createdItemIds: string[] = [];
+    for (const item of items) {
+      try {
+        const added = await this.addItem({ enrollmentId: enrollment.id, ...item }, undefined);
+        if (added && typeof added === 'object' && 'success' in added && added.success === false) {
+          if (createdItemIds.length) await this.prisma.enrollmentItem.deleteMany({ where: { id: { in: createdItemIds } } });
+          return added;
+        }
+        if (added && typeof added === 'object' && 'id' in added && typeof added.id === 'string') createdItemIds.push(added.id);
+      } catch (error) {
+        if (createdItemIds.length) await this.prisma.enrollmentItem.deleteMany({ where: { id: { in: createdItemIds } } });
+        throw error;
+      }
+    }
+    return this.confirm(enrollment.id, advisorId, true);
   }
 
   async getMyRegistration(userId: string) {
@@ -181,7 +277,7 @@ export class StudentEnrollmentsService {
           studyPlanId: student.studyPlanId,
           academicYear: {
             levelNumber: {
-              gte: academicYear.levelNumber,
+              gte: 1,
               lte: maxAllowedLevelNumber,
             },
           },
@@ -214,17 +310,39 @@ export class StudentEnrollmentsService {
         },
       });
 
+    const priorCourseIds = rawPlanCourses
+      .filter((item) => item.academicYear.levelNumber < academicYear.levelNumber)
+      .map((item) => item.courseId);
+    const priorResults = priorCourseIds.length
+      ? await this.prisma.courseResult.findMany({
+          where: { studentId: student.id, courseId: { in: priorCourseIds } },
+          select: { courseId: true, passed: true },
+        })
+      : [];
+    const priorResultByCourse = new Map<string, { attempted: boolean; passed: boolean }>();
+    for (const result of priorResults) {
+      const prior = priorResultByCourse.get(result.courseId) ?? { attempted: false, passed: false };
+      prior.attempted = true;
+      prior.passed ||= result.passed;
+      priorResultByCourse.set(result.courseId, prior);
+    }
+
     const planCourses =
       rawPlanCourses
         .map((planCourse) => ({
           ...planCourse,
+          retakeStatus: planCourse.academicYear.levelNumber >= academicYear.levelNumber
+            ? (planCourse.academicYear.levelNumber > academicYear.levelNumber ? 'FUTURE' : 'CURRENT')
+            : (priorResultByCourse.get(planCourse.courseId)?.passed ? 'PASSED' : priorResultByCourse.get(planCourse.courseId)?.attempted ? 'FAILED' : 'NOT_TAKEN'),
+          retakeAllowed: planCourse.academicYear.levelNumber < academicYear.levelNumber
+            ? !!priorResultByCourse.get(planCourse.courseId)?.attempted && !priorResultByCourse.get(planCourse.courseId)?.passed
+            : true,
           course: {
             ...planCourse.course,
             sections:
               planCourse.course.sections.filter(
                 (section) =>
-                  section.semesterId ===
-                  planCourse.semesterId,
+                  section.semesterId === (planCourse.academicYear.levelNumber < academicYear.levelNumber ? student.semesterId : planCourse.semesterId),
               ),
           },
         }))
@@ -802,8 +920,9 @@ export class StudentEnrollmentsService {
   async confirm(
     enrollmentId: string,
     userId?: string,
+    bypassAdvisorApproval = false,
   ) {
-    if (userId) {
+    if (userId && !bypassAdvisorApproval) {
       const ownedEnrollment =
         await this.getOwnedEnrollment(
           userId,
@@ -974,9 +1093,7 @@ export class StudentEnrollmentsService {
     const registrationPeriod =
       periodValidation.registrationPeriod;
 
-    if (
-      registrationPeriod?.advisorApprovalRequired
-    ) {
+    if (registrationPeriod?.advisorApprovalRequired && !bypassAdvisorApproval) {
       if (!enrollment.student.advisorId) {
         return {
           success: false,
