@@ -10,9 +10,14 @@ describe('AuthService', () => {
   const usersService = { findByEmail: vi.fn(), findByUsername: vi.fn() };
   const jwtService = { signAsync: vi.fn().mockResolvedValue('token'), verifyAsync: vi.fn() };
   const prisma = {
-    user: { update: vi.fn().mockResolvedValue({}), findUnique: vi.fn() },
+    user: {
+      update: vi.fn().mockResolvedValue({}),
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      create: vi.fn(),
+    },
     student: { findUnique: vi.fn(), update: vi.fn() },
-    role: { findUnique: vi.fn() },
+    role: { findUnique: vi.fn(), upsert: vi.fn() },
     signupAttempt: { deleteMany: vi.fn(), count: vi.fn().mockResolvedValue(0), create: vi.fn() },
     $transaction: vi.fn(),
     auditLog: { create: vi.fn() },
@@ -24,9 +29,12 @@ describe('AuthService', () => {
     jwtService.signAsync.mockReset().mockResolvedValue('token');
     prisma.user.update.mockReset().mockResolvedValue({});
     prisma.user.findUnique.mockReset();
+    prisma.user.findFirst.mockReset().mockResolvedValue(null);
+    prisma.user.create.mockReset();
     prisma.student.findUnique.mockReset();
     prisma.student.update.mockReset();
     prisma.role.findUnique.mockReset();
+    prisma.role.upsert.mockReset().mockResolvedValue({ id: 'admin-role' });
     prisma.signupAttempt.deleteMany.mockReset();
     prisma.signupAttempt.count.mockReset().mockResolvedValue(0);
     prisma.signupAttempt.create.mockReset();
@@ -46,6 +54,45 @@ describe('AuthService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  it('creates a single initial admin only with the configured bootstrap token', async () => {
+    const previousToken = process.env.ADMIN_BOOTSTRAP_TOKEN;
+    process.env.ADMIN_BOOTSTRAP_TOKEN = 'a'.repeat(48);
+    prisma.user.create.mockImplementation(async ({ data }) => ({
+      id: 'admin-1',
+      username: data.username,
+      email: data.email,
+      displayName: data.displayName,
+    }));
+
+    try {
+      await expect(service.bootstrapAdmin('temporary-password', 'wrong-token')).rejects.toThrow('رمز التهيئة غير صحيح.');
+      expect(prisma.user.create).not.toHaveBeenCalled();
+
+      await expect(service.bootstrapAdmin('temporary-password', 'a'.repeat(48))).resolves.toMatchObject({
+        user: { username: 'admin', email: 'admin.test@university.local' },
+      });
+      const createdUser = prisma.user.create.mock.calls[0][0];
+      await expect(argon2.verify(createdUser.data.passwordHash, 'temporary-password')).resolves.toBe(true);
+      expect(process.env.ADMIN_BOOTSTRAP_TOKEN).toBeUndefined();
+    } finally {
+      if (previousToken === undefined) delete process.env.ADMIN_BOOTSTRAP_TOKEN;
+      else process.env.ADMIN_BOOTSTRAP_TOKEN = previousToken;
+    }
+  });
+
+  it('refuses to bootstrap a second administrator', async () => {
+    const previousToken = process.env.ADMIN_BOOTSTRAP_TOKEN;
+    process.env.ADMIN_BOOTSTRAP_TOKEN = 'b'.repeat(48);
+    prisma.user.findFirst.mockResolvedValue({ id: 'existing-admin' });
+    try {
+      await expect(service.bootstrapAdmin('temporary-password', 'b'.repeat(48))).rejects.toThrow('يوجد مدير للنظام بالفعل.');
+      expect(prisma.user.create).not.toHaveBeenCalled();
+    } finally {
+      if (previousToken === undefined) delete process.env.ADMIN_BOOTSTRAP_TOKEN;
+      else process.env.ADMIN_BOOTSTRAP_TOKEN = previousToken;
+    }
   });
 
   it('uses password hashes and rejects the former numeric shortcut credentials', async () => {

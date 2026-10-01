@@ -1,7 +1,7 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
-import { createHash } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { UsersService } from '../users/users.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CompleteStudentSignupDto, StudentSignupDto } from './dto/student-signup.dto.js';
@@ -26,6 +26,66 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly prisma: PrismaService,
   ) {}
+
+  async bootstrapAdmin(password: string, providedToken?: string) {
+    const configuredToken = process.env.ADMIN_BOOTSTRAP_TOKEN;
+    if (!configuredToken || configuredToken.length < 32) {
+      throw new NotFoundException();
+    }
+
+    const expectedHash = createHash('sha256').update(configuredToken).digest();
+    const providedHash = createHash('sha256').update(providedToken ?? '').digest();
+    if (!timingSafeEqual(providedHash, expectedHash)) {
+      throw new UnauthorizedException('رمز التهيئة غير صحيح.');
+    }
+
+    const existingAdmin = await this.prisma.user.findFirst({
+      where: { role: { code: 'SYSTEM_ADMIN' } },
+      select: { id: true },
+    });
+    if (existingAdmin) {
+      throw new ConflictException('يوجد مدير للنظام بالفعل.');
+    }
+
+    const role = await this.prisma.role.upsert({
+      where: { code: 'SYSTEM_ADMIN' },
+      update: { isActive: true },
+      create: {
+        code: 'SYSTEM_ADMIN',
+        name: 'System Administrator',
+        description: 'Full system administration access',
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
+    try {
+      const user = await this.prisma.user.create({
+        data: {
+          email: 'admin.test@university.local',
+          username: 'admin',
+          displayName: 'مدير النظام',
+          passwordHash: await argon2.hash(password),
+          status: 'ACTIVE',
+          roleId: role.id,
+        },
+        select: { id: true, username: true, email: true, displayName: true },
+      });
+
+      // Disable the route immediately for this running instance. The database
+      // check above also keeps it closed after restarts once an admin exists.
+      delete process.env.ADMIN_BOOTSTRAP_TOKEN;
+      return {
+        message: 'تم إنشاء حساب المدير. سجّل الدخول باسم المستخدم admin.',
+        user,
+      };
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+        throw new ConflictException('حساب المدير موجود مسبقًا أو اسم المستخدم مستخدم.');
+      }
+      throw error;
+    }
+  }
 
   async login(username: string, password: string) {
     const normalizedUsername = username.trim().toLocaleLowerCase();
