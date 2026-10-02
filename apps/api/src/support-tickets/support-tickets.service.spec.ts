@@ -11,21 +11,40 @@ describe('SupportTicketsService privacy and replies', () => {
   function setup() {
     const prisma = {
       supportTicket: {
-        findMany: vi.fn(), findUnique: vi.fn().mockResolvedValue(ticket),
+        findMany: vi.fn().mockResolvedValue([]), findUnique: vi.fn().mockResolvedValue(ticket),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }), update: vi.fn(), create: vi.fn(),
       },
+      user: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'student-b', displayName: 'Student', student: { fullName: 'Student Example', firstName: 'Student', middleName: 'Example', familyName: '', universityId: 'U-001', programId: null } }),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+      program: { findMany: vi.fn().mockResolvedValue([]), findUnique: vi.fn().mockResolvedValue(null) },
       supportTicketMessage: { create: vi.fn().mockResolvedValue({ id: 'reply-a' }) },
       $transaction: vi.fn(async (work: (tx: unknown) => Promise<unknown>) => work(prisma)),
     };
     return { prisma, service: new SupportTicketsService(prisma as unknown as PrismaService) };
   }
 
-  it('lists only the student own tickets while showing incoming tickets to staff', () => {
+  it('lists only the student own tickets while showing incoming tickets to advisors and managers', async () => {
     const { prisma, service } = setup();
-    service.list(student);
+    await service.list(student);
     expect(prisma.supportTicket.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { authorId: student.id } }));
-    service.list(advisor);
+    await service.list(advisor);
     expect(prisma.supportTicket.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: {} }));
+    await service.list({ id: 'manager-a', role: 'SYSTEM_ADMIN' });
+    expect(prisma.supportTicket.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: {} }));
+  });
+
+  it('includes the student name and university number in staff ticket lists', async () => {
+    const { prisma, service } = setup();
+    prisma.supportTicket.findMany.mockResolvedValue([ticket]);
+    prisma.user.findMany.mockResolvedValue([{
+      id: 'student-b', displayName: 'Student', student: {
+        fullName: 'Student Example', firstName: 'Student', middleName: 'Example', familyName: '', universityId: 'U-001', programId: null,
+      },
+    }]);
+    const [listedTicket] = await service.list(advisor);
+    expect(listedTicket.author).toMatchObject({ name: 'Student Example', universityId: 'U-001' });
   });
 
   it('conceals another student’s ticket and blocks a student reply', async () => {

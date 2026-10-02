@@ -6,6 +6,52 @@ import { useAuth } from '../../auth/AuthContext';
 type Ticket = { id: string; authorId: string; author?: { name: string; universityId?: string | null; programName?: string | null; departmentName?: string | null; collegeName?: string | null } | null; category: string; title: string; description: string; imageData?: string | null; status: string; createdAt: string; messages?: { id: string; body: string; authorId: string; createdAt: string }[] };
 const statuses: Record<string, string> = { NEW: 'بانتظار المراجعة', IN_REVIEW: 'قيد المراجعة', ANSWERED: 'تم الرد عليها', ACKNOWLEDGED: 'قيد المراجعة', IN_PROGRESS: 'قيد المراجعة', RESOLVED: 'تم الرد عليها' };
 const categories: Record<string, string> = { PROBLEM: 'مشكلة', SUGGESTION: 'اقتراح', CHANGE: 'طلب تعديل', OTHER: 'أخرى' };
+const maxTicketImageBytes = 250_000;
+const maxImageInputBytes = 15_000_000;
+
+async function prepareTicketImage(file: File): Promise<string> {
+  const supportedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+  if (!supportedTypes.includes(file.type)) throw new Error('الصيغ المدعومة هي PNG وJPG وWebP. إذا كانت الصورة بصيغة HEIC، حوّلها إلى JPG أولًا.');
+  if (file.size > maxImageInputBytes) throw new Error('حجم الصورة كبير جدًا. اختر صورة أصغر من 15 ميغابايت.');
+  if (file.size <= maxTicketImageBytes) {
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('تعذر قراءة الصورة. جرّب اختيارها مرة أخرى.'));
+      reader.onload = () => resolve(String(reader.result));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  const bitmap = await createImageBitmap(file);
+  try {
+    const canvas = document.createElement('canvas');
+    const maxDimension = 1800;
+    let scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    let blob: Blob | null = null;
+
+    for (let attempt = 0; attempt < 10; attempt++) {
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('تعذر تجهيز الصورة للرفع.');
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', Math.max(0.48, 0.86 - attempt * 0.06)));
+      if (blob && blob.size <= maxTicketImageBytes) break;
+      scale *= 0.82;
+    }
+
+    if (!blob || blob.size > maxTicketImageBytes) throw new Error('تعذر ضغط الصورة إلى الحجم المسموح. جرّب قصّها أو اختيار صورة أصغر.');
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('تعذر قراءة الصورة بعد ضغطها.'));
+      reader.onload = () => resolve(String(reader.result));
+      reader.readAsDataURL(blob);
+    });
+  } finally {
+    bitmap.close();
+  }
+}
 
 export default function SupportTicketsPage() {
   const { user } = useAuth();
@@ -22,6 +68,7 @@ export default function SupportTicketsPage() {
   const [reply, setReply] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
+  const [imageBusy, setImageBusy] = useState(false);
   const [error, setError] = useState('');
   const refresh = useCallback(async () => {
     try {
@@ -60,14 +107,10 @@ export default function SupportTicketsPage() {
   async function uploadImage(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) { setImageData(''); return; }
-    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 250000) {
-      setError('اختر صورة PNG أو JPEG أو WebP بحجم أقل من 250 كيلوبايت.');
-      event.target.value = '';
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => setImageData(String(reader.result));
-    reader.readAsDataURL(file);
+    setError(''); setImageBusy(true); setImageData('');
+    try { setImageData(await prepareTicketImage(file)); }
+    catch (uploadError) { setError(uploadError instanceof Error ? uploadError.message : 'تعذر تجهيز الصورة للرفع.'); event.target.value = ''; }
+    finally { setImageBusy(false); }
   }
   async function create(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setError('');
@@ -101,8 +144,8 @@ export default function SupportTicketsPage() {
         <TextField select label="النوع" value={category} onChange={(event) => setCategory(event.target.value)}>{Object.entries(categories).map(([key, label]) => <MenuItem key={key} value={key}>{label}</MenuItem>)}</TextField>
         <TextField label="العنوان" value={title} onChange={(event) => setTitle(event.target.value)} slotProps={{ htmlInput: { maxLength: 120 } }} helperText={title.trim().length < 5 ? 'اكتب عنوانًا من 5 أحرف على الأقل، مثل: مشكلة في التسجيل' : ' '} error={title.length > 0 && title.trim().length < 5} required />
         <TextField label="شرح المشكلة أو الاقتراح" value={description} onChange={(event) => setDescription(event.target.value)} multiline minRows={3} slotProps={{ htmlInput: { maxLength: 3000 } }} helperText={description.trim().length < 10 ? 'اكتب شرحًا من 10 أحرف على الأقل.' : ' '} error={description.length > 0 && description.trim().length < 10} required />
-        <Button component="label" variant="outlined">{imageData ? 'تم اختيار صورة' : 'إرفاق صورة اختيارية'}<input hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => void uploadImage(event)} /></Button>
-        <Typography variant="caption" color="text.secondary">لا تكتب كلمات مرور أو معلومات شخصية في التذكرة أو الصورة. حجم الصورة الأقصى 250 كيلوبايت.</Typography>
+        <Button component="label" variant="outlined" disabled={imageBusy}>{imageBusy ? 'جارٍ تجهيز الصورة…' : imageData ? 'تم تجهيز الصورة للرفع' : 'إرفاق صورة اختيارية'}<input hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => void uploadImage(event)} /></Button>
+        <Typography variant="caption" color="text.secondary">تُضغط الصور الكبيرة تلقائيًا. الصيغ المدعومة PNG وJPG وWebP، وبحد أقصى 15 ميغابايت قبل الضغط. لا ترفق كلمات مرور أو معلومات شخصية.</Typography>
         <Button type="submit" variant="contained" disabled={busy || title.trim().length < 5 || description.trim().length < 10}>{busy ? <CircularProgress size={20} /> : 'إنشاء التذكرة'}</Button>
       </Stack>
     </CardContent></Card>}
@@ -110,7 +153,7 @@ export default function SupportTicketsPage() {
     <Box sx={{ display: 'grid', gridTemplateColumns: selected ? { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) minmax(0, 1fr)' } : 'minmax(0, 1fr)', gap: 2, alignItems: 'start', direction: 'rtl' }}>
     <Card sx={{ borderRadius: 3, overflow: 'hidden', minWidth: 0 }}><Box sx={{ overflowX: 'auto' }}>
       <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', minWidth: isStaff ? 720 : 540, '& th, & td': { p: 1.5, textAlign: 'right', borderBottom: '1px solid', borderColor: 'divider' } }}>
-        <thead><tr>{isStaff && <th>الطالب</th>}<th>العنوان</th><th>النوع</th><th>الحالة</th><th>التاريخ</th></tr></thead>
+        <thead><tr>{isStaff && <th>مقدم التذكرة</th>}<th>العنوان</th><th>النوع</th><th>الحالة</th><th>التاريخ</th></tr></thead>
         <tbody>{tickets.map((ticket) => <tr key={ticket.id} role="button" tabIndex={0} aria-expanded={selected?.id === ticket.id} onClick={() => toggle(ticket.id)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); toggle(ticket.id); } }} style={{ cursor: 'pointer', background: selected?.id === ticket.id ? 'rgba(25, 118, 210, 0.08)' : undefined }}>
           {isStaff && <td><strong>{ticket.author?.name ?? 'طالب'}</strong><br /><small>{ticket.author?.universityId ?? '—'}{ticket.author?.programName ? ` · ${ticket.author.programName}` : ''}</small></td>}
           <td><strong>{ticket.title}</strong></td><td>{categories[ticket.category] ?? ticket.category}</td>
@@ -130,7 +173,7 @@ export default function SupportTicketsPage() {
         <Chip size="small" color={['ANSWERED', 'RESOLVED'].includes(selected.status) ? 'success' : 'info'} label={statuses[selected.status] ?? selected.status} />
       </Stack>
       {isStaff && selected.author && <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-        {selected.author.name} · الرقم الجامعي: {selected.author.universityId ?? '—'} · {selected.author.collegeName ?? '—'} / {selected.author.departmentName ?? '—'} / {selected.author.programName ?? '—'}
+        <strong>مقدم التذكرة:</strong> {selected.author.name} · الرقم الجامعي: {selected.author.universityId ?? '—'} · {selected.author.collegeName ?? '—'} / {selected.author.departmentName ?? '—'} / {selected.author.programName ?? '—'}
       </Typography>}
       <Button size="small" onClick={closeDetails} sx={{ mt: 1 }}>إغلاق التفاصيل</Button>
       <Typography variant="subtitle2" sx={{ mt: 2 }}>الوصف</Typography>
