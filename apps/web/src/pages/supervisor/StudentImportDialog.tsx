@@ -73,7 +73,7 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
     <DialogTitle>استيراد الطلاب من Excel</DialogTitle>
     <DialogContent dividers>
       <Stack spacing={2}>
-        <Alert severity="info">استخدم هذا القالب وأدخل بيانات التحقق كما تظهر في سجل الجامعة؛ يحتاج الطالب إليها لإنشاء حسابه. الرقم الجامعي الموجود يحدّث بيانات الطالب، والحقول الاختيارية الفارغة لا تمسح البيانات الحالية.</Alert>
+        <Alert severity="info">استخدم هذا القالب وأدخل بيانات التحقق كما تظهر في سجل الجامعة؛ يحتاج الطالب إليها لإنشاء حسابه. الأسماء بالحروف فقط، والرقم الوطني ورقم الاكتتاب أرقام فقط، والجنس: ذكر أو أنثى. نسّق أعمدة الأرقام كنص في Excel للحفاظ على الأصفار في بدايتها. الرقم الجامعي الموجود يحدّث بيانات الطالب، والحقول الاختيارية الفارغة لا تمسح البيانات الحالية.</Alert>
         <Button component="a" href="/templates/students-temp.xlsx" download="قالب-استيراد-الطلاب-مؤقت.xlsx" variant="outlined">تنزيل القالب المؤقت</Button>
         <Button component="label" variant="outlined" disabled={busy}>
           اختيار ملف Excel

@@ -5,6 +5,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { UsersService } from '../users/users.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CompleteStudentSignupDto, StudentSignupDto } from './dto/student-signup.dto.js';
+import { isDigitsOnly, isPersonName, isPlaceName, normalizeDigits } from '../students/student-data-validation.js';
 
 const SIGNUP_WINDOW_MS = 15 * 60 * 1000;
 const SIGNUP_MAX_ATTEMPTS = 5;
@@ -16,7 +17,7 @@ const TEST_SHORT_LOGIN_EMAILS: Record<string, string> = {
 };
 
 function normalize(value: string | null | undefined) {
-  return (value ?? '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+  return normalizeDigits((value ?? '').normalize('NFKC').trim().replace(/\s+/g, ' ')).toLocaleLowerCase();
 }
 
 @Injectable()
@@ -145,6 +146,19 @@ export class AuthService {
   }
 
   async signupStudent(input: StudentSignupDto, ip: string) {
+    const inputErrors: string[] = [];
+    if (!isPersonName(input.fullName)) inputErrors.push('اسم الطالب');
+    if (!isPersonName(input.fatherName)) inputErrors.push('اسم الأب');
+    if (!isPersonName(input.motherName)) inputErrors.push('اسم الأم');
+    if (!isDigitsOnly(input.nationalId)) inputErrors.push('الرقم الوطني: أرقام فقط');
+    if (!isDigitsOnly(input.applicationNumber)) inputErrors.push('رقم الاكتتاب: أرقام فقط');
+    if (!isPlaceName(input.birthPlace)) inputErrors.push('مكان الولادة');
+    if (inputErrors.length) {
+      throw new BadRequestException({
+        message: 'صحح الحقول التالية ثم أعد المحاولة.',
+        invalidFields: inputErrors,
+      });
+    }
     const now = new Date();
     const cutoff = new Date(now.getTime() - SIGNUP_WINDOW_MS);
     const ipHash = this.hashIp(ip || 'unknown');

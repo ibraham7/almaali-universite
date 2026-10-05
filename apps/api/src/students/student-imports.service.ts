@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import * as XLSX from 'xlsx';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { digitVariants, isDigitsOnly, isPersonName, isPlaceName, normalizeDigits, normalizeGender, normalizeText } from './student-data-validation.js';
 
 export const STUDENT_IMPORT_HEADERS = [
   'الرقم الجامعي', 'الاسم الأول', 'اسم الأب', 'اسم العائلة', 'الاسم بالإنجليزية',
@@ -73,12 +74,17 @@ export class StudentImportsService {
       this.prisma.program.findMany(), this.prisma.studyPlan.findMany(),
       this.prisma.academicYear.findMany(), this.prisma.semester.findMany(),
       this.prisma.user.findMany({ where: { role: { code: 'ADVISOR' }, status: 'ACTIVE' }, select: { id: true, email: true } }),
-      this.prisma.student.findMany({ where: { universityId: { in: parsed.map((row) => row.cells[0]).filter(Boolean) } } }),
+      this.prisma.student.findMany({ where: { OR: [
+        { universityId: { in: parsed.map((row) => row.cells[0]).filter(Boolean) } },
+        { nationalId: { in: parsed.flatMap((row) => row.cells[21] ? digitVariants(row.cells[21]) : []) } },
+      ] } }),
     ]);
     const seen = new Set<string>();
     const existingById = new Map(existing.map((item) => [item.universityId, item]));
+    const existingByNationalId = new Map(existing.filter((item) => item.nationalId).map((item) => [normalizeDigits(item.nationalId!), item]));
     const errors: ImportError[] = [];
     let duplicateCount = 0;
+    const seenNationalIds = new Set<string>();
     const valid: Array<{ rowNumber: number; isUpdate: boolean; providedColumns: boolean[]; data: {
       universityId: string; firstName: string; middleName: string | null; familyName: string;
       fullName: string; motherName: string; nationalId: string; applicationNumber: string; birthPlace: string;
@@ -94,28 +100,51 @@ export class StudentImportsService {
         idOrPassport, universityEmail, phone, collegeName, departmentName, programName, planName,
         yearName, semesterName, status, advisorEmail, admitted, motherName, nationalId,
         applicationNumber, birthPlace] = row.cells;
+      const normalizedUniversityId = normalizeText(universityId);
+      const normalizedFirstName = normalizeText(firstName);
+      const normalizedMiddleName = normalizeText(middleName);
+      const normalizedFamilyName = normalizeText(familyName);
+      const normalizedMotherName = normalizeText(motherName);
+      const normalizedNationalId = normalizeDigits(nationalId.trim());
+      const normalizedApplicationNumber = normalizeDigits(applicationNumber.trim());
+      const normalizedGender = normalizeGender(gender);
       const problems: string[] = [];
-      const previous = existingById.get(universityId);
+      const previous = existingById.get(normalizedUniversityId);
       const values = {
-        middleName: middleName || previous?.middleName || '',
-        motherName: motherName || previous?.motherName || '',
-        nationalId: nationalId || previous?.nationalId || '',
-        applicationNumber: applicationNumber || previous?.applicationNumber || '',
-        birthPlace: birthPlace || previous?.birthPlace || '',
+        middleName: normalizedMiddleName || previous?.middleName || '',
+        motherName: normalizedMotherName || previous?.motherName || '',
+        nationalId: normalizedNationalId || (previous?.nationalId ? normalizeDigits(previous.nationalId) : ''),
+        applicationNumber: normalizedApplicationNumber || (previous?.applicationNumber ? normalizeDigits(previous.applicationNumber) : ''),
+        birthPlace: normalizeText(birthPlace) || previous?.birthPlace || '',
       };
-      if (!universityId || !firstName || !values.middleName || !familyName || !values.motherName ||
+      if (!normalizedUniversityId || !normalizedFirstName || !values.middleName || !normalizedFamilyName || !values.motherName ||
           !values.nationalId || !values.applicationNumber || !values.birthPlace) {
         problems.push('لإنشاء حساب الطالب، يلزم إدخال الرقم الجامعي والاسم الأول واسم الأب واسم العائلة واسم الأم والرقم الوطني ورقم الاكتتاب ومكان الولادة');
       }
-      if (universityId.length > 50 || firstName.length > 100 || familyName.length > 100 ||
+      if (normalizedUniversityId.length > 50 || normalizedFirstName.length > 100 || normalizedFamilyName.length > 100 ||
           values.middleName.length > 100 || values.motherName.length > 100 || values.nationalId.length > 100 ||
           values.applicationNumber.length > 100 || values.birthPlace.length > 100 ||
           universityEmail.length > 200 || phone.length > 50) problems.push('يوجد حقل يتجاوز الطول المسموح');
-      const repeatedInFile = Boolean(universityId && seen.has(universityId));
+      for (const [label, value] of [['الاسم الأول', normalizedFirstName], ['اسم الأب', values.middleName],
+        ['اسم العائلة', normalizedFamilyName], ['اسم الأم', values.motherName]] as const) {
+        if (value && !isPersonName(value)) problems.push(`${label}: استخدم الحروف والمسافات والشرطة أو الفاصلة العليا فقط`);
+      }
+      if (englishName && !isPersonName(englishName)) problems.push('الاسم بالإنجليزية: يحتوي على محارف غير مسموحة');
+      if (values.nationalId && !isDigitsOnly(values.nationalId)) problems.push('الرقم الوطني: أرقام فقط');
+      if (values.applicationNumber && !isDigitsOnly(values.applicationNumber)) problems.push('رقم الاكتتاب: أرقام فقط');
+      if (gender && !normalizedGender) problems.push('الجنس: استخدم ذكر أو أنثى');
+      if (nationality && !isPersonName(nationality)) problems.push('الجنسية: استخدم الحروف والمسافات فقط');
+      if (values.birthPlace && !isPlaceName(values.birthPlace)) problems.push('مكان الولادة: أدخل اسم المكان بصيغة صحيحة');
+      const repeatedInFile = Boolean(normalizedUniversityId && seen.has(normalizedUniversityId));
       if (repeatedInFile) problems.push('الرقم الجامعي مكرر داخل الملف');
-      if (repeatedInFile) duplicateCount++;
-      seen.add(universityId);
-      const existingStudent = existingById.get(universityId);
+      seen.add(normalizedUniversityId);
+      const repeatedNationalInFile = Boolean(values.nationalId && seenNationalIds.has(values.nationalId));
+      if (repeatedNationalInFile) problems.push('الرقم الوطني مكرر داخل الملف');
+      if (repeatedInFile || repeatedNationalInFile) duplicateCount++;
+      if (values.nationalId) seenNationalIds.add(values.nationalId);
+      const existingStudent = existingById.get(normalizedUniversityId);
+      const nationalOwner = existingByNationalId.get(values.nationalId);
+      if (nationalOwner && nationalOwner.universityId !== normalizedUniversityId) problems.push('الرقم الوطني مسجل لطالب آخر');
       if (universityEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(universityEmail)) problems.push('البريد الجامعي غير صالح');
       const dateOfBirth = birth ? this.parseDate(birth, 'تاريخ الميلاد', problems) : existingStudent?.dateOfBirth ?? null;
       const admissionDate = admitted ? this.parseDate(admitted, 'تاريخ القبول', problems) : existingStudent?.admissionDate ?? null;
@@ -148,11 +177,11 @@ export class StudentImportsService {
         errors.push({ rowNumber: row.rowNumber, universityId, message: problems.join('؛ ') });
       } else {
         valid.push({ rowNumber: row.rowNumber, isUpdate: Boolean(existingStudent), providedColumns: row.cells.map(Boolean), college: collegeName, program: programName,
-          data: { universityId, firstName, middleName: values.middleName, familyName,
-            fullName: [firstName, values.middleName, familyName].filter(Boolean).join(' '),
+          data: { universityId: normalizedUniversityId, firstName: normalizedFirstName, middleName: values.middleName, familyName: normalizedFamilyName,
+            fullName: [normalizedFirstName, values.middleName, normalizedFamilyName].filter(Boolean).join(' '),
             motherName: values.motherName, nationalId: values.nationalId,
             applicationNumber: values.applicationNumber, birthPlace: values.birthPlace,
-            englishName: englishName || existingStudent?.englishName || null, gender: gender || existingStudent?.gender || null, dateOfBirth,
+            englishName: englishName ? normalizeText(englishName) : existingStudent?.englishName || null, gender: normalizedGender || existingStudent?.gender || null, dateOfBirth,
             nationality: nationality || existingStudent?.nationality || null, idOrPassport: idOrPassport || existingStudent?.idOrPassport || null,
             universityEmail: universityEmail || existingStudent?.universityEmail || null, phone: phone || existingStudent?.phone || null,
             collegeId, departmentId, programId, studyPlanId, academicYearId,

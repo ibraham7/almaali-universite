@@ -7,6 +7,7 @@ import {
 
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StudentInputDto } from './dto/student-input.dto.js';
+import { digitVariants, isDigitsOnly, isPersonName, isPlaceName, normalizeDigits, normalizeGender, normalizeText } from './student-data-validation.js';
 
 interface FindStudentsOptions {
   search?: string;
@@ -64,24 +65,51 @@ export class StudentsService {
     for (const field of required) {
       if (!data[field]?.trim()) throw new BadRequestException(`${field} is required`);
     }
+    const names: Array<[string, string | null | undefined]> = [
+      ['الاسم الأول', data.firstName], ['اسم الأب', data.middleName],
+      ['اسم العائلة', data.familyName], ['اسم الأم', data.motherName],
+      ['الاسم بالإنجليزية', data.englishName],
+    ];
+    for (const [label, value] of names) {
+      if (value?.trim() && !isPersonName(value)) {
+        throw new BadRequestException(`${label}: استخدم الحروف والمسافات والشرطة أو الفاصلة العليا فقط.`);
+      }
+    }
+    for (const [label, value] of [['الرقم الوطني', data.nationalId], ['رقم الاكتتاب', data.applicationNumber]] as const) {
+      if (value?.trim() && !isDigitsOnly(value)) {
+        throw new BadRequestException(`${label}: أدخل الأرقام فقط.`);
+      }
+    }
+    if (data.gender?.trim() && !normalizeGender(data.gender)) {
+      throw new BadRequestException('الجنس: اختر ذكرًا أو أنثى.');
+    }
+    if (data.nationality?.trim() && !isPersonName(data.nationality)) {
+      throw new BadRequestException('الجنسية: أدخل اسم الجنسية بالحروف فقط.');
+    }
+    if (data.birthPlace?.trim() && !isPlaceName(data.birthPlace)) {
+      throw new BadRequestException('مكان الولادة: أدخل اسم المكان بصيغة صحيحة.');
+    }
+    if (data.phone?.trim() && !/^[+\d\s().-]+$/.test(normalizeDigits(data.phone.trim()))) {
+      throw new BadRequestException('رقم الهاتف: استخدم الأرقام وعلامات الهاتف المسموحة فقط.');
+    }
     const optional = (value?: string | null) => value?.trim() || null;
     const date = (value?: string | null) => value ? new Date(value) : null;
     if (data.dateOfBirth && Number.isNaN(date(data.dateOfBirth)?.getTime())) throw new BadRequestException('Invalid date of birth');
     if (data.admissionDate && Number.isNaN(date(data.admissionDate)?.getTime())) throw new BadRequestException('Invalid admission date');
     return {
-      universityId: data.universityId.trim(),
-      firstName: data.firstName.trim(),
+      universityId: normalizeText(data.universityId),
+      firstName: normalizeText(data.firstName),
       fullName: [data.firstName, data.middleName, data.familyName].map((value) => value?.trim()).filter(Boolean).join(' '),
-      familyName: data.familyName.trim(),
-      middleName: optional(data.middleName),
-      motherName: optional(data.motherName),
-      nationalId: optional(data.nationalId),
-      applicationNumber: optional(data.applicationNumber),
+      familyName: normalizeText(data.familyName),
+      middleName: data.middleName?.trim() ? normalizeText(data.middleName) : null,
+      motherName: data.motherName?.trim() ? normalizeText(data.motherName) : null,
+      nationalId: data.nationalId?.trim() ? normalizeDigits(data.nationalId.trim()) : null,
+      applicationNumber: data.applicationNumber?.trim() ? normalizeDigits(data.applicationNumber.trim()) : null,
       birthPlace: optional(data.birthPlace),
       englishName: optional(data.englishName),
-      gender: optional(data.gender),
+      gender: normalizeGender(data.gender),
       dateOfBirth: date(data.dateOfBirth),
-      nationality: optional(data.nationality),
+      nationality: data.nationality?.trim() ? normalizeText(data.nationality) : null,
       idOrPassport: optional(data.idOrPassport),
       universityEmail: optional(data.universityEmail),
       phone: optional(data.phone),
@@ -112,7 +140,7 @@ export class StudentsService {
   private async ensureUniqueNationalId(nationalId: string | null, excludeStudentId?: string) {
     if (!nationalId) return;
     const existing = await this.prisma.student.findFirst({
-      where: { nationalId, ...(excludeStudentId ? { id: { not: excludeStudentId } } : {}) },
+      where: { nationalId: { in: digitVariants(nationalId) }, ...(excludeStudentId ? { id: { not: excludeStudentId } } : {}) },
       select: { id: true },
     });
     if (existing) throw new ConflictException('الرقم الوطني مسجل لطالب آخر.');

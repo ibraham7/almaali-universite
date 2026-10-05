@@ -32,9 +32,11 @@ export default function StudentSignupPage() {
         setVerificationToken(response.verificationToken);
       }
     } catch (requestError) {
-      const responseData = (requestError as { response?: { data?: { mismatchedFields?: string[] } } }).response?.data;
+      const responseData = (requestError as { response?: { data?: { mismatchedFields?: string[]; invalidFields?: string[] } } }).response?.data;
       if (!verificationToken && responseData?.mismatchedFields?.length) {
         setError(`تحقق من الحقول التالية: ${responseData.mismatchedFields.join('، ')}.`);
+      } else if (!verificationToken && responseData?.invalidFields?.length) {
+        setError(`صحح الحقول التالية: ${responseData.invalidFields.join('، ')}.`);
       } else {
         setError(verificationToken ? 'تعذر إنشاء الحساب. أعد التحقق من بيانات الطالب إذا انتهت المهلة.' : 'البيانات غير مطابقة لسجل طالب غير مسجل. راجع البيانات وحاول مجددًا.');
       }
@@ -55,12 +57,12 @@ export default function StudentSignupPage() {
           <Button variant="text" onClick={() => { setVerificationToken(''); setPassword(''); setConfirmPassword(''); setError(''); }} sx={{ mt: 2 }}>تعديل بيانات التحقق</Button>
         </> : <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
           <TextField label="الرقم الجامعي" value={data.universityId} onChange={set('universityId')} required />
-          <TextField label="اسم الطالب كما في السجل" value={data.fullName} onChange={set('fullName')} required />
-          <TextField label="اسم الأب" value={data.fatherName} onChange={set('fatherName')} required />
-          <TextField label="اسم الأم" value={data.motherName} onChange={set('motherName')} required />
-          <TextField label="الرقم الوطني" value={data.nationalId} onChange={set('nationalId')} required />
-          <TextField label="رقم الاكتتاب" value={data.applicationNumber} onChange={set('applicationNumber')} required />
-          <TextField label="مكان الولادة" value={data.birthPlace} onChange={set('birthPlace')} required />
+          <TextField label="اسم الطالب كما في السجل" value={data.fullName} onChange={set('fullName')} required helperText="أدخل الاسم بالحروف كما ورد في ملف الجامعة." />
+          <TextField label="اسم الأب" value={data.fatherName} onChange={set('fatherName')} required helperText="حروف ومسافات وشرطة أو فاصلة عليا فقط." />
+          <TextField label="اسم الأم" value={data.motherName} onChange={set('motherName')} required helperText="حروف ومسافات وشرطة أو فاصلة عليا فقط." />
+          <TextField label="الرقم الوطني" value={data.nationalId} onChange={set('nationalId')} required helperText="أرقام فقط؛ تُقبل الأرقام العربية أو الإنجليزية." slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9٠-٩۰-۹]+' } }} />
+          <TextField label="رقم الاكتتاب" value={data.applicationNumber} onChange={set('applicationNumber')} required helperText="أرقام فقط؛ تُقبل الأرقام العربية أو الإنجليزية." slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9٠-٩۰-۹]+' } }} />
+          <TextField label="مكان الولادة" value={data.birthPlace} onChange={set('birthPlace')} required helperText="اكتبه كما ورد في سجل الجامعة." />
         </Box>}
         <Button type="submit" fullWidth variant="contained" disabled={loading} sx={{ mt: 3, minHeight: 48 }}>{loading ? <CircularProgress size={22} color="inherit" /> : verificationToken ? 'إنشاء الحساب' : 'التحقق من بياناتي'}</Button>
       </>}

@@ -187,7 +187,7 @@ describe('AuthService', () => {
     prisma.role.findUnique.mockResolvedValue({ id: 'student-role', isActive: true });
     await expect(service.signupStudent({
       universityId: 'missing', fullName: 'Test Student', fatherName: 'A', motherName: 'B',
-      nationalId: 'N-1', applicationNumber: 'A-1', birthPlace: 'C',
+      nationalId: '12345', applicationNumber: '67890', birthPlace: 'C',
     }, '127.0.0.1')).rejects.toThrow('لم تتطابق');
     expect(jwtService.signAsync).not.toHaveBeenCalled();
     expect(prisma.signupAttempt.create).toHaveBeenCalledWith(expect.objectContaining({ data: { ipHash: expect.any(String), succeeded: false } }));
@@ -198,7 +198,7 @@ describe('AuthService', () => {
     process.env.JWT_SECRET = 'test-secret';
     prisma.student.findUnique.mockResolvedValue({
       id: 'student-1', universityId: 'U-1', firstName: 'Sara', fullName: 'Sara Ali', middleName: 'Omar',
-      familyName: 'Ali', motherName: 'Mona', nationalId: 'N-1', applicationNumber: 'A-1', birthPlace: 'Aleppo', userId: null,
+      familyName: 'Ali', motherName: 'Mona', nationalId: '12345', applicationNumber: '67890', birthPlace: 'Aleppo', userId: null,
     });
     prisma.user.findUnique.mockResolvedValue(null);
     prisma.role.findUnique.mockResolvedValue({ id: 'student-role', isActive: true });
@@ -210,7 +210,7 @@ describe('AuthService', () => {
     prisma.$transaction.mockImplementation((callback: (transaction: typeof tx) => unknown) => callback(tx));
     const verification = await service.signupStudent({
       universityId: 'U-1', fullName: 'Sara Ali', fatherName: 'Omar', motherName: 'Mona',
-      nationalId: 'N-1', applicationNumber: 'A-1', birthPlace: 'Aleppo',
+      nationalId: '12345', applicationNumber: '67890', birthPlace: 'Aleppo',
     }, '127.0.0.1');
     expect(verification.verificationToken).toBe('token');
     expect(jwtService.signAsync).toHaveBeenCalledWith(expect.objectContaining({ purpose: 'student-signup' }), { expiresIn: '5m' });
@@ -219,5 +219,15 @@ describe('AuthService', () => {
     expect(tx.user.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: 'ACTIVE', email: 'U-1@students.local' }) }));
     expect(tx.student.updateMany).toHaveBeenCalledWith({ where: { id: 'student-1', userId: null }, data: { userId: 'user-1' } });
     expect(prisma.signupAttempt.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ succeeded: true }) }));
+  });
+
+  it('returns field-specific format errors before checking the student record', async () => {
+    await expect(service.signupStudent({
+      universityId: 'U-2', fullName: 'Sara Ali', fatherName: 'Omar', motherName: 'Mona',
+      nationalId: '12A45', applicationNumber: '67890', birthPlace: 'Aleppo',
+    }, '127.0.0.1')).rejects.toMatchObject({
+      response: { invalidFields: ['الرقم الوطني: أرقام فقط'] },
+    });
+    expect(prisma.student.findUnique).not.toHaveBeenCalled();
   });
 });
