@@ -7,7 +7,7 @@ import {
 
 import { PrismaService } from '../prisma/prisma.service.js';
 import { StudentInputDto } from './dto/student-input.dto.js';
-import { digitVariants, isDigitsOnly, isPersonName, isPlaceName, normalizeDigits, normalizeGender, normalizeText } from './student-data-validation.js';
+import { digitVariants, isDigitsOnly, isPersonName, isPlaceName, isSyrianMobile, isSyrianNationalId, normalizeDigits, normalizeGender, normalizeText } from './student-data-validation.js';
 
 interface FindStudentsOptions {
   search?: string;
@@ -80,6 +80,9 @@ export class StudentsService {
         throw new BadRequestException(`${label}: أدخل الأرقام فقط.`);
       }
     }
+    if (data.nationalId?.trim() && !isSyrianNationalId(data.nationalId)) {
+      throw new BadRequestException('الرقم الوطني: أدخل 11 رقمًا.');
+    }
     if (data.gender?.trim() && !normalizeGender(data.gender)) {
       throw new BadRequestException('الجنس: اختر ذكرًا أو أنثى.');
     }
@@ -89,8 +92,8 @@ export class StudentsService {
     if (data.birthPlace?.trim() && !isPlaceName(data.birthPlace)) {
       throw new BadRequestException('مكان الولادة: أدخل اسم المكان بصيغة صحيحة.');
     }
-    if (data.phone?.trim() && !/^[+\d\s().-]+$/.test(normalizeDigits(data.phone.trim()))) {
-      throw new BadRequestException('رقم الهاتف: استخدم الأرقام وعلامات الهاتف المسموحة فقط.');
+    if (data.phone?.trim() && !isSyrianMobile(data.phone)) {
+      throw new BadRequestException('رقم الهاتف: أدخل رقمًا سوريًا محليًا من 10 أرقام يبدأ بـ 09.');
     }
     const optional = (value?: string | null) => value?.trim() || null;
     const date = (value?: string | null) => value ? new Date(value) : null;
@@ -112,7 +115,7 @@ export class StudentsService {
       nationality: data.nationality?.trim() ? normalizeText(data.nationality) : null,
       idOrPassport: optional(data.idOrPassport),
       universityEmail: optional(data.universityEmail),
-      phone: optional(data.phone),
+      phone: data.phone?.trim() ? normalizeDigits(data.phone.trim()) : null,
       status: data.status?.trim() || 'ACTIVE',
       collegeId: optional(data.collegeId),
       departmentId: optional(data.departmentId),

@@ -12,7 +12,7 @@ function file(rows: string[][]) {
 
 function row(universityId: string, firstName: string, familyName: string, birth = '') {
   const numericId = universityId.replace(/\D/g, '') || '999';
-  return [universityId, firstName, 'عمر', familyName, '', '', birth, '', '', '', '', '', '', '', '', '', '', '', '', '', 'منى', `123${numericId}`, `456${numericId}`, 'حلب'];
+  return [universityId, firstName, 'عمر', familyName, '', '', birth, '', '', '', '', '', '', '', '', '', '', '', '', '', 'منى', `1234${numericId}`, `456${numericId}`, 'حلب'];
 }
 
 function database(ids: string[] = []) {
@@ -66,7 +66,7 @@ describe('Student Excel import', () => {
     expect(result).toMatchObject({ imported: 1, errors: 0 });
     expect(create).toHaveBeenCalledWith({ data: expect.objectContaining({
       universityId: '2026003', firstName: 'هند', fullName: 'هند عمر خالد',
-      motherName: 'منى', nationalId: '1232026003', applicationNumber: '4562026003', birthPlace: 'حلب',
+      motherName: 'منى', nationalId: '12342026003', applicationNumber: '4562026003', birthPlace: 'حلب',
     }) });
     expect(audit).toHaveBeenCalledWith({ data: expect.objectContaining({ action: 'STUDENTS_IMPORTED', userId: 'registrar-1' }) });
   });
@@ -79,7 +79,7 @@ describe('Student Excel import', () => {
       where: { universityId: '2026001' },
       data: {
         firstName: 'مريم', fullName: 'مريم عمر علي', familyName: 'علي', middleName: 'عمر',
-        motherName: 'منى', nationalId: '1232026001', applicationNumber: '4562026001', birthPlace: 'حلب',
+        motherName: 'منى', nationalId: '12342026001', applicationNumber: '4562026001', birthPlace: 'حلب',
       },
     });
   });
@@ -114,10 +114,22 @@ describe('Student Excel import', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
+  it('requires the provisional national ID and mobile formats before allowing Excel import', async () => {
+    const { prisma, transaction } = database();
+    const invalid = row('2026010', 'هند', 'خالد');
+    invalid[21] = '12345';
+    invalid[10] = '+963 944 123 456';
+    const result = await new StudentImportsService(prisma).preview(file([invalid]));
+    expect(result.errorCount).toBe(1);
+    expect(result.errors[0].message).toContain('الرقم الوطني: أدخل 11 رقمًا');
+    expect(result.errors[0].message).toContain('الهاتف السوري المحلي من 10 أرقام');
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
   it('accepts and normalizes Arabic-Indic digits in identity numbers', async () => {
     const { prisma } = database();
     const arabicDigits = row('2026009', 'هند', 'خالد');
-    arabicDigits[21] = '١٢٣٤٥';
+    arabicDigits[21] = '١٢٣٤٥٦٧٨٩٠١';
     arabicDigits[22] = '٦٧٨٩';
     const result = await new StudentImportsService(prisma).confirm(file([arabicDigits]), 'registrar-1');
     expect(result.imported).toBe(1);

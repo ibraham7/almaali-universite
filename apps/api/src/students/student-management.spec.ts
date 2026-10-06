@@ -55,8 +55,27 @@ describe('Student management', () => {
       student: { findFirst: vi.fn().mockResolvedValue(null) },
       $transaction: (fn: (tx: unknown) => Promise<unknown>) => fn({ student: { create }, auditLog: { create: vi.fn() } }),
     } as unknown as PrismaService;
-    await new StudentsService(prisma).create({ ...data, nationalId: '١٢٣٤٥', applicationNumber: '۱۲۳' }, 'registrar-1');
-    expect(create).toHaveBeenCalledWith({ data: expect.objectContaining({ nationalId: '12345', applicationNumber: '123' }) });
+    await new StudentsService(prisma).create({ ...data, nationalId: '١٢٣٤٥٦٧٨٩٠١', applicationNumber: '۱۲۳' }, 'registrar-1');
+    expect(create).toHaveBeenCalledWith({ data: expect.objectContaining({ nationalId: '12345678901', applicationNumber: '123' }) });
+  });
+
+  it('requires an 11-digit national ID and 10-digit Syrian mobile when provided', async () => {
+    const prisma = { $transaction: vi.fn() } as unknown as PrismaService;
+    await expect(new StudentsService(prisma).create({ ...data, nationalId: '12345' }, 'registrar-1'))
+      .rejects.toThrow('الرقم الوطني: أدخل 11 رقمًا.');
+    await expect(new StudentsService(prisma).create({ ...data, phone: '+963 944 123 456' }, 'registrar-1'))
+      .rejects.toThrow('رقم الهاتف: أدخل رقمًا سوريًا محليًا من 10 أرقام يبدأ بـ 09.');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('accepts and normalizes a Syrian local mobile number', async () => {
+    const create = vi.fn().mockImplementation(({ data: value }) => Promise.resolve({ id: 'student-1', ...value }));
+    const prisma = {
+      student: { findFirst: vi.fn().mockResolvedValue(null) },
+      $transaction: (fn: (tx: unknown) => Promise<unknown>) => fn({ student: { create }, auditLog: { create: vi.fn() } }),
+    } as unknown as PrismaService;
+    await new StudentsService(prisma).create({ ...data, phone: '٠٩٤٤١٢٣٤٥٦' }, 'registrar-1');
+    expect(create).toHaveBeenCalledWith({ data: expect.objectContaining({ phone: '0944123456' }) });
   });
 
   it('deletes a student without an account or academic history and records the action', async () => {

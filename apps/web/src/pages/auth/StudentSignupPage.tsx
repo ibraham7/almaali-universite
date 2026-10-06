@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react';
-import { Alert, Box, Button, CircularProgress, Link as MuiLink, Paper, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Link as MuiLink, MenuItem, Paper, TextField, Typography } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { completeStudentSignupRequest, studentSignupRequest } from '../../api/auth';
+import { STUDENT_BIRTH_PLACES, STUDENT_OTHER_OPTION } from '../../constants/student-options';
 
 const initialData = { universityId: '', fullName: '', fatherName: '', motherName: '', nationalId: '', applicationNumber: '', birthPlace: '' };
 
@@ -13,6 +14,7 @@ export default function StudentSignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const knownBirthPlace = STUDENT_BIRTH_PLACES.slice(0, -1).includes(data.birthPlace);
   const set = (key: keyof typeof data) => (event: React.ChangeEvent<HTMLInputElement>) => setData((current) => ({ ...current, [key]: event.target.value }));
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -60,9 +62,13 @@ export default function StudentSignupPage() {
           <TextField label="اسم الطالب كما في السجل" value={data.fullName} onChange={set('fullName')} required helperText="أدخل الاسم بالحروف كما ورد في ملف الجامعة." />
           <TextField label="اسم الأب" value={data.fatherName} onChange={set('fatherName')} required helperText="حروف ومسافات وشرطة أو فاصلة عليا فقط." />
           <TextField label="اسم الأم" value={data.motherName} onChange={set('motherName')} required helperText="حروف ومسافات وشرطة أو فاصلة عليا فقط." />
-          <TextField label="الرقم الوطني" value={data.nationalId} onChange={set('nationalId')} required helperText="أرقام فقط؛ تُقبل الأرقام العربية أو الإنجليزية." slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9٠-٩۰-۹]+' } }} />
+          <TextField label="الرقم الوطني" value={data.nationalId} onChange={set('nationalId')} required helperText="11 رقمًا؛ تُقبل الأرقام العربية أو الإنجليزية." slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9٠-٩۰-۹]{11}', maxLength: 11 } }} />
           <TextField label="رقم الاكتتاب" value={data.applicationNumber} onChange={set('applicationNumber')} required helperText="أرقام فقط؛ تُقبل الأرقام العربية أو الإنجليزية." slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9٠-٩۰-۹]+' } }} />
-          <TextField label="مكان الولادة" value={data.birthPlace} onChange={set('birthPlace')} required helperText="اكتبه كما ورد في سجل الجامعة." />
+          <TextField select label="مكان الولادة" value={knownBirthPlace ? data.birthPlace : STUDENT_OTHER_OPTION} required onChange={(event) => setData((current) => ({ ...current, birthPlace: event.target.value === STUDENT_OTHER_OPTION ? '' : event.target.value }))}>
+            {STUDENT_BIRTH_PLACES.slice(0, -1).map((place) => <MenuItem key={place} value={place}>{place}</MenuItem>)}
+            <MenuItem value={STUDENT_OTHER_OPTION}>خارج سوريا / مكان آخر</MenuItem>
+          </TextField>
+          {!knownBirthPlace && <TextField label="مكان الولادة كما في السجل" value={data.birthPlace} onChange={set('birthPlace')} required helperText="أدخله كما ورد في سجل الجامعة." />}
         </Box>}
         <Button type="submit" fullWidth variant="contained" disabled={loading} sx={{ mt: 3, minHeight: 48 }}>{loading ? <CircularProgress size={22} color="inherit" /> : verificationToken ? 'إنشاء الحساب' : 'التحقق من بياناتي'}</Button>
       </>}

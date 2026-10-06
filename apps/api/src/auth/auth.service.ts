@@ -5,7 +5,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { UsersService } from '../users/users.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CompleteStudentSignupDto, StudentSignupDto } from './dto/student-signup.dto.js';
-import { isDigitsOnly, isPersonName, isPlaceName, normalizeDigits } from '../students/student-data-validation.js';
+import { isDigitsOnly, isPersonName, isPlaceName, isSyrianNationalId, normalizeDigits } from '../students/student-data-validation.js';
 
 const SIGNUP_WINDOW_MS = 15 * 60 * 1000;
 const SIGNUP_MAX_ATTEMPTS = 5;
@@ -151,6 +151,7 @@ export class AuthService {
     if (!isPersonName(input.fatherName)) inputErrors.push('اسم الأب');
     if (!isPersonName(input.motherName)) inputErrors.push('اسم الأم');
     if (!isDigitsOnly(input.nationalId)) inputErrors.push('الرقم الوطني: أرقام فقط');
+    else if (!isSyrianNationalId(input.nationalId)) inputErrors.push('الرقم الوطني: أدخل 11 رقمًا');
     if (!isDigitsOnly(input.applicationNumber)) inputErrors.push('رقم الاكتتاب: أرقام فقط');
     if (!isPlaceName(input.birthPlace)) inputErrors.push('مكان الولادة');
     if (inputErrors.length) {

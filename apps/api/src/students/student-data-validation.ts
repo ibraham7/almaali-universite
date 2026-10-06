@@ -40,3 +40,13 @@ export function normalizeGender(value: string | null | undefined): string | null
 export function isDigitsOnly(value: string): boolean {
   return /^[0-9]+$/.test(normalizeDigits(value.trim()));
 }
+
+/** Provisional Syrian record formats pending the university's written confirmation. */
+export function isSyrianNationalId(value: string): boolean {
+  return /^\d{11}$/.test(normalizeDigits(value.trim()));
+}
+
+/** Domestic Syrian mobile format: 09 followed by eight digits. */
+export function isSyrianMobile(value: string): boolean {
+  return /^09\d{8}$/.test(normalizeDigits(value.trim()));
+}

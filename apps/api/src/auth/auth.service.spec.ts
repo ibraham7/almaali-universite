@@ -187,7 +187,7 @@ describe('AuthService', () => {
     prisma.role.findUnique.mockResolvedValue({ id: 'student-role', isActive: true });
     await expect(service.signupStudent({
       universityId: 'missing', fullName: 'Test Student', fatherName: 'A', motherName: 'B',
-      nationalId: '12345', applicationNumber: '67890', birthPlace: 'C',
+      nationalId: '12345678901', applicationNumber: '67890', birthPlace: 'C',
     }, '127.0.0.1')).rejects.toThrow('لم تتطابق');
     expect(jwtService.signAsync).not.toHaveBeenCalled();
     expect(prisma.signupAttempt.create).toHaveBeenCalledWith(expect.objectContaining({ data: { ipHash: expect.any(String), succeeded: false } }));
@@ -198,7 +198,7 @@ describe('AuthService', () => {
     process.env.JWT_SECRET = 'test-secret';
     prisma.student.findUnique.mockResolvedValue({
       id: 'student-1', universityId: 'U-1', firstName: 'Sara', fullName: 'Sara Ali', middleName: 'Omar',
-      familyName: 'Ali', motherName: 'Mona', nationalId: '12345', applicationNumber: '67890', birthPlace: 'Aleppo', userId: null,
+      familyName: 'Ali', motherName: 'Mona', nationalId: '12345678901', applicationNumber: '67890', birthPlace: 'Aleppo', userId: null,
     });
     prisma.user.findUnique.mockResolvedValue(null);
     prisma.role.findUnique.mockResolvedValue({ id: 'student-role', isActive: true });
@@ -210,7 +210,7 @@ describe('AuthService', () => {
     prisma.$transaction.mockImplementation((callback: (transaction: typeof tx) => unknown) => callback(tx));
     const verification = await service.signupStudent({
       universityId: 'U-1', fullName: 'Sara Ali', fatherName: 'Omar', motherName: 'Mona',
-      nationalId: '12345', applicationNumber: '67890', birthPlace: 'Aleppo',
+      nationalId: '12345678901', applicationNumber: '67890', birthPlace: 'Aleppo',
     }, '127.0.0.1');
     expect(verification.verificationToken).toBe('token');
     expect(jwtService.signAsync).toHaveBeenCalledWith(expect.objectContaining({ purpose: 'student-signup' }), { expiresIn: '5m' });

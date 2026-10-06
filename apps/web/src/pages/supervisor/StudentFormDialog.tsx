@@ -6,6 +6,7 @@ import {
   type College, type Department, type Program, type StudyPlan, type AcademicLevel, type Semester,
 } from '../../api/academicStructure';
 import { createStudent, updateStudent, getStudentAdvisors, type StudentInput, type StudentListItem } from '../../api/students';
+import { normalizeStudentDigits, STUDENT_BIRTH_PLACES, STUDENT_NATIONALITIES, STUDENT_OTHER_OPTION } from '../../constants/student-options';
 
 type Catalog = {
   colleges: College[];
@@ -64,16 +65,31 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
   }, [open, student]);
 
   function field(key: keyof StudentInput, label: string, required = false, type = 'text') {
-    const numericField = key === 'nationalId' || key === 'applicationNumber';
+    const numericField = key === 'nationalId' || key === 'applicationNumber' || key === 'phone';
     const helperText = ['firstName', 'middleName', 'familyName', 'motherName', 'englishName'].includes(key)
       ? 'حروف ومسافات وشرطة أو فاصلة عليا فقط.'
-      : numericField ? 'أرقام فقط. تُقبل الأرقام العربية أو الإنجليزية.'
-        : key === 'nationality' ? 'اكتب الجنسية بالحروف؛ القائمة الرسمية غير مضافة بعد.'
-          : key === 'birthPlace' ? 'اكتب مكان الولادة كما في السجل؛ يمكن تحويله لقائمة عند تزويدنا بالقيم المعتمدة.' : undefined;
-    return <TextField key={key} label={label} required={required} type={type} fullWidth helperText={helperText}
+      : key === 'nationalId' ? '11 رقمًا؛ تُقبل الأرقام العربية أو الإنجليزية.'
+        : key === 'phone' ? 'اختياري: رقم سوري محلي من 10 أرقام يبدأ بـ 09.'
+          : numericField ? 'أرقام فقط. تُقبل الأرقام العربية أو الإنجليزية.' : undefined;
+    return <TextField key={key} label={label} required={required} type={key === 'phone' ? 'tel' : type} fullWidth helperText={helperText}
       value={form[key] ?? ''} onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))}
       slotProps={{ ...(type === 'date' ? { inputLabel: { shrink: true } } : {}),
-        ...(numericField ? { htmlInput: { inputMode: 'numeric', pattern: '[0-9٠-٩۰-۹]+' } } : {}) }} />;
+        ...(numericField ? { htmlInput: { inputMode: 'numeric', pattern: '[0-9٠-٩۰-۹]+', ...(key === 'nationalId' ? { maxLength: 11 } : key === 'phone' ? { maxLength: 10 } : {}) } } : {}) }} />;
+  }
+
+  function controlledList(key: 'nationality' | 'birthPlace', label: string, options: string[]) {
+    const value = form[key] ?? '';
+    const isKnown = options.slice(0, -1).includes(value);
+    return <Box key={key} sx={{ display: 'grid', gap: 2 }}>
+      <TextField select label={label} fullWidth value={isKnown ? value : STUDENT_OTHER_OPTION}
+        onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value === STUDENT_OTHER_OPTION ? '' : event.target.value }))}>
+        {options.slice(0, -1).map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
+        <MenuItem value={STUDENT_OTHER_OPTION}>{options.at(-1)}</MenuItem>
+      </TextField>
+      {!isKnown && <TextField key={`${key}-other`} label={key === 'nationality' ? 'الجنسية الأخرى' : 'مكان الولادة الآخر'} fullWidth value={value}
+        onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))}
+        helperText="اختر من القائمة إن كان الخيار متاحًا، وإلا أدخل القيمة كما في السجل الرسمي." />}
+    </Box>;
   }
 
   function select(key: keyof StudentInput, label: string, options: Array<{ id: string; nameAr?: string; email?: string }>, clear: Array<keyof StudentInput> = []) {
@@ -102,6 +118,12 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
       const digitsPattern = /^[0-9٠-٩۰-۹]+$/;
       for (const [label, value] of [['الرقم الوطني', form.nationalId], ['رقم الاكتتاب', form.applicationNumber]] as const) {
         if (value?.trim() && !digitsPattern.test(value.trim())) { setError(`${label}: أدخل الأرقام فقط.`); return; }
+      }
+      if (form.nationalId?.trim() && normalizeStudentDigits(form.nationalId.trim()).length !== 11) {
+        setError('الرقم الوطني: أدخل 11 رقمًا.'); return;
+      }
+      if (form.phone?.trim() && !/^09\d{8}$/.test(normalizeStudentDigits(form.phone.trim()))) {
+        setError('رقم الهاتف: أدخل رقمًا سوريًا محليًا من 10 أرقام يبدأ بـ 09.'); return;
       }
       if (form.nationality?.trim() && !namePattern.test(form.nationality.trim().replace(/\s+/g, ' '))) {
         setError('الجنسية: أدخل الاسم بالحروف فقط.'); return;
@@ -136,7 +158,7 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
       onChange={(event) => setForm((current) => ({ ...current, gender: event.target.value || null }))}>
       <MenuItem value="">غير محدد</MenuItem><MenuItem value="ذكر">ذكر</MenuItem><MenuItem value="أنثى">أنثى</MenuItem>
     </TextField>,
-    field('dateOfBirth', 'تاريخ الميلاد', false, 'date'), field('nationality', 'الجنسية'),
+    field('dateOfBirth', 'تاريخ الميلاد', false, 'date'), controlledList('nationality', 'الجنسية', STUDENT_NATIONALITIES),
     field('idOrPassport', 'رقم الهوية أو جواز السفر'), field('universityEmail', 'البريد الجامعي', false, 'email'),
     field('phone', 'رقم الهاتف'), field('status', 'حالة الطالب'),
     field('admissionDate', 'تاريخ القبول', false, 'date'),
@@ -151,13 +173,17 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
     select('advisorId', 'المرشد الأكاديمي', catalog.advisors),
   ] : [];
 
+  const studentFields = fields.map((item, index) => index === 7
+    ? controlledList('birthPlace', 'مكان الولادة', STUDENT_BIRTH_PLACES)
+    : item);
+
   return <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth="md">
     <DialogTitle>{student ? 'تعديل بيانات الطالب' : 'إضافة طالب'}</DialogTitle>
     <DialogContent dividers>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       <Typography color="text.secondary" sx={{ mb: 2 }}>أدخل البيانات المعتمدة في سجل الطالب. إنشاء حساب الدخول للطالب خطوة منفصلة.</Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 2 }}>
-        {fields}
+        {studentFields}
         {catalog ? academic : <CircularProgress size={24} />}
       </Box>
     </DialogContent>

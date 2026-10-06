@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import * as XLSX from 'xlsx';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { digitVariants, isDigitsOnly, isPersonName, isPlaceName, normalizeDigits, normalizeGender, normalizeText } from './student-data-validation.js';
+import { digitVariants, isDigitsOnly, isPersonName, isPlaceName, isSyrianMobile, isSyrianNationalId, normalizeDigits, normalizeGender, normalizeText } from './student-data-validation.js';
 
 export const STUDENT_IMPORT_HEADERS = [
   'الرقم الجامعي', 'الاسم الأول', 'اسم الأب', 'اسم العائلة', 'الاسم بالإنجليزية',
@@ -131,7 +131,9 @@ export class StudentImportsService {
       }
       if (englishName && !isPersonName(englishName)) problems.push('الاسم بالإنجليزية: يحتوي على محارف غير مسموحة');
       if (values.nationalId && !isDigitsOnly(values.nationalId)) problems.push('الرقم الوطني: أرقام فقط');
+      else if (values.nationalId && !isSyrianNationalId(values.nationalId)) problems.push('الرقم الوطني: أدخل 11 رقمًا');
       if (values.applicationNumber && !isDigitsOnly(values.applicationNumber)) problems.push('رقم الاكتتاب: أرقام فقط');
+      if (phone && !isSyrianMobile(phone)) problems.push('رقم الهاتف: أدخل رقمًا سوريًا محليًا من 10 أرقام يبدأ بـ 09');
       if (gender && !normalizedGender) problems.push('الجنس: استخدم ذكر أو أنثى');
       if (nationality && !isPersonName(nationality)) problems.push('الجنسية: استخدم الحروف والمسافات فقط');
       if (values.birthPlace && !isPlaceName(values.birthPlace)) problems.push('مكان الولادة: أدخل اسم المكان بصيغة صحيحة');
@@ -183,7 +185,7 @@ export class StudentImportsService {
             applicationNumber: values.applicationNumber, birthPlace: values.birthPlace,
             englishName: englishName ? normalizeText(englishName) : existingStudent?.englishName || null, gender: normalizedGender || existingStudent?.gender || null, dateOfBirth,
             nationality: nationality || existingStudent?.nationality || null, idOrPassport: idOrPassport || existingStudent?.idOrPassport || null,
-            universityEmail: universityEmail || existingStudent?.universityEmail || null, phone: phone || existingStudent?.phone || null,
+            universityEmail: universityEmail || existingStudent?.universityEmail || null, phone: phone ? normalizeDigits(phone) : existingStudent?.phone || null,
             collegeId, departmentId, programId, studyPlanId, academicYearId,
             semesterId, status: status || existingStudent?.status || 'ACTIVE', advisorId: matchingAdvisors[0]?.id ?? existingStudent?.advisorId ?? null,
             admissionDate },
