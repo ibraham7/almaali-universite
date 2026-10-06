@@ -25,7 +25,7 @@ export class SupportTicketsService {
     const programIds = [...new Set(authors.map((author) => author.student?.programId).filter((id): id is string => Boolean(id)))];
     const programs = await this.prisma.program.findMany({
       where: { id: { in: programIds } },
-      select: { id: true, nameAr: true, department: { select: { nameAr: true, college: { select: { nameAr: true } } } } },
+      select: { id: true, nameAr: true, college: { select: { nameAr: true } }, department: { select: { nameAr: true, college: { select: { nameAr: true } } } } },
     });
     const programsById = new Map(programs.map((program) => [program.id, program]));
     const authorsById = new Map(authors.map((author) => {
@@ -35,8 +35,8 @@ export class SupportTicketsService {
         name: student?.fullName || [student?.firstName, student?.middleName, student?.familyName].filter(Boolean).join(' ') || author.displayName || 'مستخدم',
         universityId: student?.universityId ?? null,
         programName: program?.nameAr ?? null,
-        departmentName: program?.department.nameAr ?? null,
-        collegeName: program?.department.college.nameAr ?? null,
+        departmentName: program?.department?.nameAr ?? null,
+        collegeName: program?.college?.nameAr ?? program?.department?.college.nameAr ?? null,
       }];
     }));
     return tickets.map((ticket) => ({ ...ticket, author: authorsById.get(ticket.authorId) ?? null }));
@@ -50,7 +50,7 @@ export class SupportTicketsService {
       select: { id: true, displayName: true, student: { select: { fullName: true, firstName: true, middleName: true, familyName: true, universityId: true, programId: true } } },
     });
     const program = author?.student?.programId
-      ? await this.prisma.program.findUnique({ where: { id: author.student.programId }, select: { nameAr: true, department: { select: { nameAr: true, college: { select: { nameAr: true } } } } } })
+      ? await this.prisma.program.findUnique({ where: { id: author.student.programId }, select: { nameAr: true, college: { select: { nameAr: true } }, department: { select: { nameAr: true, college: { select: { nameAr: true } } } } } })
       : null;
     const student = author?.student;
     return {
@@ -59,8 +59,8 @@ export class SupportTicketsService {
         name: student?.fullName || [student?.firstName, student?.middleName, student?.familyName].filter(Boolean).join(' ') || author.displayName || 'مستخدم',
         universityId: student?.universityId ?? null,
         programName: program?.nameAr ?? null,
-        departmentName: program?.department.nameAr ?? null,
-        collegeName: program?.department.college.nameAr ?? null,
+        departmentName: program?.department?.nameAr ?? null,
+        collegeName: program?.college?.nameAr ?? program?.department?.college.nameAr ?? null,
       } : null,
     };
   }

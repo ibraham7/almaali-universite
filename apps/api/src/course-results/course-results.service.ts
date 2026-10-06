@@ -182,6 +182,9 @@ export class CourseResultsService {
                 include: {
                   program: {
                     include: {
+                      college: {
+                        include: { university: true },
+                      },
                       department: {
                         include: {
                           college: {
@@ -357,10 +360,9 @@ export class CourseResultsService {
         semesterId,
       );
 
-    const university =
-      semester.academicYear.studyPlan
-        .program.department.college
-        .university;
+    const program = semester.academicYear.studyPlan.program;
+    const university = program.college?.university ?? program.department?.college.university;
+    if (!university) throw new BadRequestException('الكلية المرتبطة بالخطة غير موجودة.');
 
     const gradeScales =
       await this.prisma.gradeScale.findMany({

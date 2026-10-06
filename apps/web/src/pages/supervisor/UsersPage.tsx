@@ -107,7 +107,7 @@ function roleLabel(
             return 'طالب';
 
         case 'ADVISOR':
-            return 'مرشد أكاديمي';
+            return 'مشرف أكاديمي';
 
         case 'REGISTRAR':
             return 'مسجل';
@@ -943,7 +943,7 @@ export default function UsersPage() {
                         <FormControl fullWidth>
                             <InputLabel>الدور</InputLabel>
                             <Select label="الدور" value={staffRole} onChange={(event) => setStaffRole(event.target.value as Exclude<RoleCode, 'STUDENT'>)}>
-                                <MenuItem value="ADVISOR">مرشد أكاديمي</MenuItem>
+                                <MenuItem value="ADVISOR">مشرف أكاديمي</MenuItem>
                                 <MenuItem value="REGISTRAR">مسجل الجامعة</MenuItem>
                                 <MenuItem value="SYSTEM_ADMIN">مدير النظام</MenuItem>
                             </Select>
@@ -1166,7 +1166,7 @@ export default function UsersPage() {
                                 {programs.map((program) => (
                                     <MenuItem key={program.id} value={program.id}>
                                         <Checkbox checked={selectedProgramIds.includes(program.id)} />
-                                        <ListItemText primary={program.nameAr} secondary={`${program.department?.nameAr ?? 'قسم غير محدد'} · ${program.department?.college?.nameAr ?? 'كلية غير محددة'}`} />
+                                        <ListItemText primary={program.nameAr} secondary={`${program.department?.nameAr ? `${program.department.nameAr} · ` : ''}${program.college?.nameAr ?? program.department?.college?.nameAr ?? 'كلية غير محددة'}`} />
                                     </MenuItem>
                                 ))}
                             </Select>

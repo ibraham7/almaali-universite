@@ -6,8 +6,10 @@ import {
   Param,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 
 import { StudyPlanCoursesService } from './study-plan-courses.service.js';
 
@@ -37,16 +39,14 @@ export class StudyPlanCoursesController {
   ) {}
 
   @Post()
-  @Roles(
-    'REGISTRAR',
-    'SYSTEM_ADMIN',
-  )
   create(
     @Body()
     dto: CreateStudyPlanCourseDto,
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
     return this.studyPlanCoursesService.create(
       dto,
+      request.user,
     );
   }
 
@@ -58,6 +58,8 @@ export class StudyPlanCoursesController {
     @Query('academicYearId')
     academicYearId: string,
 
+    @Req() request: Request & { user: { id: string; role: string } },
+
     @Query('semesterId')
     semesterId?: string,
   ) {
@@ -66,40 +68,38 @@ export class StudyPlanCoursesController {
         studyPlanId,
         academicYearId,
         semesterId,
+        request.user,
       );
     }
 
     return this.studyPlanCoursesService.findByPlanAndYear(
       studyPlanId,
       academicYearId,
+      request.user,
     );
   }
 
   @Post('reorder')
-  @Roles(
-    'REGISTRAR',
-    'SYSTEM_ADMIN',
-  )
   reorder(
     @Body()
     dto: ReorderStudyPlanCoursesDto,
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
     return this.studyPlanCoursesService.reorder(
       dto,
+      request.user,
     );
   }
 
   @Delete(':id')
-  @Roles(
-    'REGISTRAR',
-    'SYSTEM_ADMIN',
-  )
   remove(
     @Param('id')
     id: string,
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
     return this.studyPlanCoursesService.remove(
       id,
+      request.user,
     );
   }
 }

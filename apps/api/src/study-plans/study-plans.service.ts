@@ -1,4 +1,5 @@
 import {
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -11,11 +12,35 @@ export class StudyPlansService {
     private readonly prisma: PrismaService,
   ) {}
 
+  private async assignedProgramIds(actor: { id: string; role: string }) {
+    if (actor.role !== 'ADVISOR') return null;
+    const rows = await this.prisma.advisorProgramAssignment.findMany({
+      where: { advisorId: actor.id },
+      select: { programId: true },
+    });
+    return rows.map((row) => row.programId);
+  }
+
+  private async assertProgramAccess(programId: string, actor: { id: string; role: string }) {
+    const allowed = await this.assignedProgramIds(actor);
+    if (allowed && !allowed.includes(programId)) {
+      throw new ForbiddenException('لا تملك صلاحية إدارة هذا الاختصاص.');
+    }
+  }
+
+  private async assertPlanAccess(id: string, actor: { id: string; role: string }) {
+    const plan = await this.prisma.studyPlan.findUnique({ where: { id }, select: { id: true, programId: true } });
+    if (!plan) throw new NotFoundException('الخطة الدراسية غير موجودة');
+    await this.assertProgramAccess(plan.programId, actor);
+    return plan;
+  }
+
   async create(data: {
     programId: string;
     nameAr: string;
     nameEn?: string;
-  }) {
+  }, actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
+    await this.assertProgramAccess(data.programId, actor);
     return this.prisma.studyPlan.create({
       data: {
         programId:
@@ -36,17 +61,9 @@ export class StudyPlansService {
       nameAr?: string;
       nameEn?: string;
     },
+    actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' },
   ) {
-    const studyPlan =
-      await this.prisma.studyPlan.findUnique({
-        where: { id },
-      });
-
-    if (!studyPlan) {
-      throw new NotFoundException(
-        'Study plan not found',
-      );
-    }
+    await this.assertPlanAccess(id, actor);
 
     return this.prisma.studyPlan.update({
       where: { id },
@@ -70,23 +87,26 @@ export class StudyPlansService {
     });
   }
 
-  async findAll() {
+  async findAll(actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
+    const allowed = await this.assignedProgramIds(actor);
     return this.prisma.studyPlan.findMany({
+      ...(allowed ? { where: { programId: { in: allowed } } } : {}),
       orderBy: {
         createdAt: 'asc',
       },
     });
   }
 
-  async findById(id: string) {
-    return this.prisma.studyPlan.findUnique({
-      where: { id },
-    });
+  async findById(id: string, actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
+    await this.assertPlanAccess(id, actor);
+    return this.prisma.studyPlan.findUnique({ where: { id } });
   }
 
   async findByProgram(
     programId: string,
+    actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' },
   ) {
+    await this.assertProgramAccess(programId, actor);
     return this.prisma.studyPlan.findMany({
       where: {
         programId,

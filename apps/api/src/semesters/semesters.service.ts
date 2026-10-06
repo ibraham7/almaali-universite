@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -11,6 +12,14 @@ export class SemestersService {
   constructor(
     private readonly prisma: PrismaService,
   ) {}
+
+  private async assertLevelAccess(academicYearId: string, actor: { id: string; role: string }) {
+    if (actor.role !== 'ADVISOR') return;
+    const level = await this.prisma.academicYear.findUnique({ where: { id: academicYearId }, select: { studyPlan: { select: { programId: true } } } });
+    if (!level) throw new NotFoundException('المستوى الدراسي غير موجود');
+    const assignment = await this.prisma.advisorProgramAssignment.findFirst({ where: { advisorId: actor.id, programId: level.studyPlan.programId }, select: { id: true } });
+    if (!assignment) throw new ForbiddenException('لا تملك صلاحية إدارة هذا الفصل.');
+  }
 
   private async resolveSemesterNumber(
     academicYearId: string,
@@ -74,7 +83,8 @@ export class SemestersService {
     nameEn?: string;
     semesterNumber: number;
     requireMandatoryCourses?: boolean;
-  }) {
+  }, actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
+    await this.assertLevelAccess(data.academicYearId, actor);
     const academicYear = await this.prisma.academicYear.findUnique({
       where: {
         id: data.academicYearId,
@@ -115,6 +125,7 @@ export class SemestersService {
       semesterNumber?: number;
       requireMandatoryCourses?: boolean;
     },
+    actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' },
   ) {
     const semester = await this.prisma.semester.findUnique({
       where: { id },
@@ -125,6 +136,7 @@ export class SemestersService {
         'Semester not found',
       );
     }
+    await this.assertLevelAccess(semester.academicYearId, actor);
 
     const semesterNumber =
       data.semesterNumber !== undefined
@@ -163,8 +175,12 @@ export class SemestersService {
     });
   }
 
-  async findAll() {
+  async findAll(actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
+    const allowed = actor.role === 'ADVISOR'
+      ? (await this.prisma.advisorProgramAssignment.findMany({ where: { advisorId: actor.id }, select: { programId: true } })).map((row) => row.programId)
+      : null;
     return this.prisma.semester.findMany({
+      ...(allowed ? { where: { academicYear: { studyPlan: { programId: { in: allowed } } } } } : {}),
       orderBy: [
         {
           academicYearId: 'asc',
@@ -176,13 +192,15 @@ export class SemestersService {
     });
   }
 
-  async findById(id: string) {
-    return this.prisma.semester.findUnique({
-      where: { id },
-    });
+  async findById(id: string, actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
+    const semester = await this.prisma.semester.findUnique({ where: { id }, select: { id: true, academicYearId: true } });
+    if (!semester) return null;
+    await this.assertLevelAccess(semester.academicYearId, actor);
+    return this.prisma.semester.findUnique({ where: { id } });
   }
 
-  async findByAcademicYear(academicYearId: string) {
+  async findByAcademicYear(academicYearId: string, actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
+    await this.assertLevelAccess(academicYearId, actor);
     return this.prisma.semester.findMany({
       where: {
         academicYearId,

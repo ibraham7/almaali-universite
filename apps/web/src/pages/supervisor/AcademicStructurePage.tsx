@@ -31,6 +31,8 @@ import {
 } from 'react';
 
 import axios from 'axios';
+import { useAuth } from '../../auth/AuthContext';
+import { getMyAdvisorPrograms } from '../../api/advisors';
 
 import {
     createAcademicLevel,
@@ -126,6 +128,8 @@ function getErrorMessage(
 }
 
 export default function AcademicStructurePage() {
+    const { user } = useAuth();
+    const isAdvisor = user?.role === 'ADVISOR';
     const [colleges, setColleges] =
         useState<College[]>([]);
 
@@ -224,6 +228,7 @@ export default function AcademicStructurePage() {
                     plansData,
                     levelsData,
                     semestersData,
+                    advisorAssignments,
                 ] = await Promise.all([
                     getColleges(),
 
@@ -236,15 +241,27 @@ export default function AcademicStructurePage() {
                     getAcademicLevels(),
 
                     getSemesters(),
+                    isAdvisor ? getMyAdvisorPrograms() : Promise.resolve(null),
                 ]);
 
-                setColleges(collegesData);
+                const assignedIds = advisorAssignments
+                    ? new Set(advisorAssignments.map((item) => item.id))
+                    : null;
+                const visiblePrograms = assignedIds
+                    ? programsData.filter((item) => assignedIds.has(item.id))
+                    : programsData;
+                const visibleDepartmentIds = new Set(visiblePrograms.map((item) => item.departmentId));
+                const visibleCollegeIds = new Set(visiblePrograms.map((item) => item.collegeId ?? departmentsData.find((department) => department.id === item.departmentId)?.collegeId).filter((id): id is string => Boolean(id)));
+                const visibleDepartments = assignedIds
+                    ? departmentsData.filter((item) => visibleDepartmentIds.has(item.id))
+                    : departmentsData;
+                const visibleColleges = assignedIds
+                    ? collegesData.filter((item) => visibleCollegeIds.has(item.id))
+                    : collegesData;
 
-                setDepartments(
-                    departmentsData,
-                );
-
-                setPrograms(programsData);
+                setColleges(visibleColleges);
+                setDepartments(visibleDepartments);
+                setPrograms(visiblePrograms);
 
                 setStudyPlans(plansData);
 
@@ -258,10 +275,10 @@ export default function AcademicStructurePage() {
 
                 if (
                     !selectedCollegeId &&
-                    collegesData.length > 0
+                    visibleColleges.length > 0
                 ) {
                     setSelectedCollegeId(
-                        collegesData[0].id,
+                        visibleColleges[0].id,
                     );
                 }
             } catch (requestError) {
@@ -273,7 +290,7 @@ export default function AcademicStructurePage() {
             } finally {
                 setLoading(false);
             }
-        }, [selectedCollegeId]);
+        }, [isAdvisor, selectedCollegeId]);
 
     useEffect(() => {
         void loadData();
@@ -307,17 +324,16 @@ export default function AcademicStructurePage() {
             ],
         );
 
-    const visiblePrograms =
-        useMemo(
+                const visiblePrograms =
+            useMemo(
             () =>
-                programs.filter(
-                    (item) =>
-                        item.departmentId ===
-                        selectedDepartmentId,
-                ),
+                programs.filter((item) => selectedDepartmentId
+                    ? item.departmentId === selectedDepartmentId
+                    : !item.departmentId && item.collegeId === selectedCollegeId),
             [
                 programs,
                 selectedDepartmentId,
+                selectedCollegeId,
             ],
         );
 
@@ -637,18 +653,19 @@ export default function AcademicStructurePage() {
                     );
                 } else {
                     if (
-                        !selectedDepartmentId
+                !selectedCollegeId
                     ) {
                         setError(
-                            'اختر القسم أولًا.',
+                            'اختر الكلية أو القسم أولًا.',
                         );
 
                         return;
                     }
 
                     await createProgram({
-                        departmentId:
-                            selectedDepartmentId,
+                        ...(selectedDepartmentId
+                            ? { departmentId: selectedDepartmentId }
+                            : { collegeId: selectedCollegeId }),
 
                         nameAr:
                             form.nameAr.trim(),
@@ -867,6 +884,9 @@ export default function AcademicStructurePage() {
                     والبرامج والخطط
                     والمستويات والفصول.
                 </Typography>
+                {isAdvisor && <Typography color="text.secondary" sx={{ mt: 1, fontSize: 13 }}>
+                    يمكنك إدارة الخطط والمستويات والفصول ضمن البرامج التي عيّنها المدير لحسابك. إنشاء الكليات والأقسام والبرامج متاح للمدير فقط.
+                </Typography>}
             </Box>
 
             {error && (
@@ -899,6 +919,7 @@ export default function AcademicStructurePage() {
                     <AccountBalanceRoundedIcon />
                 }
                 addLabel="إضافة كلية"
+                showAdd={!isAdvisor}
                 onAdd={() =>
                     openCreate('college')
                 }
@@ -922,12 +943,11 @@ export default function AcademicStructurePage() {
                                     college.id,
                                 )
                             }
-                            onEdit={() =>
+                            onEdit={!isAdvisor ? () =>
                                 openEdit(
                                     'college',
                                     college,
-                                )
-                            }
+                                ) : undefined}
                         />
                     ),
                 )}
@@ -939,6 +959,7 @@ export default function AcademicStructurePage() {
                     <ApartmentRoundedIcon />
                 }
                 addLabel="إضافة قسم"
+                showAdd={!isAdvisor}
                 disabled={
                     !selectedCollegeId
                 }
@@ -969,12 +990,11 @@ export default function AcademicStructurePage() {
                                     department.id,
                                 )
                             }
-                            onEdit={() =>
+                            onEdit={!isAdvisor ? () =>
                                 openEdit(
                                     'department',
                                     department,
-                                )
-                            }
+                                ) : undefined}
                         />
                     ),
                 )}
@@ -986,8 +1006,9 @@ export default function AcademicStructurePage() {
                     <SchoolRoundedIcon />
                 }
                 addLabel="إضافة برنامج"
+                showAdd={!isAdvisor}
                 disabled={
-                    !selectedDepartmentId
+                    !selectedCollegeId
                 }
                 onAdd={() =>
                     openCreate('program')
@@ -1012,12 +1033,11 @@ export default function AcademicStructurePage() {
                                     program.id,
                                 )
                             }
-                            onEdit={() =>
+                            onEdit={!isAdvisor ? () =>
                                 openEdit(
                                     'program',
                                     program,
-                                )
-                            }
+                                ) : undefined}
                         />
                     ),
                 )}
@@ -1293,6 +1313,8 @@ interface StructureSectionProps {
 
     disabled?: boolean;
 
+    showAdd?: boolean;
+
     onAdd: () => void;
 
     children: React.ReactNode;
@@ -1303,6 +1325,7 @@ function StructureSection({
     icon,
     addLabel,
     disabled,
+    showAdd = true,
     onAdd,
     children,
 }: StructureSectionProps) {
@@ -1343,7 +1366,7 @@ function StructureSection({
                         </Typography>
                     </Stack>
 
-                    <Button
+                    {showAdd && <Button
                         size="small"
                         variant="outlined"
                         startIcon={
@@ -1353,7 +1376,7 @@ function StructureSection({
                         onClick={onAdd}
                     >
                         {addLabel}
-                    </Button>
+                    </Button>}
                 </Stack>
 
                 <Box
@@ -1387,7 +1410,7 @@ interface StructureCardProps {
 
     onClick?: () => void;
 
-    onEdit: () => void;
+    onEdit?: () => void;
 }
 
 function StructureCard({
@@ -1460,7 +1483,7 @@ function StructureCard({
                     )}
                 </Box>
 
-                <Button
+                {onEdit && <Button
                     size="small"
                     startIcon={
                         <EditOutlinedIcon />
@@ -1472,7 +1495,7 @@ function StructureCard({
                     }}
                 >
                     تعديل
-                </Button>
+                </Button>}
             </Stack>
         </Box>
     );

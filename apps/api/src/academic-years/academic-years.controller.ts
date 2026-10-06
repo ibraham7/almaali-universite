@@ -5,8 +5,10 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 
 import { AcademicYearsService } from './academic-years.service.js';
 
@@ -30,10 +32,6 @@ export class AcademicYearsController {
   ) {}
 
   @Post()
-  @Roles(
-    'REGISTRAR',
-    'SYSTEM_ADMIN',
-  )
   create(
     @Body()
     body: {
@@ -42,17 +40,12 @@ export class AcademicYearsController {
       nameEn?: string;
       levelNumber: number;
     },
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
-    return this.academicYearsService.create(
-      body,
-    );
+    return this.academicYearsService.create(body, request.user);
   }
 
   @Patch(':id')
-  @Roles(
-    'REGISTRAR',
-    'SYSTEM_ADMIN',
-  )
   update(
     @Param('id')
     id: string,
@@ -63,25 +56,25 @@ export class AcademicYearsController {
       nameEn?: string;
       levelNumber?: number;
     },
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
-    return this.academicYearsService.update(
-      id,
-      body,
-    );
+    return this.academicYearsService.update(id, body, request.user);
   }
 
   @Get()
-  findAll() {
-    return this.academicYearsService.findAll();
+  findAll(@Req() request: Request & { user: { id: string; role: string } }) {
+    return this.academicYearsService.findAll(request.user);
   }
 
   @Get('study-plan/:studyPlanId')
   findByStudyPlan(
     @Param('studyPlanId')
     studyPlanId: string,
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
     return this.academicYearsService.findByStudyPlan(
       studyPlanId,
+      request.user,
     );
   }
 
@@ -89,9 +82,11 @@ export class AcademicYearsController {
   findById(
     @Param('id')
     id: string,
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
     return this.academicYearsService.findById(
       id,
+      request.user,
     );
   }
 }

@@ -289,6 +289,7 @@ export class CoursesService {
                 include: {
                   program: {
                     include: {
+                      college: true,
                       department: {
                         include: {
                           college: true,
@@ -371,6 +372,7 @@ export class CoursesService {
               include: {
                 program: {
                   include: {
+                    college: true,
                     department: {
                       include: {
                         college: true,
@@ -416,6 +418,7 @@ export class CoursesService {
               include: {
                 program: {
                   include: {
+                    college: true,
                     department: {
                       include: {
                         college: true,

@@ -238,6 +238,7 @@ export class AdvisorApprovalsService {
         include: {
           program: {
             include: {
+              college: { include: { university: true } },
               department: {
                 include: {
                   college: {
@@ -262,8 +263,8 @@ export class AdvisorApprovalsService {
       );
     }
 
-    const university =
-      studyPlan.program.department.college.university;
+    const university = studyPlan.program.college?.university ?? studyPlan.program.department?.college.university;
+    if (!university) throw new BadRequestException('الكلية المرتبطة بالخطة غير موجودة.');
 
     const maxLevel =
       academicYear.levelNumber + university.allowedFutureYears;

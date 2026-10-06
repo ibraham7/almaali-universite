@@ -63,7 +63,8 @@ export interface Course {
                 id: string;
                 nameAr: string;
                 nameEn?: string | null;
-                department: {
+                college?: { id: string; nameAr: string; nameEn?: string | null } | null;
+                department?: {
                     id: string;
                     nameAr: string;
                     nameEn?: string | null;
@@ -72,7 +73,7 @@ export interface Course {
                         nameAr: string;
                         nameEn?: string | null;
                     };
-                };
+                } | null;
             };
         };
     }>;

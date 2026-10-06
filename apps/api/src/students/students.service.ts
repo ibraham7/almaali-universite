@@ -39,8 +39,12 @@ export class StudentsService {
       if (!collegeId || department?.collegeId !== collegeId) invalid();
     }
     if (programId) {
-      const program = await this.prisma.program.findUnique({ where: { id: programId } });
-      if (!departmentId || program?.departmentId !== departmentId) invalid();
+      const program = await this.prisma.program.findUnique({ where: { id: programId }, select: { departmentId: true, collegeId: true } });
+      if (departmentId) {
+        if (program?.departmentId !== departmentId) invalid();
+      } else if (!collegeId || program?.collegeId !== collegeId || program.departmentId) {
+        invalid();
+      }
     }
     if (studyPlanId) {
       const plan = await this.prisma.studyPlan.findUnique({ where: { id: studyPlanId } });

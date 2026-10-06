@@ -13,6 +13,12 @@ interface AuthenticatedRequest extends Request { user: { id: string } }
 export class AdvisorsController {
   constructor(private readonly advisorsService: AdvisorsService) {}
 
+  @Get('me/assigned-programs')
+  @Roles('ADVISOR', 'SYSTEM_ADMIN')
+  getMyAssignedPrograms(@Req() request: AuthenticatedRequest) {
+    return this.advisorsService.getAssignedPrograms(request.user.id);
+  }
+
   @Get(':id/programs')
   getAssignedPrograms(@Param('id') id: string) {
     return this.advisorsService.getAssignedPrograms(id);

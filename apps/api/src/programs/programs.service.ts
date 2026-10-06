@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -12,14 +13,30 @@ export class ProgramsService {
   ) { }
 
   async create(data: {
-    departmentId: string;
+    departmentId?: string;
+    collegeId?: string;
     nameAr: string;
     nameEn?: string;
   }) {
+    if (!data.departmentId && !data.collegeId) {
+      throw new BadRequestException('اختر الكلية أو القسم لإنشاء الاختصاص.');
+    }
+    const department = data.departmentId
+      ? await this.prisma.department.findUnique({ where: { id: data.departmentId }, select: { collegeId: true } })
+      : null;
+    if (data.departmentId && !department) {
+      throw new NotFoundException('القسم المحدد غير موجود.');
+    }
+    const collegeId = department?.collegeId ?? data.collegeId;
+    if (!collegeId) throw new NotFoundException('الكلية المحددة غير موجودة.');
+    if (!department) {
+      const college = await this.prisma.college.findUnique({ where: { id: collegeId }, select: { id: true } });
+      if (!college) throw new NotFoundException('الكلية المحددة غير موجودة.');
+    }
     return this.prisma.program.create({
       data: {
-        departmentId:
-          data.departmentId,
+        departmentId: data.departmentId,
+        collegeId,
 
         nameAr:
           data.nameAr.trim(),
@@ -73,6 +90,7 @@ export class ProgramsService {
   async findAll() {
     return this.prisma.program.findMany({
       include: {
+        college: true,
         department: {
           include: { college: true },
         },

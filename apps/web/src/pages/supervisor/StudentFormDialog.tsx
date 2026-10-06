@@ -166,7 +166,9 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
   const academic = catalog ? [
     select('collegeId', 'الكلية', catalog.colleges, ['departmentId', 'programId', 'studyPlanId', 'academicYearId', 'semesterId']),
     select('departmentId', 'القسم', catalog.departments.filter((item) => item.collegeId === form.collegeId), ['programId', 'studyPlanId', 'academicYearId', 'semesterId']),
-    select('programId', 'البرنامج / التخصص', catalog.programs.filter((item) => item.departmentId === form.departmentId), ['studyPlanId', 'academicYearId', 'semesterId']),
+    select('programId', 'البرنامج / التخصص', catalog.programs.filter((item) => form.departmentId
+      ? item.departmentId === form.departmentId
+      : !item.departmentId && item.collegeId === form.collegeId), ['studyPlanId', 'academicYearId', 'semesterId']),
     select('studyPlanId', 'الخطة الدراسية', catalog.plans.filter((item) => item.programId === form.programId), ['academicYearId', 'semesterId']),
     select('academicYearId', 'المستوى الأكاديمي', catalog.years.filter((item) => item.studyPlanId === form.studyPlanId), ['semesterId']),
     select('semesterId', 'الفصل الدراسي', catalog.semesters.filter((item) => item.academicYearId === form.academicYearId)),

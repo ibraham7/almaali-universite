@@ -68,6 +68,7 @@ export class StudentEnrollmentsService {
           program: {
             select: {
               nameAr: true,
+              college: { select: { nameAr: true, university: { select: { allowedFutureYears: true } } } },
               department: {
                 select: {
                   nameAr: true,
@@ -86,7 +87,9 @@ export class StudentEnrollmentsService {
       this.prisma.academicYear.findUnique({ where: { id: student.academicYearId! }, select: { levelNumber: true, studyPlanId: true } }),
     ]);
     if (!plan || !level || level.studyPlanId !== plan.id) throw new ForbiddenException('الخطة أو المستوى الدراسي غير صالح.');
-    const maxLevel = level.levelNumber + (plan.program.department.college.university.allowedFutureYears ?? 0);
+    const planCollege = plan.program.college ?? plan.program.department?.college;
+    if (!planCollege) throw new ForbiddenException('الكلية المرتبطة بالخطة غير موجودة.');
+    const maxLevel = level.levelNumber + (planCollege.university.allowedFutureYears ?? 0);
     const courses = await this.prisma.studyPlanCourse.findMany({
       where: { studyPlanId: plan.id, academicYear: { levelNumber: { gte: level.levelNumber, lte: maxLevel } }, course: { status: 'ACTIVE' } },
       include: { academicYear: true, semester: true, course: { include: { sections: { include: { teacher: true, classroom: true, schedules: true } } } } },
@@ -94,7 +97,7 @@ export class StudentEnrollmentsService {
     });
     return {
       student: { id: student.id, universityId: student.universityId, name: [student.firstName, student.middleName, student.familyName].filter(Boolean).join(' '), programId: student.programId },
-      plan: { id: plan.id, nameAr: plan.nameAr, programName: plan.program.nameAr, departmentName: plan.program.department.nameAr, collegeName: plan.program.department.college.nameAr },
+      plan: { id: plan.id, nameAr: plan.nameAr, programName: plan.program.nameAr, departmentName: plan.program.department?.nameAr ?? null, collegeName: planCollege.nameAr },
       courses: courses.map((item) => ({ ...item, course: { ...item.course, sections: item.course.sections.filter((section) => section.semesterId === item.semesterId) } })),
     };
   }
@@ -180,6 +183,7 @@ export class StudentEnrollmentsService {
         include: {
           program: {
             include: {
+              college: { include: { university: true } },
               department: {
                 include: {
                   college: {
@@ -264,8 +268,8 @@ export class StudentEnrollmentsService {
       };
     }
 
-    const university =
-      studyPlan.program.department.college.university;
+    const university = studyPlan.program.college?.university ?? studyPlan.program.department?.college.university;
+    if (!university) return { success: false, errors: ['College settings are not configured'] };
 
     const maxAllowedLevelNumber =
       academicYear.levelNumber +

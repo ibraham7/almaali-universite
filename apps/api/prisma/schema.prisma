@@ -76,6 +76,7 @@ model College {
 
   university  University   @relation(fields: [universityId], references: [id])
   departments Department[]
+  programs    Program[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -100,11 +101,13 @@ model Department {
 
 model Program {
   id           String  @id @default(uuid())
-  departmentId String
+  departmentId String?
+  collegeId    String?
   nameAr       String
   nameEn       String?
 
-  department Department  @relation(fields: [departmentId], references: [id])
+  department Department? @relation(fields: [departmentId], references: [id])
+  college    College?    @relation(fields: [collegeId], references: [id])
   studyPlans StudyPlan[]
   advisorAssignments AdvisorProgramAssignment[]
 
@@ -112,6 +115,7 @@ model Program {
   updatedAt DateTime @updatedAt
 
   @@unique([departmentId, nameAr])
+  @@unique([collegeId, nameAr])
 }
 
 model StudyPlan {

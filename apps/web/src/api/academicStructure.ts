@@ -27,11 +27,13 @@ export interface Department {
 
 export interface Program {
     id: string;
-    departmentId: string;
+    departmentId?: string | null;
+    collegeId?: string | null;
 
     nameAr: string;
     nameEn?: string | null;
     department?: Department;
+    college?: College;
     departmentName?: string;
     collegeName?: string;
 
@@ -175,7 +177,8 @@ export async function getPrograms() {
 
 export async function createProgram(
     data: {
-        departmentId: string;
+        departmentId?: string;
+        collegeId?: string;
 
         nameAr: string;
 

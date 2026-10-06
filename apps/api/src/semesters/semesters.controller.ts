@@ -5,8 +5,10 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 
 import { SemestersService } from './semesters.service.js';
 
@@ -30,10 +32,6 @@ export class SemestersController {
   ) {}
 
   @Post()
-  @Roles(
-    'REGISTRAR',
-    'SYSTEM_ADMIN',
-  )
   create(
     @Body()
     body: {
@@ -43,17 +41,12 @@ export class SemestersController {
       semesterNumber: number;
       requireMandatoryCourses?: boolean;
     },
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
-    return this.semestersService.create(
-      body,
-    );
+    return this.semestersService.create(body, request.user);
   }
 
   @Patch(':id')
-  @Roles(
-    'REGISTRAR',
-    'SYSTEM_ADMIN',
-  )
   update(
     @Param('id')
     id: string,
@@ -65,25 +58,25 @@ export class SemestersController {
       semesterNumber?: number;
       requireMandatoryCourses?: boolean;
     },
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
-    return this.semestersService.update(
-      id,
-      body,
-    );
+    return this.semestersService.update(id, body, request.user);
   }
 
   @Get()
-  findAll() {
-    return this.semestersService.findAll();
+  findAll(@Req() request: Request & { user: { id: string; role: string } }) {
+    return this.semestersService.findAll(request.user);
   }
 
   @Get('academic-year/:academicYearId')
   findByAcademicYear(
     @Param('academicYearId')
     academicYearId: string,
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
     return this.semestersService.findByAcademicYear(
       academicYearId,
+      request.user,
     );
   }
 
@@ -91,9 +84,11 @@ export class SemestersController {
   findById(
     @Param('id')
     id: string,
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
     return this.semestersService.findById(
       id,
+      request.user,
     );
   }
 }

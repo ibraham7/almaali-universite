@@ -210,8 +210,10 @@ export default function CoursesPage() {
   );
 
   const visiblePrograms = useMemo(
-    () => programs.filter((item) => item.departmentId === form.departmentId),
-    [programs, form.departmentId],
+    () => programs.filter((item) => form.departmentId
+      ? item.departmentId === form.departmentId
+      : !item.departmentId && item.collegeId === form.collegeId),
+    [programs, form.departmentId, form.collegeId],
   );
 
   const visiblePlans = useMemo(
@@ -309,7 +311,6 @@ export default function CoursesPage() {
     if (
       !editingCourse &&
       (!form.collegeId ||
-        !form.departmentId ||
         !form.programId ||
         !form.studyPlanId ||
         !form.academicYearId ||
@@ -595,7 +596,7 @@ export default function CoursesPage() {
                       <Stack spacing={0.75}>
                         {placements.map((placement) => (
                           <Typography key={placement.id} color="text.secondary" sx={{ fontSize: 12.5 }}>
-                            {placement.studyPlan.program.department.college.nameAr}
+                            {placement.studyPlan.program.college?.nameAr ?? placement.studyPlan.program.department?.college.nameAr ?? 'كلية غير محددة'}
                             {' • '}
                             {placement.studyPlan.program.nameAr}
                             {' • '}
@@ -681,10 +682,10 @@ export default function CoursesPage() {
                     </Select>
                   </FormControl>
 
-                  <FormControl fullWidth required disabled={!form.collegeId}>
-                    <InputLabel>القسم</InputLabel>
+                  <FormControl fullWidth disabled={!form.collegeId}>
+                    <InputLabel>القسم (إن وجد)</InputLabel>
                     <Select
-                      label="القسم"
+                      label="القسم (إن وجد)"
                       value={form.departmentId}
                       onChange={(event) =>
                         setForm((current) => ({
@@ -697,13 +698,14 @@ export default function CoursesPage() {
                         }))
                       }
                     >
+                      <MenuItem value="">بدون قسم</MenuItem>
                       {visibleDepartments.map((item) => (
                         <MenuItem key={item.id} value={item.id}>{item.nameAr}</MenuItem>
                       ))}
                     </Select>
                   </FormControl>
 
-                  <FormControl fullWidth required disabled={!form.departmentId}>
+                  <FormControl fullWidth required disabled={!form.collegeId}>
                     <InputLabel>التخصص</InputLabel>
                     <Select
                       label="التخصص"

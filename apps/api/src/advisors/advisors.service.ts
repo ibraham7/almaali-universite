@@ -15,16 +15,16 @@ export class AdvisorsService {
     }
     const assignments = await this.prisma.advisorProgramAssignment.findMany({
       where: { advisorId },
-      include: { program: { include: { department: { include: { college: true } } } } },
-      orderBy: [{ program: { department: { college: { nameAr: 'asc' } } } }, { program: { department: { nameAr: 'asc' } } }, { program: { nameAr: 'asc' } }],
+      include: { program: { include: { college: true, department: { include: { college: true } } } } },
+      orderBy: [{ program: { nameAr: 'asc' } }],
     });
     return assignments.map(({ program }) => ({
       id: program.id,
       nameAr: program.nameAr,
       departmentId: program.departmentId,
-      departmentName: program.department.nameAr,
-      collegeId: program.department.collegeId,
-      collegeName: program.department.college.nameAr,
+      departmentName: program.department?.nameAr ?? null,
+      collegeId: program.collegeId ?? program.department?.collegeId ?? '',
+      collegeName: program.college?.nameAr ?? program.department?.college.nameAr ?? '',
     }));
   }
 

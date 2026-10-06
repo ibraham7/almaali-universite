@@ -208,6 +208,17 @@ export class RegistrationValidationService {
             id: true,
             program: {
               select: {
+                college: {
+                  select: {
+                    university: {
+                      select: {
+                        minGpaForFutureYears: true,
+                        allowedFutureYears: true,
+                        requiredElectiveCredits: true,
+                      },
+                    },
+                  },
+                },
                 department: {
                   select: {
                     college: {
@@ -280,8 +291,8 @@ export class RegistrationValidationService {
       };
     }
 
-    const settings =
-      studyPlan.program.department.college.university;
+    const settings = studyPlan.program.college?.university ?? studyPlan.program.department?.college.university;
+    if (!settings) return { valid: false, errors: ['College settings are not configured'] };
 
     const maxAllowedLevelNumber =
       currentLevel.levelNumber +

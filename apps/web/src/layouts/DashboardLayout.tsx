@@ -160,6 +160,7 @@ const navigationItems: NavigationItem[] = [
     path: '/academic-structure',
     icon: <SchoolRoundedIcon />,
     roles: [
+      'ADVISOR',
       'REGISTRAR',
       'SYSTEM_ADMIN',
     ],
@@ -171,6 +172,7 @@ const navigationItems: NavigationItem[] = [
       '/supervisor/registration-periods',
     icon: <DateRangeRoundedIcon />,
     roles: [
+      'ADVISOR',
       'REGISTRAR',
       'SYSTEM_ADMIN',
     ],
@@ -213,7 +215,7 @@ function getRoleLabel(
       return 'طالب';
 
     case 'ADVISOR':
-      return 'المرشد الأكاديمي';
+      return 'المشرف الأكاديمي';
 
     case 'REGISTRAR':
       return 'مسجل الجامعة';

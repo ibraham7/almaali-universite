@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateStudyPlanCourseDto } from './dto/create-study-plan-course.dto.js';
@@ -8,7 +8,16 @@ import { ReorderStudyPlanCoursesDto } from './dto/reorder-study-plan-courses.dto
 export class StudyPlanCoursesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateStudyPlanCourseDto) {
+  private async assertPlanAccess(studyPlanId: string, actor: { id: string; role: string }) {
+    if (actor.role !== 'ADVISOR') return;
+    const plan = await this.prisma.studyPlan.findUnique({ where: { id: studyPlanId }, select: { programId: true } });
+    if (!plan) throw new NotFoundException('الخطة الدراسية غير موجودة');
+    const assignment = await this.prisma.advisorProgramAssignment.findFirst({ where: { advisorId: actor.id, programId: plan.programId }, select: { id: true } });
+    if (!assignment) throw new ForbiddenException('لا تملك صلاحية تعديل مقررات هذه الخطة.');
+  }
+
+  async create(dto: CreateStudyPlanCourseDto, actor: { id: string; role: string }) {
+    await this.assertPlanAccess(dto.studyPlanId, actor);
     // ============================================================
     // 1. التحقق من الخطة الدراسية
     // ============================================================
@@ -186,7 +195,9 @@ export class StudyPlanCoursesService {
   async findByPlanAndYear(
     studyPlanId: string,
     academicYearId: string,
+    actor: { id: string; role: string },
   ) {
+    await this.assertPlanAccess(studyPlanId, actor);
     const courses =
       await this.prisma.studyPlanCourse.findMany({
         where: {
@@ -236,7 +247,9 @@ export class StudyPlanCoursesService {
     studyPlanId: string,
     academicYearId: string,
     semesterId: string,
+    actor: { id: string; role: string },
   ) {
+    await this.assertPlanAccess(studyPlanId, actor);
     const semester = await this.prisma.semester.findUnique({
       where: {
         id: semesterId,
@@ -302,7 +315,8 @@ export class StudyPlanCoursesService {
   // مقررات من أكثر من فصل في نفس العملية.
   // ============================================================
 
-  async reorder(dto: ReorderStudyPlanCoursesDto) {
+  async reorder(dto: ReorderStudyPlanCoursesDto, actor: { id: string; role: string }) {
+    await this.assertPlanAccess(dto.studyPlanId, actor);
     const academicYear =
       await this.prisma.academicYear.findUnique({
         where: {
@@ -468,10 +482,11 @@ export class StudyPlanCoursesService {
       dto.studyPlanId,
       dto.academicYearId,
       semesterId,
+      actor,
     );
   }
 
-  async remove(id: string) {
+  async remove(id: string, actor: { id: string; role: string }) {
     const planCourse =
       await this.prisma.studyPlanCourse.findUnique({
         where: {
@@ -490,6 +505,7 @@ export class StudyPlanCoursesService {
         errors: ['Study plan course not found'],
       };
     }
+    await this.assertPlanAccess(planCourse.studyPlanId, actor);
 
     await this.prisma.studyPlanCourse.delete({
       where: {

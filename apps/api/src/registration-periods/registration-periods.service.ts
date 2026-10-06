@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -76,18 +77,26 @@ export class RegistrationPeriodsService {
     }
   }
 
-  private async ensureSemesterExists(semesterId: string) {
+  private async ensureSemesterExists(semesterId: string, actor?: { id: string; role: string }) {
     const semester = await this.prisma.semester.findUnique({
       where: { id: semesterId },
+      include: { academicYear: { include: { studyPlan: { select: { programId: true } } } } },
     });
 
     if (!semester) {
       throw new NotFoundException('الفصل الدراسي غير موجود');
     }
+    if (actor?.role === 'ADVISOR') {
+      const assignment = await this.prisma.advisorProgramAssignment.findFirst({
+        where: { advisorId: actor.id, programId: semester.academicYear.studyPlan.programId },
+        select: { id: true },
+      });
+      if (!assignment) throw new ForbiddenException('لا تملك صلاحية ضبط فترة هذا الفصل.');
+    }
   }
 
-  async create(dto: CreateRegistrationPeriodDto) {
-    await this.ensureSemesterExists(dto.semesterId);
+  async create(dto: CreateRegistrationPeriodDto, actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
+    await this.ensureSemesterExists(dto.semesterId, actor);
 
     const startDateTime = this.parseDate(
       dto.startDateTime,
@@ -135,16 +144,26 @@ export class RegistrationPeriodsService {
     });
   }
 
-  async findAll() {
+  async findAll(actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
+    const allowed = actor.role === 'ADVISOR'
+      ? (await this.prisma.advisorProgramAssignment.findMany({ where: { advisorId: actor.id }, select: { programId: true } })).map((row) => row.programId)
+      : null;
+    const allowedSemesterIds = allowed
+      ? (await this.prisma.semester.findMany({
+          where: { academicYear: { studyPlan: { programId: { in: allowed } } } },
+          select: { id: true },
+        })).map((semester) => semester.id)
+      : null;
     return this.prisma.registrationPeriod.findMany({
+      ...(allowedSemesterIds ? { where: { semesterId: { in: allowedSemesterIds } } } : {}),
       orderBy: {
         startDateTime: 'desc',
       },
     });
   }
 
-  async findBySemester(semesterId: string) {
-    await this.ensureSemesterExists(semesterId);
+  async findBySemester(semesterId: string, actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
+    await this.ensureSemesterExists(semesterId, actor);
 
     return this.prisma.registrationPeriod.findMany({
       where: {
@@ -156,7 +175,7 @@ export class RegistrationPeriodsService {
     });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
     const period =
       await this.prisma.registrationPeriod.findUnique({
         where: { id },
@@ -167,6 +186,7 @@ export class RegistrationPeriodsService {
         'فترة التسجيل غير موجودة',
       );
     }
+    await this.ensureSemesterExists(period.semesterId, actor);
 
     return period;
   }
@@ -174,13 +194,14 @@ export class RegistrationPeriodsService {
   async update(
     id: string,
     dto: UpdateRegistrationPeriodDto,
+    actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' },
   ) {
-    const current = await this.findOne(id);
+    const current = await this.findOne(id, actor);
 
     const semesterId =
       dto.semesterId ?? current.semesterId;
 
-    await this.ensureSemesterExists(semesterId);
+    await this.ensureSemesterExists(semesterId, actor);
 
     const startDateTime = dto.startDateTime
       ? this.parseDate(
@@ -244,8 +265,8 @@ export class RegistrationPeriodsService {
     });
   }
 
-  async remove(id: string) {
-    await this.findOne(id);
+  async remove(id: string, actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
+    await this.findOne(id, actor);
 
     await this.prisma.registrationPeriod.delete({
       where: { id },

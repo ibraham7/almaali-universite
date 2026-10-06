@@ -6,8 +6,10 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 
 import { RegistrationPeriodsService } from './registration-periods.service.js';
 
@@ -25,6 +27,7 @@ import { Roles } from '../auth/decorators/roles.decorator.js';
   RolesGuard,
 )
 @Roles(
+  'ADVISOR',
   'REGISTRAR',
   'SYSTEM_ADMIN',
 )
@@ -37,24 +40,28 @@ export class RegistrationPeriodsController {
   create(
     @Body()
     dto: CreateRegistrationPeriodDto,
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
     return this.registrationPeriodsService.create(
       dto,
+      request.user,
     );
   }
 
   @Get()
-  findAll() {
-    return this.registrationPeriodsService.findAll();
+  findAll(@Req() request: Request & { user: { id: string; role: string } }) {
+    return this.registrationPeriodsService.findAll(request.user);
   }
 
   @Get('semester/:semesterId')
   findBySemester(
     @Param('semesterId')
     semesterId: string,
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
     return this.registrationPeriodsService.findBySemester(
       semesterId,
+      request.user,
     );
   }
 
@@ -62,9 +69,11 @@ export class RegistrationPeriodsController {
   findOne(
     @Param('id')
     id: string,
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
     return this.registrationPeriodsService.findOne(
       id,
+      request.user,
     );
   }
 
@@ -75,10 +84,12 @@ export class RegistrationPeriodsController {
 
     @Body()
     dto: Partial<CreateRegistrationPeriodDto>,
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
     return this.registrationPeriodsService.update(
       id,
       dto,
+      request.user,
     );
   }
 
@@ -86,9 +97,11 @@ export class RegistrationPeriodsController {
   remove(
     @Param('id')
     id: string,
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
     return this.registrationPeriodsService.remove(
       id,
+      request.user,
     );
   }
 }

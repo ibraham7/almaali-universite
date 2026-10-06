@@ -37,7 +37,8 @@ export class ProgramsController {
   create(
     @Body()
     body: {
-      departmentId: string;
+      departmentId?: string;
+      collegeId?: string;
       nameAr: string;
       nameEn?: string;
     },

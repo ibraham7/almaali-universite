@@ -168,7 +168,9 @@ export class StudentImportsService {
       };
       const collegeId = resolve(collegeName, colleges, null, undefined, 'الكلية', existingStudent?.collegeId);
       const departmentId = resolve(departmentName, departments, collegeId, 'collegeId', 'القسم', existingStudent?.departmentId);
-      const programId = resolve(programName, programs, departmentId, 'departmentId', 'البرنامج', existingStudent?.programId);
+      const programId = departmentId
+        ? resolve(programName, programs, departmentId, 'departmentId', 'البرنامج', existingStudent?.programId)
+        : resolve(programName, programs.filter((program) => !program.departmentId), collegeId, 'collegeId', 'البرنامج', existingStudent?.programId);
       const studyPlanId = resolve(planName, plans, programId, 'programId', 'الخطة', existingStudent?.studyPlanId);
       const academicYearId = resolve(yearName, years, studyPlanId, 'studyPlanId', 'المستوى', existingStudent?.academicYearId);
       const semesterId = resolve(semesterName, semesters, academicYearId, 'academicYearId', 'الفصل', existingStudent?.semesterId);

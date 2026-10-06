@@ -5,8 +5,10 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 
 import { StudyPlansService } from './study-plans.service.js';
 
@@ -30,11 +32,8 @@ export class StudyPlansController {
   ) {}
 
   @Post()
-  @Roles(
-    'REGISTRAR',
-    'SYSTEM_ADMIN',
-  )
   create(
+    @Req() request: Request & { user: { id: string; role: string } },
     @Body()
     body: {
       programId: string;
@@ -42,16 +41,10 @@ export class StudyPlansController {
       nameEn?: string;
     },
   ) {
-    return this.studyPlansService.create(
-      body,
-    );
+    return this.studyPlansService.create(body, request.user);
   }
 
   @Patch(':id')
-  @Roles(
-    'REGISTRAR',
-    'SYSTEM_ADMIN',
-  )
   update(
     @Param('id')
     id: string,
@@ -61,25 +54,25 @@ export class StudyPlansController {
       nameAr?: string;
       nameEn?: string;
     },
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
-    return this.studyPlansService.update(
-      id,
-      body,
-    );
+    return this.studyPlansService.update(id, body, request.user);
   }
 
   @Get()
-  findAll() {
-    return this.studyPlansService.findAll();
+  findAll(@Req() request: Request & { user: { id: string; role: string } }) {
+    return this.studyPlansService.findAll(request.user);
   }
 
   @Get('program/:programId')
   findByProgram(
     @Param('programId')
     programId: string,
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
     return this.studyPlansService.findByProgram(
       programId,
+      request.user,
     );
   }
 
@@ -87,9 +80,11 @@ export class StudyPlansController {
   findById(
     @Param('id')
     id: string,
+    @Req() request: Request & { user: { id: string; role: string } },
   ) {
     return this.studyPlansService.findById(
       id,
+      request.user,
     );
   }
 }
