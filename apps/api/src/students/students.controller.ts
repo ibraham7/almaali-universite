@@ -1,6 +1,7 @@
 import {
   Controller,
   Body,
+  Delete,
   Get,
   Param,
   Patch,
@@ -54,6 +55,12 @@ export class StudentsController {
   @Roles('REGISTRAR', 'SYSTEM_ADMIN')
   update(@Param('id') id: string, @Body() body: UpdateStudentDto, @Req() request: AuthenticatedRequest) {
     return this.studentsService.update(id, body, request.user.id);
+  }
+
+  @Delete(':id')
+  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  remove(@Param('id') id: string, @Req() request: AuthenticatedRequest) {
+    return this.studentsService.remove(id, request.user.id);
   }
 
   @Get('advisors')

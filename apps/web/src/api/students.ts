@@ -214,6 +214,11 @@ export async function updateStudent(id: string, data: StudentInput) {
   return response.data;
 }
 
+export async function deleteStudent(id: string) {
+  const response = await apiClient.delete<{ message: string }>(`/students/${id}`);
+  return response.data;
+}
+
 export async function getStudentAdvisors() {
   const response = await apiClient.get<Array<{ id: string; email: string }>>('/students/advisors');
   return response.data;

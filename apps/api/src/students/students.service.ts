@@ -186,6 +186,41 @@ export class StudentsService {
     } catch (error) { return this.rethrowDuplicate(error); }
   }
 
+  async remove(id: string, actingUserId: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        universityId: true,
+        userId: true,
+        _count: { select: { enrollments: true, results: true } },
+      },
+    });
+    if (!student) throw new NotFoundException('الطالب غير موجود.');
+    if (student.userId || student._count.enrollments > 0 || student._count.results > 0) {
+      throw new ConflictException('لا يمكن حذف طالب لديه حساب أو سجل أكاديمي. يمكنك تعديل بياناته أو تعطيل حسابه بدلًا من ذلك.');
+    }
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        await tx.student.delete({ where: { id } });
+        await tx.auditLog.create({ data: {
+          action: 'STUDENT_DELETED',
+          entity: 'Student',
+          entityId: id,
+          userId: actingUserId,
+          details: JSON.stringify({ universityId: student.universityId }),
+        } });
+        return { message: 'تم حذف الطالب.' };
+      });
+    } catch (error) {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'P2003') {
+        throw new ConflictException('لا يمكن حذف الطالب لوجود سجلات أكاديمية مرتبطة به.');
+      }
+      throw error;
+    }
+  }
+
   async findMe(userId: string) {
     const student =
       await this.prisma.student.findUnique({
