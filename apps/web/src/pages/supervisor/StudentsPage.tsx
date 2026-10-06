@@ -207,6 +207,7 @@ export default function StudentsPage() {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [deleteConfirmation, setDeleteConfirmation] = useState('');
     const [deleteBusy, setDeleteBusy] = useState(false);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
 
     const [dialogOpen, setDialogOpen] =
         useState(false);
@@ -334,6 +335,7 @@ export default function StudentsPage() {
         if (!selectedStudent || deleteConfirmation.trim() !== selectedStudent.universityId) return;
         try {
             setDeleteBusy(true);
+            setDeleteError(null);
             setError(null);
             await deleteStudent(selectedStudent.id);
             setDeleteDialogOpen(false);
@@ -343,7 +345,7 @@ export default function StudentsPage() {
             setSuccess(`تم حذف الطالب ${selectedStudent.universityId}.`);
             await loadStudents();
         } catch (requestError) {
-            setError(getErrorMessage(requestError));
+            setDeleteError(getErrorMessage(requestError));
         } finally {
             setDeleteBusy(false);
         }
@@ -805,7 +807,7 @@ export default function StudentsPage() {
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     تفاصيل الطالب
                     {canManage && selectedStudent && <Stack direction="row" spacing={1}>
-                        <Button color="error" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => { setDeleteConfirmation(''); setDeleteDialogOpen(true); }}>حذف الطالب</Button>
+                        <Button color="error" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => { setDeleteError(null); setDeleteConfirmation(''); setDeleteDialogOpen(true); }}>حذف الطالب</Button>
                         <Button onClick={() => { setEditingStudent(selectedStudent); setDialogOpen(false); setFormOpen(true); }}>تعديل البيانات</Button>
                     </Stack>}
                 </DialogTitle>
@@ -1155,6 +1157,7 @@ export default function StudentsPage() {
                 <DialogTitle>تأكيد حذف الطالب</DialogTitle>
                 <DialogContent>
                     <Stack spacing={2} sx={{ pt: 1 }}>
+                        {deleteError && <Alert severity="error">{deleteError}</Alert>}
                         <Alert severity="warning">سيُحذف سجل الطالب نهائيًا. لا يمكن حذف طالب لديه حساب أو تسجيلات أو نتائج أكاديمية.</Alert>
                         <Typography>للتأكيد، اكتب الرقم الجامعي: <strong>{selectedStudent?.universityId}</strong></Typography>
                         <TextField autoFocus fullWidth label="الرقم الجامعي للتأكيد" value={deleteConfirmation}
