@@ -1,39 +1,56 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client.js';
 
-const collegeName = 'كلية الآداب';
+const targets = [
+  {
+    label: 'كلية الآداب (العنوان الفرعي: كلية الآداب)',
+    where: { nameAr: 'كلية الآداب', nameEn: 'كلية الآداب' },
+    expected: { nameAr: 'كلية الآداب', nameEn: 'كلية الآداب' },
+  },
+  {
+    label: 'أصول الدين',
+    where: { nameAr: 'أصول الدين', OR: [{ nameEn: null }, { nameEn: '' }] },
+    expected: { nameAr: 'أصول الدين', nameEn: null },
+  },
+];
+
 const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error('DATABASE_URL is required.');
 
-if (!connectionString) {
-  throw new Error('DATABASE_URL is required.');
-}
-
-const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString }),
-});
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 
 async function main() {
-  const colleges = await prisma.college.findMany({
-    where: { nameAr: collegeName, nameEn: collegeName },
-    select: { id: true, universityId: true, nameAr: true, nameEn: true },
-  });
+  const matches = await Promise.all(
+    targets.map(async (target) => ({
+      target,
+      rows: await prisma.college.findMany({
+        where: target.where,
+        select: { id: true, universityId: true, nameAr: true, nameEn: true },
+      }),
+    })),
+  );
 
-  if (colleges.length !== 1) {
+  const missingOrAmbiguous = matches.filter(({ rows }) => rows.length !== 1);
+  if (missingOrAmbiguous.length) {
     throw new Error(
-      `Expected exactly one college named "${collegeName}" with the same subtitle; found ${colleges.length}. No data was changed.`,
+      `Expected exactly one record for each requested card. ${missingOrAmbiguous
+        .map(({ target, rows }) => `${target.label}: found ${rows.length}`)
+        .join('; ')}. No data was changed.`,
     );
   }
 
-  const college = colleges[0];
+  const colleges = matches.map(({ rows }) => rows[0]);
+  const collegeIds = colleges.map(({ id }) => id);
+  const confirmationIds = [...collegeIds].sort().join(',');
   const departments = await prisma.department.findMany({
-    where: { collegeId: college.id },
+    where: { collegeId: { in: collegeIds } },
     select: { id: true },
   });
   const departmentIds = departments.map(({ id }) => id);
   const programs = await prisma.program.findMany({
     where: {
       OR: [
-        { collegeId: college.id },
+        { collegeId: { in: collegeIds } },
         ...(departmentIds.length ? [{ departmentId: { in: departmentIds } }] : []),
       ],
     },
@@ -55,7 +72,7 @@ async function main() {
 
   const studentWhere = {
     OR: [
-      { collegeId: college.id },
+      { collegeId: { in: collegeIds } },
       ...(departmentIds.length ? [{ departmentId: { in: departmentIds } }] : []),
       ...(programIds.length ? [{ programId: { in: programIds } }] : []),
       ...(planIds.length ? [{ studyPlanId: { in: planIds } }] : []),
@@ -68,28 +85,36 @@ async function main() {
     select: { id: true, universityId: true, userId: true },
   });
   const studentIds = students.map(({ id }) => id);
-  const studentUserIds = students.flatMap(({ userId }) => userId ? [userId] : []);
+  const studentUserIds = students.flatMap(({ userId }) => (userId ? [userId] : []));
   const studentUsers = studentUserIds.length
-    ? await prisma.user.findMany({ where: { id: { in: studentUserIds } }, select: { id: true, role: { select: { code: true } } } })
+    ? await prisma.user.findMany({
+        where: { id: { in: studentUserIds } },
+        select: { id: true, role: { select: { code: true } } },
+      })
     : [];
   if (studentUsers.some(({ role }) => role.code !== 'STUDENT')) {
     throw new Error('A linked account is not a student account. No data was changed.');
   }
 
-  const semesterEnrollmentWhere = semesterIds.length ? { semesterId: { in: semesterIds } } : undefined;
-  const outsideEnrollmentCount = semesterEnrollmentWhere
+  const outsideEnrollmentCount = semesterIds.length
     ? await prisma.studentEnrollment.count({
-        where: { ...semesterEnrollmentWhere, ...(studentIds.length ? { studentId: { notIn: studentIds } } : {}) },
+        where: {
+          semesterId: { in: semesterIds },
+          ...(studentIds.length ? { studentId: { notIn: studentIds } } : {}),
+        },
       })
     : 0;
   const outsideResultCount = semesterIds.length
     ? await prisma.courseResult.count({
-        where: { semesterId: { in: semesterIds }, ...(studentIds.length ? { studentId: { notIn: studentIds } } : {}) },
+        where: {
+          semesterId: { in: semesterIds },
+          ...(studentIds.length ? { studentId: { notIn: studentIds } } : {}),
+        },
       })
     : 0;
   if (outsideEnrollmentCount || outsideResultCount) {
     throw new Error(
-      `The college has ${outsideEnrollmentCount} enrollment(s) or ${outsideResultCount} result(s) for students not assigned to it. No data was changed.`,
+      `The target colleges have ${outsideEnrollmentCount} enrollment(s) or ${outsideResultCount} result(s) for students not assigned to them. No data was changed.`,
     );
   }
 
@@ -97,26 +122,18 @@ async function main() {
     ? await prisma.courseSection.findMany({ where: { semesterId: { in: semesterIds } }, select: { id: true } })
     : [];
   const sectionIds = sections.map(({ id }) => id);
+  const enrollmentFilter = {
+    OR: [
+      ...(studentIds.length ? [{ studentId: { in: studentIds } }] : []),
+      ...(semesterIds.length ? [{ semesterId: { in: semesterIds } }] : []),
+    ],
+  };
   const [enrollmentCount, resultCount, ticketCount] = await Promise.all([
     studentIds.length || semesterIds.length
-      ? prisma.studentEnrollment.count({
-          where: {
-            OR: [
-              ...(studentIds.length ? [{ studentId: { in: studentIds } }] : []),
-              ...(semesterIds.length ? [{ semesterId: { in: semesterIds } }] : []),
-            ],
-          },
-        })
+      ? prisma.studentEnrollment.count({ where: enrollmentFilter })
       : Promise.resolve(0),
     studentIds.length || semesterIds.length
-      ? prisma.courseResult.count({
-          where: {
-            OR: [
-              ...(studentIds.length ? [{ studentId: { in: studentIds } }] : []),
-              ...(semesterIds.length ? [{ semesterId: { in: semesterIds } }] : []),
-            ],
-          },
-        })
+      ? prisma.courseResult.count({ where: enrollmentFilter })
       : Promise.resolve(0),
     studentUserIds.length
       ? prisma.supportTicket.count({ where: { authorId: { in: studentUserIds } } })
@@ -124,7 +141,7 @@ async function main() {
   ]);
 
   const preview = {
-    college: { id: college.id, nameAr: college.nameAr, nameEn: college.nameEn },
+    colleges: colleges.map(({ id, nameAr, nameEn }) => ({ id, nameAr, nameEn })),
     departments: departmentIds.length,
     programs: programIds.length,
     plans: planIds.length,
@@ -135,69 +152,65 @@ async function main() {
     sections: sectionIds.length,
     supportTickets: ticketCount,
   };
-
   console.log(JSON.stringify(preview, null, 2));
 
-  if (process.env.CONFIRM_DELETE_TEST_COLLEGE_ID !== college.id) {
-    console.log(`Preview only. To apply, rerun with CONFIRM_DELETE_TEST_COLLEGE_ID=${college.id}`);
+  if (process.env.CONFIRM_DELETE_TEST_COLLEGE_IDS !== confirmationIds) {
+    console.log(`Preview only. To apply, rerun with CONFIRM_DELETE_TEST_COLLEGE_IDS='${confirmationIds}'`);
     return;
   }
 
-  await prisma.$transaction(async (tx) => {
-    const currentCollege = await tx.college.findUnique({ where: { id: college.id } });
-    if (!currentCollege || currentCollege.nameAr !== collegeName || currentCollege.nameEn !== collegeName) {
-      throw new Error('Target college changed after preview. No data was deleted.');
-    }
+  await prisma.$transaction(
+    async (tx) => {
+      for (let i = 0; i < colleges.length; i += 1) {
+        const current = await tx.college.findUnique({ where: { id: colleges[i].id } });
+        const subtitleMatches =
+          targets[i].expected.nameEn === null
+            ? current?.nameEn === null || current?.nameEn === ''
+            : current?.nameEn === targets[i].expected.nameEn;
+        if (!current || current.nameAr !== targets[i].expected.nameAr || !subtitleMatches) {
+          throw new Error(`Target changed after preview (${targets[i].label}). No data was deleted.`);
+        }
+      }
 
-    if (studentIds.length || semesterIds.length) {
-      await tx.courseResult.deleteMany({
-        where: {
-          OR: [
-            ...(studentIds.length ? [{ studentId: { in: studentIds } }] : []),
-            ...(semesterIds.length ? [{ semesterId: { in: semesterIds } }] : []),
-          ],
-        },
-      });
-      await tx.studentEnrollment.deleteMany({
-        where: {
-          OR: [
-            ...(studentIds.length ? [{ studentId: { in: studentIds } }] : []),
-            ...(semesterIds.length ? [{ semesterId: { in: semesterIds } }] : []),
-          ],
-        },
-      });
-    }
+      if (studentIds.length || semesterIds.length) {
+        await tx.courseResult.deleteMany({ where: enrollmentFilter });
+        await tx.studentEnrollment.deleteMany({ where: enrollmentFilter });
+      }
+      if (studentIds.length) await tx.student.deleteMany({ where: { id: { in: studentIds } } });
+      if (studentUserIds.length) {
+        await tx.supportTicket.deleteMany({ where: { authorId: { in: studentUserIds } } });
+        await tx.user.deleteMany({ where: { id: { in: studentUserIds }, role: { code: 'STUDENT' } } });
+      }
+      if (semesterIds.length) await tx.registrationPeriod.deleteMany({ where: { semesterId: { in: semesterIds } } });
+      if (sectionIds.length) {
+        await tx.sectionSchedule.deleteMany({ where: { sectionId: { in: sectionIds } } });
+        await tx.courseSection.deleteMany({ where: { id: { in: sectionIds } } });
+      }
+      if (planIds.length) {
+        await tx.studyPlanCourse.deleteMany({ where: { studyPlanId: { in: planIds } } });
+        await tx.studyPlanCurriculumCourse.deleteMany({ where: { studyPlanId: { in: planIds } } });
+        await tx.studyPlanCurriculumQuota.deleteMany({ where: { studyPlanId: { in: planIds } } });
+      }
+      if (semesterIds.length) await tx.semester.deleteMany({ where: { id: { in: semesterIds } } });
+      if (levelIds.length) await tx.academicYear.deleteMany({ where: { id: { in: levelIds } } });
+      if (planIds.length) await tx.studyPlan.deleteMany({ where: { id: { in: planIds } } });
+      if (programIds.length) await tx.program.deleteMany({ where: { id: { in: programIds } } });
+      if (departmentIds.length) await tx.department.deleteMany({ where: { id: { in: departmentIds } } });
 
-    if (studentIds.length) await tx.student.deleteMany({ where: { id: { in: studentIds } } });
-    if (studentUserIds.length) {
-      await tx.supportTicket.deleteMany({ where: { authorId: { in: studentUserIds } } });
-      await tx.user.deleteMany({ where: { id: { in: studentUserIds }, role: { code: 'STUDENT' } } });
-    }
-    if (semesterIds.length) await tx.registrationPeriod.deleteMany({ where: { semesterId: { in: semesterIds } } });
-    if (sectionIds.length) {
-      await tx.sectionSchedule.deleteMany({ where: { sectionId: { in: sectionIds } } });
-      await tx.courseSection.deleteMany({ where: { id: { in: sectionIds } } });
-    }
-    if (planIds.length) {
-      await tx.studyPlanCourse.deleteMany({ where: { studyPlanId: { in: planIds } } });
-      await tx.studyPlanCurriculumCourse.deleteMany({ where: { studyPlanId: { in: planIds } } });
-      await tx.studyPlanCurriculumQuota.deleteMany({ where: { studyPlanId: { in: planIds } } });
-    }
-    if (semesterIds.length) await tx.semester.deleteMany({ where: { id: { in: semesterIds } } });
-    if (levelIds.length) await tx.academicYear.deleteMany({ where: { id: { in: levelIds } } });
-    if (planIds.length) await tx.studyPlan.deleteMany({ where: { id: { in: planIds } } });
-    if (programIds.length) await tx.program.deleteMany({ where: { id: { in: programIds } } });
-    if (departmentIds.length) await tx.department.deleteMany({ where: { id: { in: departmentIds } } });
-    await tx.college.delete({ where: { id: college.id } });
-    await tx.auditLog.create({
-      data: {
-        action: 'TEST_COLLEGE_AND_DATA_DELETED',
-        entity: 'College',
-        entityId: college.id,
-        details: JSON.stringify(preview),
-      },
-    });
-  }, { maxWait: 10_000, timeout: 120_000 });
+      for (const college of colleges) {
+        await tx.college.delete({ where: { id: college.id } });
+        await tx.auditLog.create({
+          data: {
+            action: 'TEST_COLLEGE_AND_DATA_DELETED',
+            entity: 'College',
+            entityId: college.id,
+            details: JSON.stringify(preview),
+          },
+        });
+      }
+    },
+    { maxWait: 10_000, timeout: 120_000 },
+  );
 
   console.log('Deletion completed.');
 }
