@@ -127,7 +127,7 @@ try {
       }
 
       return { plan: curriculum.programNameAr, courses: curriculum.courses.length, links, prerequisites, quotas, warnings: curriculum.warnings };
-    });
+    }, { maxWait: 10_000, timeout: 120_000 });
     report.push(result);
   }
 
