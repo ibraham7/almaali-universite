@@ -4,6 +4,7 @@ import { PrismaClient } from '../src/generated/prisma/client.js';
 const targets = [
   {
     label: 'كلية الآداب (العنوان الفرعي: كلية الآداب)',
+    optional: true,
     where: { nameAr: 'كلية الآداب', nameEn: 'كلية الآداب' },
     expected: { nameAr: 'كلية الآداب', nameEn: 'كلية الآداب' },
   },
@@ -30,7 +31,9 @@ async function main() {
     })),
   );
 
-  const missingOrAmbiguous = matches.filter(({ rows }) => rows.length !== 1);
+  const missingOrAmbiguous = matches.filter(
+    ({ target, rows }) => rows.length > 1 || (rows.length === 0 && !target.optional),
+  );
   if (missingOrAmbiguous.length) {
     throw new Error(
       `Expected exactly one record for each requested card. ${missingOrAmbiguous
@@ -39,7 +42,10 @@ async function main() {
     );
   }
 
-  const colleges = matches.map(({ rows }) => rows[0]);
+  const foundMatches = matches.filter(({ rows }) => rows.length === 1);
+  const missingTargets = matches.filter(({ rows }) => rows.length === 0).map(({ target }) => target.label);
+  const colleges = foundMatches.map(({ rows }) => rows[0]);
+  if (!colleges.length) throw new Error('No target college was found. No data was changed.');
   const collegeIds = colleges.map(({ id }) => id);
   const confirmationIds = [...collegeIds].sort().join(',');
   const departments = await prisma.department.findMany({
@@ -142,6 +148,7 @@ async function main() {
 
   const preview = {
     colleges: colleges.map(({ id, nameAr, nameEn }) => ({ id, nameAr, nameEn })),
+    notFoundAndPreserved: missingTargets,
     departments: departmentIds.length,
     programs: programIds.length,
     plans: planIds.length,
@@ -161,14 +168,14 @@ async function main() {
 
   await prisma.$transaction(
     async (tx) => {
-      for (let i = 0; i < colleges.length; i += 1) {
+      for (let i = 0; i < foundMatches.length; i += 1) {
         const current = await tx.college.findUnique({ where: { id: colleges[i].id } });
         const subtitleMatches =
-          targets[i].expected.nameEn === null
+          foundMatches[i].target.expected.nameEn === null
             ? current?.nameEn === null || current?.nameEn === ''
-            : current?.nameEn === targets[i].expected.nameEn;
-        if (!current || current.nameAr !== targets[i].expected.nameAr || !subtitleMatches) {
-          throw new Error(`Target changed after preview (${targets[i].label}). No data was deleted.`);
+            : current?.nameEn === foundMatches[i].target.expected.nameEn;
+        if (!current || current.nameAr !== foundMatches[i].target.expected.nameAr || !subtitleMatches) {
+          throw new Error(`Target changed after preview (${foundMatches[i].target.label}). No data was deleted.`);
         }
       }
 
