@@ -3,10 +3,9 @@ import { PrismaClient } from '../src/generated/prisma/client.js';
 
 const targets = [
   {
-    label: 'كلية الآداب (العنوان الفرعي: كلية الآداب)',
-    optional: true,
-    where: { nameAr: 'كلية الآداب', nameEn: 'كلية الآداب' },
-    expected: { nameAr: 'كلية الآداب', nameEn: 'كلية الآداب' },
+    label: 'كلية الاداب (العنوان الفرعي: كلية الاداب)',
+    where: { nameAr: 'كلية الاداب', nameEn: 'كلية الاداب' },
+    expected: { nameAr: 'كلية الاداب', nameEn: 'كلية الاداب' },
   },
   {
     label: 'أصول الدين',
@@ -31,9 +30,7 @@ async function main() {
     })),
   );
 
-  const missingOrAmbiguous = matches.filter(
-    ({ target, rows }) => rows.length > 1 || (rows.length === 0 && !target.optional),
-  );
+  const missingOrAmbiguous = matches.filter(({ rows }) => rows.length !== 1);
   if (missingOrAmbiguous.length) {
     throw new Error(
       `Expected exactly one record for each requested card. ${missingOrAmbiguous
