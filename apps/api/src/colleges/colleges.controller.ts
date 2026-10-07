@@ -1,12 +1,15 @@
 import {
   Body,
+  Delete,
   Controller,
   Get,
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 
 import {
   CollegesService,
@@ -76,6 +79,15 @@ export class CollegesController {
       id,
       body,
     );
+  }
+
+  @Delete(':id')
+  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  remove(
+    @Param('id') id: string,
+    @Req() request: Request & { user: { id: string } },
+  ) {
+    return this.collegesService.remove(id, request.user.id);
   }
 
   @Get()

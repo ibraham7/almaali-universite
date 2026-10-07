@@ -139,6 +139,11 @@ export async function updateCourse(
     return response.data;
 }
 
+export async function deleteCourse(id: string) {
+    const response = await apiClient.delete<{ success: boolean; message: string }>(`/courses/${id}`);
+    return response.data;
+}
+
 export async function addCoursePrerequisites(
     courseId: string,
     prerequisiteIds: string[],

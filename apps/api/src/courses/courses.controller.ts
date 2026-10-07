@@ -44,6 +44,15 @@ export class CoursesController {
     return this.coursesService.update(id, dto, request.user);
   }
 
+  @Delete(':id')
+  @Roles('ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN')
+  remove(
+    @Param('id') id: string,
+    @Req() request: Request & { user: { id: string; role: string } },
+  ) {
+    return this.coursesService.remove(id, request.user);
+  }
+
   @Post('prerequisites')
   @Roles('ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN')
   addPrerequisite(
