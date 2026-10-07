@@ -25,11 +25,18 @@ enum RoleCode {
 enum CourseType {
   THEORY
   PRACTICAL
+  UNSPECIFIED
 }
 
 enum CourseRequirement {
   MANDATORY
   ELECTIVE
+}
+
+enum CurriculumCategory {
+  UNIVERSITY
+  COLLEGE
+  PROGRAM
 }
 
 enum CourseStatus {
@@ -122,11 +129,14 @@ model StudyPlan {
   id        String  @id @default(uuid())
   programId String
   nameAr    String
-  nameEn    String?
+  nameEn            String?
+  graduationCredits Int?
 
-  program       Program           @relation(fields: [programId], references: [id])
-  academicYears AcademicYear[]
-  planCourses   StudyPlanCourse[]
+  program           Program                     @relation(fields: [programId], references: [id])
+  academicYears     AcademicYear[]
+  planCourses       StudyPlanCourse[]
+  curriculumEntries StudyPlanCurriculumCourse[]
+  curriculumQuotas  StudyPlanCurriculumQuota[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -329,8 +339,9 @@ model Course {
   requiredFor     CoursePrerequisite[] @relation("RequiredFor")
   sections        CourseSection[]
   enrollmentItems EnrollmentItem[]
-  planCourses     StudyPlanCourse[]
-  results         CourseResult[]
+  planCourses       StudyPlanCourse[]
+  curriculumEntries StudyPlanCurriculumCourse[]
+  results           CourseResult[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -358,6 +369,46 @@ model StudyPlanCourse {
 
   @@unique([studyPlanId, academicYearId, semesterId, courseId])
   @@unique([studyPlanId, academicYearId, semesterId, priority])
+}
+
+
+
+// Catalog courses are attached to a program plan before their semester
+// placement is decided. This keeps catalog data separate from student-visible
+// term-by-term offerings.
+model StudyPlanCurriculumCourse {
+  id          String             @id @default(uuid())
+  studyPlanId String
+  courseId    String
+  category    CurriculumCategory
+  requirement CourseRequirement
+  sourceFile  String
+  sourceRow   Int?
+
+  studyPlan StudyPlan @relation(fields: [studyPlanId], references: [id], onDelete: Cascade)
+  course    Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studyPlanId, courseId, category, requirement])
+  @@index([studyPlanId, category])
+}
+
+model StudyPlanCurriculumQuota {
+  id                 String             @id @default(uuid())
+  studyPlanId        String
+  category           CurriculumCategory
+  requirement        CourseRequirement
+  requiredCredits    Int
+  offeredPoolCredits Int
+
+  studyPlan StudyPlan @relation(fields: [studyPlanId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studyPlanId, category, requirement])
 }
 
 // علاقة المتطلبات السابقة مستقلة عن ترتيب priority.

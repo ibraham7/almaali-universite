@@ -1,0 +1,1976 @@
+{
+  "formatVersion": 1,
+  "generatedAt": "2026-10-07",
+  "plans": [
+    {
+      "key": "theology",
+      "collegeNameAr": "كلية أصول الدين",
+      "programNameAr": "أصول الدين",
+      "studyPlanNameAr": "الخطة المعتمدة (مستوردة من الجامعة)",
+      "sourceFile": "كلية أصول الدين - قائمة المقررات ونسب المتطلبات(1).xlsx",
+      "graduationCredits": 137,
+      "quotas": {
+        "UNIVERSITY": {
+          "MANDATORY": {
+            "requiredCredits": 8,
+            "offeredPoolCredits": 8
+          },
+          "ELECTIVE": {
+            "requiredCredits": 6,
+            "offeredPoolCredits": 15
+          }
+        },
+        "COLLEGE": {
+          "MANDATORY": {
+            "requiredCredits": 21,
+            "offeredPoolCredits": 21
+          },
+          "ELECTIVE": {
+            "requiredCredits": 15,
+            "offeredPoolCredits": 42
+          }
+        },
+        "PROGRAM": {
+          "MANDATORY": {
+            "requiredCredits": 72,
+            "offeredPoolCredits": 72
+          },
+          "ELECTIVE": {
+            "requiredCredits": 15,
+            "offeredPoolCredits": 30
+          }
+        }
+      },
+      "courses": [
+        {
+          "nameAr": "المهارات الأساسية",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 13,
+          "code": "IMP-680AB63FF12F"
+        },
+        {
+          "nameAr": "مدخل إلى علم التربية",
+          "credits": 2,
+          "category": "UNIVERSITY",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 14,
+          "code": "IMP-E1AD4F8098DC"
+        },
+        {
+          "nameAr": "مناهج البحث العلمي",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 15,
+          "code": "IMP-4220D7A0437F"
+        },
+        {
+          "nameAr": "الثقافة الإسلامية",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 16,
+          "code": "IMP-10A0EECBCF5C"
+        },
+        {
+          "nameAr": "مهارات الخط العربي",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 17,
+          "code": "IMP-05386BFA0718"
+        },
+        {
+          "nameAr": "تقانة المعلومات",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 18,
+          "code": "IMP-E3F73524F66A"
+        },
+        {
+          "nameAr": "الثقافة المجتمعية",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 19,
+          "code": "IMP-2965739CD265"
+        },
+        {
+          "nameAr": "مهارات الاتصال",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 20,
+          "code": "IMP-A0A4DE7FA1CC"
+        },
+        {
+          "nameAr": "التجويد",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 21,
+          "code": "IMP-2C5170F007BC"
+        },
+        {
+          "nameAr": "اللغة العربية",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 22,
+          "code": "IMP-50D96951C5E1"
+        },
+        {
+          "nameAr": "أصول الفقه 1",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 23,
+          "code": "IMP-A0BB3280C997"
+        },
+        {
+          "nameAr": "اللغة الإنكليزية",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 24,
+          "code": "IMP-3AB88205867E"
+        },
+        {
+          "nameAr": "السيرة النبوية",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 25,
+          "code": "IMP-FE2C4AC86AB1"
+        },
+        {
+          "nameAr": "المذاهب الفكرية",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "تاريخ الأديان",
+          "sourceRow": 26,
+          "code": "IMP-75EB3FCBBC8B",
+          "prerequisiteCode": "IMP-688B01A25738"
+        },
+        {
+          "nameAr": "فن الكتابة والإلقاء",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "اللغة العربية",
+          "sourceRow": 27,
+          "code": "IMP-9F5CD6639DD4",
+          "prerequisiteCode": "IMP-50D96951C5E1"
+        },
+        {
+          "nameAr": "علم الاجتماع التاريخي",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 28,
+          "code": "IMP-DB4F84959FCA"
+        },
+        {
+          "nameAr": "حجية السنة وتاريخها",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 29,
+          "code": "IMP-2412AE574DC4"
+        },
+        {
+          "nameAr": "أصول المنطق والفلسفة الإسلامية",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 30,
+          "code": "IMP-1D837DA637DE"
+        },
+        {
+          "nameAr": "تاريخ التشريع الإسلامي",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 31,
+          "code": "IMP-B21AEE78BEA3"
+        },
+        {
+          "nameAr": "البلاغة العربية",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": "اللغة العربية",
+          "sourceRow": 32,
+          "code": "IMP-2DC8D21170EF",
+          "prerequisiteCode": "IMP-50D96951C5E1"
+        },
+        {
+          "nameAr": "التأهيل الأسري والتربوي",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 33,
+          "code": "IMP-DA29BE59008E"
+        },
+        {
+          "nameAr": "الصرف",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 34,
+          "code": "IMP-79CAE8CAEB20"
+        },
+        {
+          "nameAr": "تاريخ الدعوة",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 35,
+          "code": "IMP-4E4CC7EF383C"
+        },
+        {
+          "nameAr": "مدخل إلى تاريخ الحضارة",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 36,
+          "code": "IMP-61B7C30316BF"
+        },
+        {
+          "nameAr": "النظم الإسلامية",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 37,
+          "code": "IMP-38C6743DD0ED"
+        },
+        {
+          "nameAr": "التاريخ المعاصر",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 38,
+          "code": "IMP-DB477F40E0F5"
+        },
+        {
+          "nameAr": "حاضر العالم الإسلامي",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 39,
+          "code": "IMP-6BE362F67B89"
+        },
+        {
+          "nameAr": "الخطابة وفنون الإلقاء",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": "أصول الدعوة والحسبة",
+          "sourceRow": 40,
+          "code": "IMP-1F5657FC1F51",
+          "prerequisiteCode": "IMP-57E13389FB52"
+        },
+        {
+          "nameAr": "طرق التدريس",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 41,
+          "code": "IMP-3118B296A281"
+        },
+        {
+          "nameAr": "فقه العبادات",
+          "credits": 4,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 42,
+          "code": "IMP-0A87C35C429B"
+        },
+        {
+          "nameAr": "علوم القرآن وأصول التفسير",
+          "credits": 4,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 43,
+          "code": "IMP-0B8B3800E702"
+        },
+        {
+          "nameAr": "مصطلح الحديث",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 44,
+          "code": "IMP-334656B0BDFB"
+        },
+        {
+          "nameAr": "التربية الأخلاقية",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 45,
+          "code": "IMP-2C2D41EC8ADD"
+        },
+        {
+          "nameAr": "تاريخ الخلافة الراشدة",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "السيرة النبوية",
+          "sourceRow": 46,
+          "code": "IMP-2EC86E247054",
+          "prerequisiteCode": "IMP-FE2C4AC86AB1"
+        },
+        {
+          "nameAr": "فقه الأحوال الشخصية",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 47,
+          "code": "IMP-FDCE145EDF7D"
+        },
+        {
+          "nameAr": "علم الرواة",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "مصطلح الحديث",
+          "sourceRow": 48,
+          "code": "IMP-8B153B0AF340",
+          "prerequisiteCode": "IMP-334656B0BDFB"
+        },
+        {
+          "nameAr": "أصول الفقه 2",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "أصول الفقه 1",
+          "sourceRow": 49,
+          "code": "IMP-31F49AB9D74F",
+          "prerequisiteCode": "IMP-A0BB3280C997"
+        },
+        {
+          "nameAr": "القواعد الفقهية",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "فقه المعاوضات",
+          "sourceRow": 50,
+          "code": "IMP-7E0CC3BE995C",
+          "prerequisiteCode": "IMP-8AA759489EE2"
+        },
+        {
+          "nameAr": "العقيدة الإسلامية 1",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 51,
+          "code": "IMP-2EBF211024FF"
+        },
+        {
+          "nameAr": "فقه المعاوضات",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 52,
+          "code": "IMP-8AA759489EE2"
+        },
+        {
+          "nameAr": "العقيدة الإسلامية 2",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "العقيدة الإسلامية 1",
+          "sourceRow": 53,
+          "code": "IMP-A937512E0BD3",
+          "prerequisiteCode": "IMP-2EBF211024FF"
+        },
+        {
+          "nameAr": "التفسير التحليلي",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "علوم القرآن وأصول التفسير",
+          "sourceRow": 54,
+          "code": "IMP-7648AC6D2C94",
+          "prerequisiteCode": "IMP-0B8B3800E702"
+        },
+        {
+          "nameAr": "تخريج الحديث",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "علم الرواة",
+          "sourceRow": 55,
+          "code": "IMP-9213E327401F",
+          "prerequisiteCode": "IMP-8B153B0AF340"
+        },
+        {
+          "nameAr": "التفسير الموضوعي",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "التفسير التحليلي",
+          "sourceRow": 56,
+          "code": "IMP-D04BFBCAE159",
+          "prerequisiteCode": "IMP-7648AC6D2C94"
+        },
+        {
+          "nameAr": "فقه الحدود والجنايات",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "فقه المعاوضات",
+          "sourceRow": 57,
+          "code": "IMP-3136127A7961",
+          "prerequisiteCode": "IMP-8AA759489EE2"
+        },
+        {
+          "nameAr": "أصول الدعوة والحسبة",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 58,
+          "code": "IMP-57E13389FB52"
+        },
+        {
+          "nameAr": "تاريخ الأديان",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 59,
+          "code": "IMP-688B01A25738"
+        },
+        {
+          "nameAr": "مقاصد الشريعة الإسلامية",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 60,
+          "code": "IMP-67B3E36515B8"
+        },
+        {
+          "nameAr": "تطبيقات في الفقه المقارن",
+          "credits": 4,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 61,
+          "code": "IMP-E4F2BB7AB012"
+        },
+        {
+          "nameAr": "مقالات الفرق",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 62,
+          "code": "IMP-88DCEF0D0493"
+        },
+        {
+          "nameAr": "مدخل إلى فقه النوازل",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "تطبيقات في الفقه المقارن",
+          "sourceRow": 63,
+          "code": "IMP-5051119305D4",
+          "prerequisiteCode": "IMP-E4F2BB7AB012"
+        },
+        {
+          "nameAr": "تطبيقات في فقه الحديث",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "تخريج الحديث",
+          "sourceRow": 64,
+          "code": "IMP-0CFAF471A29B",
+          "prerequisiteCode": "IMP-9213E327401F"
+        },
+        {
+          "nameAr": "الثقافة الإسلامية",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": "علوم القرآن وأصول التفسير",
+          "sourceRow": 65,
+          "code": "IMP-E8A046E2B283",
+          "prerequisiteCode": "IMP-0B8B3800E702"
+        },
+        {
+          "nameAr": "آداب الفتيا والمناظرة والحوار",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": "أصول الدعوة والخطابة",
+          "sourceRow": 66,
+          "code": "IMP-89906A4C3979"
+        },
+        {
+          "nameAr": "العصر الأموي والعباسي",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": "تاريخ الخلافة الراشدة",
+          "sourceRow": 67,
+          "code": "IMP-1D56E3907990",
+          "prerequisiteCode": "IMP-2EC86E247054"
+        },
+        {
+          "nameAr": "تاريخ العصور الوسطى",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": "العقيدة الإسلامية 1",
+          "sourceRow": 68,
+          "code": "IMP-B4D3AF7B1AE9",
+          "prerequisiteCode": "IMP-2EBF211024FF"
+        },
+        {
+          "nameAr": "تفسير آيات الأحكام",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": "التفسير التحليلي",
+          "sourceRow": 69,
+          "code": "IMP-DBC8D5CC064D",
+          "prerequisiteCode": "IMP-7648AC6D2C94"
+        },
+        {
+          "nameAr": "المدخل إلى كتب السنة",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": "تخريج الحديث",
+          "sourceRow": 70,
+          "code": "IMP-BA7790926268",
+          "prerequisiteCode": "IMP-9213E327401F"
+        },
+        {
+          "nameAr": "التدبر والإعجاز العلمي",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": "التفسير التحليلي",
+          "sourceRow": 71,
+          "code": "IMP-FB337989562E",
+          "prerequisiteCode": "IMP-7648AC6D2C94"
+        },
+        {
+          "nameAr": "تاريخ الدعوة",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": "أصول الدعوة والحسبة",
+          "sourceRow": 72,
+          "code": "IMP-9012C45E2D52",
+          "prerequisiteCode": "IMP-57E13389FB52"
+        },
+        {
+          "nameAr": "بحث التخرج",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": "مناهج البحث العلمي",
+          "sourceRow": 73,
+          "code": "IMP-5AB003037C87",
+          "prerequisiteCode": "IMP-4220D7A0437F"
+        },
+        {
+          "nameAr": "التربية العملية",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 74,
+          "code": "IMP-420B53D238FF"
+        }
+      ],
+      "placements": [],
+      "warnings": [
+        {
+          "type": "duplicate-course-title",
+          "nameAr": "الثقافة الإسلامية",
+          "count": 2,
+          "message": "العنوان مكرر في فئات مختلفة؛ حُفظت السجلات مستقلة لتجنب دمج تصنيفَين."
+        },
+        {
+          "type": "duplicate-course-title",
+          "nameAr": "تاريخ الدعوة",
+          "count": 2,
+          "message": "العنوان مكرر في فئات مختلفة؛ حُفظت السجلات مستقلة لتجنب دمج تصنيفَين."
+        },
+        {
+          "type": "unresolved-prerequisite",
+          "course": "آداب الفتيا والمناظرة والحوار",
+          "prerequisite": "أصول الدعوة والخطابة",
+          "row": 66
+        }
+      ]
+    },
+    {
+      "key": "teacher-class",
+      "collegeNameAr": "كلية التربية",
+      "programNameAr": "معلم الصف",
+      "studyPlanNameAr": "الخطة المعتمدة (مستوردة من الجامعة)",
+      "sourceFile": "كلية التربية - معلم صف - قائمة المقررات والخطة الاسترشادية(1).xlsx",
+      "graduationCredits": 137,
+      "quotas": {
+        "UNIVERSITY": {
+          "MANDATORY": {
+            "requiredCredits": 8,
+            "offeredPoolCredits": 8
+          },
+          "ELECTIVE": {
+            "requiredCredits": 6,
+            "offeredPoolCredits": 15
+          }
+        },
+        "COLLEGE": {
+          "MANDATORY": {
+            "requiredCredits": 36,
+            "offeredPoolCredits": 36
+          },
+          "ELECTIVE": {
+            "requiredCredits": 9,
+            "offeredPoolCredits": 15
+          }
+        },
+        "PROGRAM": {
+          "MANDATORY": {
+            "requiredCredits": 69,
+            "offeredPoolCredits": 69
+          },
+          "ELECTIVE": {
+            "requiredCredits": 9,
+            "offeredPoolCredits": 21
+          }
+        }
+      },
+      "courses": [
+        {
+          "nameAr": "المهارات الأساسية",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 13,
+          "code": "IMP-C301C8C075EE"
+        },
+        {
+          "nameAr": "مدخل إلى علم التربية",
+          "credits": 2,
+          "category": "UNIVERSITY",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 14,
+          "code": "IMP-41E8B7C10B63"
+        },
+        {
+          "nameAr": "مناهج البحث العلمي",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 15,
+          "code": "IMP-EFBAC28D618A"
+        },
+        {
+          "nameAr": "الثقافة الإسلامية",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 16,
+          "code": "IMP-5E18470D1121"
+        },
+        {
+          "nameAr": "مهارات الخط العربي",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 17,
+          "code": "IMP-7D640695D50C"
+        },
+        {
+          "nameAr": "تقانة المعلومات",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 18,
+          "code": "IMP-A4EAADFA9BD1"
+        },
+        {
+          "nameAr": "الثقافة المجتمعية",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 19,
+          "code": "IMP-33A1951BE561"
+        },
+        {
+          "nameAr": "مهارات الاتصال",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 20,
+          "code": "IMP-CFF0145D6F04"
+        },
+        {
+          "nameAr": "اللغة العربية",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 21,
+          "code": "IMP-43D7C11C05AF"
+        },
+        {
+          "nameAr": "اللغة الإنكليزية",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 22,
+          "code": "IMP-29DB2C66BAD7"
+        },
+        {
+          "nameAr": "مدخل إلى علم النفس العام",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 23,
+          "code": "IMP-70F584F98714"
+        },
+        {
+          "nameAr": "علم نفس النمو",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "مدخل إلى علم النفس العام",
+          "sourceRow": 24,
+          "code": "IMP-80A08A524E2C",
+          "prerequisiteCode": "IMP-70F584F98714"
+        },
+        {
+          "nameAr": "التأهيل الأسري والتربوي",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "مدخل إلى علم التربية",
+          "sourceRow": 25,
+          "code": "IMP-CD2AED4435AD",
+          "prerequisiteCode": "IMP-41E8B7C10B63"
+        },
+        {
+          "nameAr": "الصحة النفسية والدعم النفسي الأولي",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 26,
+          "code": "IMP-6DDB255C843E"
+        },
+        {
+          "nameAr": "علم النفس الفيزيولوجي",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 27,
+          "code": "IMP-B16B7ACFEC50"
+        },
+        {
+          "nameAr": "الإحصاء التربوي",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 28,
+          "code": "IMP-A2F8EA74A3C3"
+        },
+        {
+          "nameAr": "التربية الأخلاقية",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "مدخل إلى علم التربية",
+          "sourceRow": 29,
+          "code": "IMP-7B49C14176D6",
+          "prerequisiteCode": "IMP-41E8B7C10B63"
+        },
+        {
+          "nameAr": "علم النفس التربوي",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "مدخل إلى علم النفس العام",
+          "sourceRow": 30,
+          "code": "IMP-73869814CE5D",
+          "prerequisiteCode": "IMP-70F584F98714"
+        },
+        {
+          "nameAr": "فن الكتابة والإلقاء",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "اللغة العربية",
+          "sourceRow": 31,
+          "code": "IMP-EA005647489B",
+          "prerequisiteCode": "IMP-43D7C11C05AF"
+        },
+        {
+          "nameAr": "مدخل إلى علم النفس الإسلامي",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "مدخل إلى علم النفس العام",
+          "sourceRow": 32,
+          "code": "IMP-80DCE2BB67FC",
+          "prerequisiteCode": "IMP-70F584F98714"
+        },
+        {
+          "nameAr": "المضامين التربوية في القرآن والسنة",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 33,
+          "code": "IMP-706FDE285881"
+        },
+        {
+          "nameAr": "علم النفس الاجتماعي",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": "مدخل إلى علم النفس العام",
+          "sourceRow": 34,
+          "code": "IMP-840785D59107",
+          "prerequisiteCode": "IMP-70F584F98714"
+        },
+        {
+          "nameAr": "النظم الإسلامية",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 35,
+          "code": "IMP-67379F77497F"
+        },
+        {
+          "nameAr": "البلاغة العربية",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": "فن الكتابة والإلقاء",
+          "sourceRow": 36,
+          "code": "IMP-7760AFBAEC08",
+          "prerequisiteCode": "IMP-EA005647489B"
+        },
+        {
+          "nameAr": "المذاهب الفكرية",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 37,
+          "code": "IMP-BB8310E06731"
+        },
+        {
+          "nameAr": "القياس والتقويم",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "مناهج البحث العلمي",
+          "sourceRow": 38,
+          "code": "IMP-75A1CE07A09F",
+          "prerequisiteCode": "IMP-EFBAC28D618A"
+        },
+        {
+          "nameAr": "نظريات الشخصية",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "علم نفس النمو",
+          "sourceRow": 39,
+          "code": "IMP-68384897AF74",
+          "prerequisiteCode": "IMP-80A08A524E2C"
+        },
+        {
+          "nameAr": "مشكلات الأطفال والكبار",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "علم نفس النمو",
+          "sourceRow": 40,
+          "code": "IMP-09157B110A31",
+          "prerequisiteCode": "IMP-80A08A524E2C"
+        },
+        {
+          "nameAr": "نظريات الإرشاد والعلاج النفسي",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "مدخل إلى علم النفس العام",
+          "sourceRow": 41,
+          "code": "IMP-C79191A78C38",
+          "prerequisiteCode": "IMP-70F584F98714"
+        },
+        {
+          "nameAr": "مناهج التعليم الأساسي",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "مدخل إلى علم التربية",
+          "sourceRow": 42,
+          "code": "IMP-7D2AB8C68B84",
+          "prerequisiteCode": "IMP-41E8B7C10B63"
+        },
+        {
+          "nameAr": "رياضيات (الأعداد والعمليات الحسابية)",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 43,
+          "code": "IMP-D4EAB95EA416"
+        },
+        {
+          "nameAr": "تعديل السلوك",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "مشكلات الأطفال والكبار",
+          "sourceRow": 44,
+          "code": "IMP-6B172378F6A8",
+          "prerequisiteCode": "IMP-09157B110A31"
+        },
+        {
+          "nameAr": "علوم الأحياء والبيئة",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 45,
+          "code": "IMP-CE74F1F30E83"
+        },
+        {
+          "nameAr": "العلوم (المفاهيم الفيزيائية والكيميائية)",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 46,
+          "code": "IMP-9294B1548A63"
+        },
+        {
+          "nameAr": "طرائق التدريس العامة",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "مدخل إلى علم التربية",
+          "sourceRow": 47,
+          "code": "IMP-92B568E9083B",
+          "prerequisiteCode": "IMP-41E8B7C10B63"
+        },
+        {
+          "nameAr": "الإدارة الصفية والمدرسية",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "الارشاد التربوي والمدرسي",
+          "sourceRow": 48,
+          "code": "IMP-774D4963D2CA",
+          "prerequisiteCode": "IMP-AF4CCDDBFA87"
+        },
+        {
+          "nameAr": "رياضيات (الهندسة والقياس)",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "رياضيات (الأعداد والعمليات الحسابية)",
+          "sourceRow": 49,
+          "code": "IMP-BE0495F175A6",
+          "prerequisiteCode": "IMP-D4EAB95EA416"
+        },
+        {
+          "nameAr": "دراسات تخصصية باللغة الإنكليزية",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "اللغة الإنكليزية",
+          "sourceRow": 50,
+          "code": "IMP-24C51D0E8524",
+          "prerequisiteCode": "IMP-29DB2C66BAD7"
+        },
+        {
+          "nameAr": "الخط والتربية الفنية",
+          "credits": 2,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 51,
+          "code": "IMP-B23E068AE55B"
+        },
+        {
+          "nameAr": "طرائق تدريس التعليم الأساسي",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "طرائق التدريس العامة",
+          "sourceRow": 52,
+          "code": "IMP-CB61C29D3E99",
+          "prerequisiteCode": "IMP-92B568E9083B"
+        },
+        {
+          "nameAr": "مدخل إلى التاريخ والجغرافيا",
+          "credits": 2,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 53,
+          "code": "IMP-55B23B5E6697"
+        },
+        {
+          "nameAr": "وسائل وتقنيات التعليم",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "طرائق التدريس العامة",
+          "sourceRow": 54,
+          "code": "IMP-8FB86009168D",
+          "prerequisiteCode": "IMP-92B568E9083B"
+        },
+        {
+          "nameAr": "التربية الدينية",
+          "credits": 2,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 55,
+          "code": "IMP-78A1DB37A6D1"
+        },
+        {
+          "nameAr": "التربية الرياضية ( ألعاب - حركات)",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 56,
+          "code": "IMP-0D3D552C04B7"
+        },
+        {
+          "nameAr": "الأنشطة المدرسية",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "طرائق تدريس التعليم الأساسي",
+          "sourceRow": 57,
+          "code": "IMP-24D085A6A62C",
+          "prerequisiteCode": "IMP-CB61C29D3E99"
+        },
+        {
+          "nameAr": "صعوبات التعلم",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "تعديل السلوك",
+          "sourceRow": 58,
+          "code": "IMP-7AB5B325EF4B",
+          "prerequisiteCode": "IMP-6B172378F6A8"
+        },
+        {
+          "nameAr": "التربية العملية1",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "طرائق التدريس العامة",
+          "sourceRow": 59,
+          "code": "IMP-6D213D64E0C9",
+          "prerequisiteCode": "IMP-92B568E9083B"
+        },
+        {
+          "nameAr": "التربية العملية 2",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "التربية العملية1",
+          "sourceRow": 60,
+          "code": "IMP-120DA9DA7726",
+          "prerequisiteCode": "IMP-6D213D64E0C9"
+        },
+        {
+          "nameAr": "بحث تخرج",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "مناهج البحث العلمي",
+          "sourceRow": 61,
+          "code": "IMP-A80892DDF680",
+          "prerequisiteCode": "IMP-EFBAC28D618A"
+        },
+        {
+          "nameAr": "الأعراض والأمراض النفسية",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": "مدخل إلى علم النفس العام",
+          "sourceRow": 62,
+          "code": "IMP-D49C2DA55B11",
+          "prerequisiteCode": "IMP-70F584F98714"
+        },
+        {
+          "nameAr": "اللغة العربية 3",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": "فن الكتابة والإلقاء",
+          "sourceRow": 63,
+          "code": "IMP-FEE24C8768CE",
+          "prerequisiteCode": "IMP-EA005647489B"
+        },
+        {
+          "nameAr": "الارشاد التربوي والمدرسي",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": "نظريات الإرشاد والعلاج النفسي",
+          "sourceRow": 64,
+          "code": "IMP-AF4CCDDBFA87",
+          "prerequisiteCode": "IMP-C79191A78C38"
+        },
+        {
+          "nameAr": "اضطرابات النطق وطرق علاجها",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 65,
+          "code": "IMP-1BA44947D2F6"
+        },
+        {
+          "nameAr": "علم نفس المهني",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 66,
+          "code": "IMP-4BF0161E9ABC"
+        },
+        {
+          "nameAr": "علم نفس التفوق والموهبة",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 67,
+          "code": "IMP-38AD4A4A7BEF"
+        },
+        {
+          "nameAr": "الجودة والتخطيط التربوي",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 68,
+          "code": "IMP-E6BD8F31A0C7"
+        }
+      ],
+      "placements": [],
+      "warnings": [
+        {
+          "type": "term-placement-conflict",
+          "row": 16,
+          "level": 1,
+          "course": "مدخل إلى علم التربية",
+          "sheetCredits": 3,
+          "catalogCredits": 2,
+          "issue": "missing-from-catalog-or-credit-mismatch"
+        },
+        {
+          "type": "term-placement-conflict",
+          "row": 18,
+          "level": 2,
+          "course": "مناهج البحث التربوي",
+          "sheetCredits": 3,
+          "catalogCredits": null,
+          "issue": "missing-from-catalog-or-credit-mismatch"
+        },
+        {
+          "type": "term-placement-conflict",
+          "row": 19,
+          "level": 1,
+          "course": "اللغة العربية 1",
+          "sheetCredits": 3,
+          "catalogCredits": null,
+          "issue": "missing-from-catalog-or-credit-mismatch"
+        },
+        {
+          "type": "term-placement-conflict",
+          "row": 19,
+          "level": 2,
+          "course": "الصحة النفسية والدعم النفسي الأولي",
+          "sheetCredits": 4,
+          "catalogCredits": 3,
+          "issue": "missing-from-catalog-or-credit-mismatch"
+        },
+        {
+          "type": "term-placement-conflict",
+          "row": 21,
+          "level": 1,
+          "course": "أسس تقانة المعلومات",
+          "sheetCredits": 2,
+          "catalogCredits": null,
+          "issue": "missing-from-catalog-or-credit-mismatch"
+        },
+        {
+          "type": "term-placement-conflict",
+          "row": 21,
+          "level": 2,
+          "course": "الثقافة الإسلامية",
+          "sheetCredits": 2,
+          "catalogCredits": 3,
+          "issue": "missing-from-catalog-or-credit-mismatch"
+        },
+        {
+          "type": "term-placement-conflict",
+          "row": 28,
+          "level": 3,
+          "course": "القياس والتقويم في التربية وعلم النفس",
+          "sheetCredits": 3,
+          "catalogCredits": null,
+          "issue": "missing-from-catalog-or-credit-mismatch"
+        },
+        {
+          "type": "term-placement-conflict",
+          "row": 28,
+          "level": 4,
+          "course": "اللغة العربية 2 (التحرير الكتابي)",
+          "sheetCredits": 3,
+          "catalogCredits": null,
+          "issue": "missing-from-catalog-or-credit-mismatch"
+        },
+        {
+          "type": "term-placement-conflict",
+          "row": 29,
+          "level": 4,
+          "course": "مشكلات الأطفال والكبار",
+          "sheetCredits": 4,
+          "catalogCredits": 3,
+          "issue": "missing-from-catalog-or-credit-mismatch"
+        },
+        {
+          "type": "term-placement-conflict",
+          "row": 30,
+          "level": 4,
+          "course": "مدخل إلى علم النفس الإسلامي",
+          "sheetCredits": 2,
+          "catalogCredits": 3,
+          "issue": "missing-from-catalog-or-credit-mismatch"
+        },
+        {
+          "type": "term-placement-conflict",
+          "row": 33,
+          "level": 4,
+          "course": "علم النفس الاجتماعي",
+          "sheetCredits": 2,
+          "catalogCredits": 3,
+          "issue": "missing-from-catalog-or-credit-mismatch"
+        },
+        {
+          "type": "term-placement-conflict",
+          "row": 41,
+          "level": 5,
+          "course": "تعديل لسلوك",
+          "sheetCredits": 3,
+          "catalogCredits": null,
+          "issue": "missing-from-catalog-or-credit-mismatch"
+        },
+        {
+          "type": "term-placement-conflict",
+          "row": 44,
+          "level": 5,
+          "course": "النظم الإسلامية",
+          "sheetCredits": 2,
+          "catalogCredits": 3,
+          "issue": "missing-from-catalog-or-credit-mismatch"
+        },
+        {
+          "type": "term-placement-conflict",
+          "row": 44,
+          "level": 6,
+          "course": "مهارات الاتصال",
+          "sheetCredits": 2,
+          "catalogCredits": 3,
+          "issue": "missing-from-catalog-or-credit-mismatch"
+        },
+        {
+          "type": "term-placement-conflict",
+          "row": 51,
+          "level": 7,
+          "course": "دراسات تخصصية باللغة الإنكليزية",
+          "sheetCredits": 2,
+          "catalogCredits": 3,
+          "issue": "missing-from-catalog-or-credit-mismatch"
+        },
+        {
+          "type": "term-placement-conflict",
+          "row": 57,
+          "level": 7,
+          "course": "المذاهب الفكرية",
+          "sheetCredits": 2,
+          "catalogCredits": 3,
+          "issue": "missing-from-catalog-or-credit-mismatch"
+        },
+        {
+          "type": "term-placement-conflict",
+          "row": 57,
+          "level": 8,
+          "course": "الثقافة المجتمعية",
+          "sheetCredits": 2,
+          "catalogCredits": 3,
+          "issue": "missing-from-catalog-or-credit-mismatch"
+        },
+        {
+          "type": "graduation-total-conflict",
+          "catalogCredits": 137,
+          "advisoryPlanCredits": 140
+        },
+        {
+          "type": "term-placement-blocked",
+          "message": "تم حجب التوزيع الفصلي بالكامل حتى اعتماد نسخة موحدة؛ لا يجوز خلط قائمة المواد مع الخطة الاسترشادية المتعارضتين."
+        }
+      ]
+    },
+    {
+      "key": "arabic",
+      "collegeNameAr": "كلية الآداب",
+      "programNameAr": "اللغة العربية",
+      "studyPlanNameAr": "الخطة المعتمدة (مستوردة من الجامعة)",
+      "sourceFile": "خطة قسم اللغة العربية - قائمة المقررات ونسب المتطلبات(1).xlsx",
+      "graduationCredits": 141,
+      "quotas": {
+        "UNIVERSITY": {
+          "MANDATORY": {
+            "requiredCredits": 8,
+            "offeredPoolCredits": 8
+          },
+          "ELECTIVE": {
+            "requiredCredits": 6,
+            "offeredPoolCredits": 15
+          }
+        },
+        "COLLEGE": {
+          "MANDATORY": {
+            "requiredCredits": 15,
+            "offeredPoolCredits": 15
+          },
+          "ELECTIVE": {
+            "requiredCredits": 3,
+            "offeredPoolCredits": 12
+          }
+        },
+        "PROGRAM": {
+          "MANDATORY": {
+            "requiredCredits": 91,
+            "offeredPoolCredits": 91
+          },
+          "ELECTIVE": {
+            "requiredCredits": 18,
+            "offeredPoolCredits": 36
+          }
+        }
+      },
+      "courses": [
+        {
+          "nameAr": "المهارات الأساسية",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 13,
+          "code": "IMP-436D766A7F68"
+        },
+        {
+          "nameAr": "مدخل إلى علم التربية",
+          "credits": 2,
+          "category": "UNIVERSITY",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 14,
+          "code": "IMP-0E66E069510E"
+        },
+        {
+          "nameAr": "مناهج البحث العلمي",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 15,
+          "code": "IMP-FA8998D87043"
+        },
+        {
+          "nameAr": "الثقافة الإسلامية",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 16,
+          "code": "IMP-C30042529F93"
+        },
+        {
+          "nameAr": "مهارات الخط العربي",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 17,
+          "code": "IMP-9C2CBA8652D2"
+        },
+        {
+          "nameAr": "تقانة المعلومات",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 18,
+          "code": "IMP-A36401668F70"
+        },
+        {
+          "nameAr": "الثقافة المجتمعية",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 19,
+          "code": "IMP-45673BDDFF5E"
+        },
+        {
+          "nameAr": "مهارات الاتصال",
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 20,
+          "code": "IMP-677EC71D15C0"
+        },
+        {
+          "nameAr": "مصادر التراث والمكتبة العربية",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 21,
+          "code": "IMP-263A7EE679C9"
+        },
+        {
+          "nameAr": "اللغة العربية",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "مقرر بديل/مكافئ معتمد لطلبة التخصص",
+          "sourceRow": 22,
+          "code": "IMP-8E231CDFAA25"
+        },
+        {
+          "nameAr": "اللغة الإنكليزية",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 23,
+          "code": "IMP-0D21A89A54EF"
+        },
+        {
+          "nameAr": "دراسات تخصصية باللغة الإنكليزية",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "اللغة الإنجليزية",
+          "sourceRow": 24,
+          "code": "IMP-5448905019DE"
+        },
+        {
+          "nameAr": "فن الكتابة والإلقاء",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "النحو 1",
+          "sourceRow": 25,
+          "code": "IMP-CF159C058125",
+          "prerequisiteCode": "IMP-8AFC14B39B1C"
+        },
+        {
+          "nameAr": "طرق التدريس",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 26,
+          "code": "IMP-C2CEDFC49702"
+        },
+        {
+          "nameAr": "النظم الإسلامية",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 27,
+          "code": "IMP-75B9CA35AFBF"
+        },
+        {
+          "nameAr": "حاضر العالم الإسلامي",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 28,
+          "code": "IMP-20D71359A0A8"
+        },
+        {
+          "nameAr": "مدخل إلى تاريخ الحضارة",
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 29,
+          "code": "IMP-E486ED8BC46D"
+        },
+        {
+          "nameAr": "مدخل إلى دراسة الأدب",
+          "credits": 2,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 30,
+          "code": "IMP-08A1A5582179"
+        },
+        {
+          "nameAr": "النحو 1",
+          "credits": 4,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 31,
+          "code": "IMP-8AFC14B39B1C"
+        },
+        {
+          "nameAr": "البيان والبديع (البلاغة)",
+          "credits": 4,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 32,
+          "code": "IMP-5BF59CE17FD6"
+        },
+        {
+          "nameAr": "العروض وموسيقا الشعر",
+          "credits": 2,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 33,
+          "code": "IMP-FB92BB544F61"
+        },
+        {
+          "nameAr": "الشعر العربي القديم 1",
+          "credits": 4,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 34,
+          "code": "IMP-60FCF5134B17"
+        },
+        {
+          "nameAr": "دراسات أدبية في القرآن والحديث النبوي",
+          "credits": 4,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 35,
+          "code": "IMP-C6DD9D5B6539"
+        },
+        {
+          "nameAr": "مدخل إلى اللسانيات",
+          "credits": 2,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 36,
+          "code": "IMP-51F27118BE55"
+        },
+        {
+          "nameAr": "فقه اللغة",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 37,
+          "code": "IMP-CF8D817F0871"
+        },
+        {
+          "nameAr": "النحو 2",
+          "credits": 4,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "النحو 1",
+          "sourceRow": 38,
+          "code": "IMP-D3600CD1C3B7",
+          "prerequisiteCode": "IMP-8AFC14B39B1C"
+        },
+        {
+          "nameAr": "الصرف",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 39,
+          "code": "IMP-7C35C794F99B"
+        },
+        {
+          "nameAr": "النحو 3",
+          "credits": 4,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "النحو 2",
+          "sourceRow": 40,
+          "code": "IMP-BC1F18317015",
+          "prerequisiteCode": "IMP-D3600CD1C3B7"
+        },
+        {
+          "nameAr": "علم المعاني (النحو)",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 41,
+          "code": "IMP-856457F9DCD2"
+        },
+        {
+          "nameAr": "الشعر العربي القديم 2",
+          "credits": 4,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "الشعر العربي القديم 1",
+          "sourceRow": 42,
+          "code": "IMP-42E96BE1B257",
+          "prerequisiteCode": "IMP-60FCF5134B17"
+        },
+        {
+          "nameAr": "نحو 4",
+          "credits": 4,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "النحو 3",
+          "sourceRow": 43,
+          "code": "IMP-FD8A8C6D44FA",
+          "prerequisiteCode": "IMP-BC1F18317015"
+        },
+        {
+          "nameAr": "الشعر العربي القديم 3",
+          "credits": 4,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "الشعر العربي القديم 2",
+          "sourceRow": 44,
+          "code": "IMP-47488549E58B",
+          "prerequisiteCode": "IMP-42E96BE1B257"
+        },
+        {
+          "nameAr": "النقد العربي القديم 1",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 45,
+          "code": "IMP-057B25AA2F66"
+        },
+        {
+          "nameAr": "النثر العربي القديم",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "مدخل إلى دراسة الأدب",
+          "sourceRow": 46,
+          "code": "IMP-068864C887EE",
+          "prerequisiteCode": "IMP-08A1A5582179"
+        },
+        {
+          "nameAr": "تاريخ النحو ومسائله",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "نحو 4",
+          "sourceRow": 47,
+          "code": "IMP-F4C3D7AE1015",
+          "prerequisiteCode": "IMP-FD8A8C6D44FA"
+        },
+        {
+          "nameAr": "النقد العربي القديم 2",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "النقد العربي القديم 1",
+          "sourceRow": 48,
+          "code": "IMP-039B93FC37D5",
+          "prerequisiteCode": "IMP-057B25AA2F66"
+        },
+        {
+          "nameAr": "دراسات في علم الجمال",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 49,
+          "code": "IMP-9ADD9803FD87"
+        },
+        {
+          "nameAr": "اللغة الشرقية 1",
+          "credits": 2,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 50,
+          "code": "IMP-6D248988EBB3"
+        },
+        {
+          "nameAr": "اللغة الشرقية 2",
+          "credits": 2,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "اللغة الشرقية 1",
+          "sourceRow": 51,
+          "code": "IMP-25C185C6D01B",
+          "prerequisiteCode": "IMP-6D248988EBB3"
+        },
+        {
+          "nameAr": "التاريخ العربي 1",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 52,
+          "code": "IMP-23CD6DD4B05D"
+        },
+        {
+          "nameAr": "التاريخ العربي 2",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": "التاريخ العربي 1",
+          "sourceRow": 53,
+          "code": "IMP-9B57024D269D",
+          "prerequisiteCode": "IMP-23CD6DD4B05D"
+        },
+        {
+          "nameAr": "الشعر العربي الحديث",
+          "credits": 4,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 54,
+          "code": "IMP-CD1AD2CFBA69"
+        },
+        {
+          "nameAr": "النثر العربي الحديث",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 55,
+          "code": "IMP-C700900FCE3B"
+        },
+        {
+          "nameAr": "النقد العربي الحديث",
+          "credits": 4,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 56,
+          "code": "IMP-DB7CDFCAD47D"
+        },
+        {
+          "nameAr": "الأدب المقارن",
+          "credits": 4,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY",
+          "prerequisiteName": null,
+          "sourceRow": 57,
+          "code": "IMP-2A9D13455A7F"
+        },
+        {
+          "nameAr": "اللسانيات التطبيقية",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 58,
+          "code": "IMP-447EEF537385"
+        },
+        {
+          "nameAr": "منتخبات من الشعر القديم",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 59,
+          "code": "IMP-4421FA91E5FC"
+        },
+        {
+          "nameAr": "مبادئ النقد ونظرية الأداب",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 60,
+          "code": "IMP-4FFAD3466B23"
+        },
+        {
+          "nameAr": "منتخبات من الأدب الحديث",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 61,
+          "code": "IMP-491EE0AC0038"
+        },
+        {
+          "nameAr": "علم معاني الأبنية والأدوات",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": "علم معاني النحو",
+          "sourceRow": 62,
+          "code": "IMP-70D0B6DB2BAB"
+        },
+        {
+          "nameAr": "أدب الطفل",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 63,
+          "code": "IMP-34C7F04E8C28"
+        },
+        {
+          "nameAr": "أدب الثورة السورية",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 64,
+          "code": "IMP-5A0B920F8178"
+        },
+        {
+          "nameAr": "تحليل الخطاب",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 65,
+          "code": "IMP-9479422AC410"
+        },
+        {
+          "nameAr": "التربية العملية",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 66,
+          "code": "IMP-93E8AB0B824F"
+        },
+        {
+          "nameAr": "الآداب العالمية",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 67,
+          "code": "IMP-7879C76FF9DF"
+        },
+        {
+          "nameAr": "التاريخ المعاصر",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 68,
+          "code": "IMP-C8E498F2FFFA"
+        },
+        {
+          "nameAr": "علوم القرآن والسنة",
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE",
+          "prerequisiteName": null,
+          "sourceRow": 69,
+          "code": "IMP-A9D059E85C06"
+        }
+      ],
+      "placements": [],
+      "warnings": [
+        {
+          "type": "unresolved-prerequisite",
+          "course": "اللغة العربية",
+          "prerequisite": "مقرر بديل/مكافئ معتمد لطلبة التخصص",
+          "row": 22
+        },
+        {
+          "type": "unresolved-prerequisite",
+          "course": "دراسات تخصصية باللغة الإنكليزية",
+          "prerequisite": "اللغة الإنجليزية",
+          "row": 24
+        },
+        {
+          "type": "unresolved-prerequisite",
+          "course": "علم معاني الأبنية والأدوات",
+          "prerequisite": "علم معاني النحو",
+          "row": 62
+        }
+      ]
+    }
+  ]
+}
