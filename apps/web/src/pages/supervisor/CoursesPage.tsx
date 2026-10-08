@@ -16,6 +16,7 @@ import {
   MenuItem,
   Select,
   Stack,
+  TablePagination,
   TextField,
   Typography,
 } from '@mui/material';
@@ -142,6 +143,8 @@ export default function CoursesPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [requirementFilter, setRequirementFilter] = useState('');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [prerequisiteDialogOpen, setPrerequisiteDialogOpen] = useState(false);
@@ -205,6 +208,12 @@ export default function CoursesPage() {
       );
     });
   }, [courses, search, statusFilter, requirementFilter]);
+
+  const currentPage = Math.min(page, Math.max(0, Math.ceil(filteredCourses.length / rowsPerPage) - 1));
+  const visibleCourses = useMemo(
+    () => filteredCourses.slice(currentPage * rowsPerPage, currentPage * rowsPerPage + rowsPerPage),
+    [filteredCourses, currentPage, rowsPerPage],
+  );
 
   const visibleDepartments = useMemo(
     () => departments.filter((item) => item.collegeId === form.collegeId),
@@ -526,7 +535,7 @@ export default function CoursesPage() {
           >
             <TextField
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => { setSearch(event.target.value); setPage(0); }}
               placeholder="ابحث بالرمز أو اسم المقرر..."
               slotProps={{
                 input: {
@@ -543,7 +552,7 @@ export default function CoursesPage() {
               <Select
                 value={requirementFilter}
                 displayEmpty
-                onChange={(event) => setRequirementFilter(event.target.value)}
+                onChange={(event) => { setRequirementFilter(event.target.value); setPage(0); }}
               >
                 <MenuItem value="">جميع الأنواع</MenuItem>
                 <MenuItem value="MANDATORY">إجباري</MenuItem>
@@ -555,7 +564,7 @@ export default function CoursesPage() {
               <Select
                 value={statusFilter}
                 displayEmpty
-                onChange={(event) => setStatusFilter(event.target.value)}
+                onChange={(event) => { setStatusFilter(event.target.value); setPage(0); }}
               >
                 <MenuItem value="">جميع الحالات</MenuItem>
                 <MenuItem value="ACTIVE">فعال</MenuItem>
@@ -584,7 +593,7 @@ export default function CoursesPage() {
         </Card>
       ) : (
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, minmax(0, 1fr))' }, gap: 2 }}>
-          {filteredCourses.map((course) => {
+          {visibleCourses.map((course) => {
             const placements = course.planCourses ?? [];
 
             return (
@@ -674,6 +683,25 @@ export default function CoursesPage() {
             );
           })}
         </Box>
+      )}
+
+      {filteredCourses.length > 0 && (
+        <TablePagination
+          component="div"
+          count={filteredCourses.length}
+          page={currentPage}
+          onPageChange={(_event, nextPage) => setPage(nextPage)}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={(event) => {
+            setRowsPerPage(Number(event.target.value));
+            setPage(0);
+          }}
+          rowsPerPageOptions={[10, 25, 50]}
+          labelRowsPerPage="مقررًا في الصفحة:"
+          labelDisplayedRows={({ from, to, count }) => `${from}–${to} من ${count}`}
+          getItemAriaLabel={(type) => type === 'first' ? 'الصفحة الأولى' : type === 'last' ? 'الصفحة الأخيرة' : type === 'next' ? 'الصفحة التالية' : 'الصفحة السابقة'}
+          sx={{ borderTop: 1, borderColor: 'divider', mt: 1 }}
+        />
       )}
 
       <Dialog
