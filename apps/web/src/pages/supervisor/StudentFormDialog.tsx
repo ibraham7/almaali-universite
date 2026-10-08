@@ -20,6 +20,35 @@ type Catalog = {
 
 const empty: StudentInput = { universityId: '', firstName: '', familyName: '', status: 'ACTIVE' };
 
+type StudentFieldErrors = Partial<Record<keyof StudentInput, string>>;
+
+function validateStudentField(key: keyof StudentInput, value: string): string {
+  const normalized = value.trim();
+  if (!normalized) return '';
+  const nameFields: Array<keyof StudentInput> = ['firstName', 'middleName', 'familyName', 'motherName', 'englishName'];
+  const namePattern = /^[\p{L}\p{M}]+(?:\s+[\p{L}\p{M}]+)*$/u;
+  if (nameFields.includes(key) && !namePattern.test(normalized)) {
+    const labels: Partial<Record<keyof StudentInput, string>> = {
+      firstName: 'الاسم الأول', middleName: 'اسم الأب', familyName: 'اسم العائلة',
+      motherName: 'اسم الأم', englishName: 'الاسم بالإنجليزية',
+    };
+    return `${labels[key]} يجب أن يحتوي على أحرف فقط.`;
+  }
+  if (key === 'nationalId' || key === 'applicationNumber') {
+    if (!/^[0-9٠-٩۰-۹]+$/.test(normalized)) return key === 'nationalId'
+      ? 'الرقم الوطني يجب أن يحتوي على أرقام فقط.'
+      : 'رقم الاكتتاب يجب أن يحتوي على أرقام فقط.';
+    if (key === 'nationalId' && normalizeStudentDigits(normalized).length !== 11)
+      return 'الرقم الوطني يجب أن يتكون من 11 رقمًا.';
+  }
+  if (key === 'phone' && !/^09\d{8}$/.test(normalizeStudentDigits(normalized)))
+    return 'أدخل رقمًا سوريًا محليًا من 10 أرقام يبدأ بـ 09.';
+  if (key === 'nationality' && !namePattern.test(normalized))
+    return 'الجنسية يجب أن تحتوي على أحرف فقط.';
+  if (key === 'birthPlace' && !/^[\p{L}\p{M}\d]+(?:[\s,.'\u2019()/-]+[\p{L}\p{M}\d]+)*$/u.test(normalized))
+    return 'أدخل مكان الولادة بصيغة صحيحة.';
+  return '';
+}
 function initialValues(student: StudentListItem | null): StudentInput {
   if (!student) return { ...empty };
   const rawGender = student.gender?.trim().toLocaleLowerCase();
@@ -46,6 +75,9 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
   onSaved: () => void;
 }) {
   const [form, setForm] = useState<StudentInput>({ ...empty });
+  const [fieldErrors, setFieldErrors] = useState<StudentFieldErrors>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [birthPlaceOtherSelected, setBirthPlaceOtherSelected] = useState(false);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -53,6 +85,9 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
   useEffect(() => {
     if (!open) return;
     setForm(initialValues(student));
+    setFieldErrors({});
+    setSubmitted(false);
+    setBirthPlaceOtherSelected(Boolean(student?.birthPlace && !STUDENT_BIRTH_PLACES.slice(0, -1).includes(student.birthPlace)));
     setError('');
     let active = true;
     Promise.all([
@@ -67,12 +102,21 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
   function field(key: keyof StudentInput, label: string, required = false, type = 'text') {
     const numericField = key === 'nationalId' || key === 'applicationNumber' || key === 'phone';
     const helperText = ['firstName', 'middleName', 'familyName', 'motherName', 'englishName'].includes(key)
-      ? 'حروف ومسافات وشرطة أو فاصلة عليا فقط.'
+      ? 'حروف ومسافات فقط.'
       : key === 'nationalId' ? '11 رقمًا؛ تُقبل الأرقام العربية أو الإنجليزية.'
         : key === 'phone' ? 'اختياري: رقم سوري محلي من 10 أرقام يبدأ بـ 09.'
           : numericField ? 'أرقام فقط. تُقبل الأرقام العربية أو الإنجليزية.' : undefined;
-    return <TextField key={key} label={label} required={required} type={key === 'phone' ? 'tel' : type} fullWidth helperText={helperText}
-      value={form[key] ?? ''} onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))}
+    const value = String(form[key] ?? '');
+    const validationError = fieldErrors[key] || (submitted && required && !value.trim() ? `${label} مطلوب.` : '');
+    return <TextField key={key} label={label} required={required} type={key === 'phone' ? 'tel' : type} fullWidth
+      error={Boolean(validationError)}
+      helperText={validationError ? <>{helperText && <span>{helperText}</span>}<Typography component="span" color="error" sx={{ display: 'block' }}>{validationError}</Typography></> : helperText}
+      value={value}
+      onChange={(event) => {
+        const nextValue = event.target.value;
+        setForm((current) => ({ ...current, [key]: nextValue }));
+        setFieldErrors((current) => ({ ...current, [key]: validateStudentField(key, nextValue) }));
+      }}
       slotProps={{ ...(type === 'date' ? { inputLabel: { shrink: true } } : {}),
         ...(numericField ? { htmlInput: { inputMode: 'numeric', pattern: '[0-9٠-٩۰-۹]+', ...(key === 'nationalId' ? { maxLength: 11 } : key === 'phone' ? { maxLength: 10 } : {}) } } : {}) }} />;
   }
@@ -80,15 +124,37 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
   function controlledList(key: 'nationality' | 'birthPlace', label: string, options: string[]) {
     const value = form[key] ?? '';
     const isKnown = options.slice(0, -1).includes(value);
+    const otherSelected = key === 'birthPlace' ? birthPlaceOtherSelected : !isKnown;
+    const selectedValue = isKnown ? value : otherSelected ? STUDENT_OTHER_OPTION : '';
+    const validationError = fieldErrors[key] || (submitted && key === 'birthPlace' && !value.trim() ? 'مكان الولادة مطلوب.' : '');
     return <Box key={key} sx={{ display: 'grid', gap: 2 }}>
-      <TextField select label={label} fullWidth value={isKnown ? value : STUDENT_OTHER_OPTION}
-        onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value === STUDENT_OTHER_OPTION ? '' : event.target.value }))}>
+      <TextField select label={label} required={key === 'birthPlace'} fullWidth value={selectedValue}
+        error={submitted && key === 'birthPlace' && !selectedValue}
+        helperText={submitted && key === 'birthPlace' && !selectedValue ? 'اختر مكان الولادة.' : undefined}
+        onChange={(event) => {
+          const selected = event.target.value;
+          if (key === 'birthPlace') {
+            const chooseOther = selected === STUDENT_OTHER_OPTION;
+            setBirthPlaceOtherSelected(chooseOther);
+            setForm((current) => ({ ...current, [key]: chooseOther ? '' : selected }));
+          } else {
+            setForm((current) => ({ ...current, [key]: selected === STUDENT_OTHER_OPTION ? '' : selected }));
+          }
+          setFieldErrors((current) => ({ ...current, [key]: '' }));
+        }}>
+        {key === 'birthPlace' && <MenuItem value="">اختر مكان الولادة</MenuItem>}
         {options.slice(0, -1).map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
         <MenuItem value={STUDENT_OTHER_OPTION}>{options.at(-1)}</MenuItem>
       </TextField>
-      {!isKnown && <TextField key={`${key}-other`} label={key === 'nationality' ? 'الجنسية الأخرى' : 'مكان الولادة الآخر'} fullWidth value={value}
-        onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))}
-        helperText="اختر من القائمة إن كان الخيار متاحًا، وإلا أدخل القيمة كما في السجل الرسمي." />}
+      {otherSelected && <TextField key={`${key}-other`} label={key === 'nationality' ? 'الجنسية الأخرى' : 'مكان الولادة الآخر'}
+        required={key === 'birthPlace'} fullWidth value={value}
+        error={Boolean(validationError)}
+        helperText={validationError || 'اختر من القائمة إن كان الخيار متاحًا، وإلا أدخل القيمة كما في السجل الرسمي.'}
+        onChange={(event) => {
+          const nextValue = event.target.value;
+          setForm((current) => ({ ...current, [key]: nextValue }));
+          setFieldErrors((current) => ({ ...current, [key]: validateStudentField(key, nextValue) }));
+        }} />}
     </Box>;
   }
 
@@ -105,32 +171,34 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
   }
 
   async function save() {
-    setBusy(true);
+    setSubmitted(true);
     setError('');
+    const requiredKeys: Array<keyof StudentInput> = [
+      'universityId', 'firstName', 'middleName', 'familyName', 'motherName',
+      'nationalId', 'applicationNumber', 'birthPlace',
+    ];
+    const validationKeys: Array<keyof StudentInput> = [
+      ...requiredKeys, 'englishName', 'phone', 'nationality',
+    ];
+    const nextErrors: StudentFieldErrors = {};
+    for (const key of validationKeys) {
+      const value = String(form[key] ?? '');
+      const label: Partial<Record<keyof StudentInput, string>> = {
+        universityId: 'الرقم الجامعي', firstName: 'الاسم الأول', middleName: 'اسم الأب',
+        familyName: 'اسم العائلة', motherName: 'اسم الأم', nationalId: 'الرقم الوطني',
+        applicationNumber: 'رقم الاكتتاب', birthPlace: birthPlaceOtherSelected ? 'مكان الولادة الآخر' : 'مكان الولادة',
+        englishName: 'الاسم بالإنجليزية', phone: 'رقم الهاتف', nationality: 'الجنسية',
+      };
+      if (requiredKeys.includes(key) && !value.trim()) nextErrors[key] = `${label[key]} مطلوب.`;
+      else {
+        const message = validateStudentField(key, value);
+        if (message) nextErrors[key] = message;
+      }
+    }
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length) return;
+    setBusy(true);
     try {
-      const namePairs: Array<[string, string | null | undefined]> = [
-        ['الاسم الأول', form.firstName], ['اسم الأب', form.middleName], ['اسم العائلة', form.familyName],
-        ['اسم الأم', form.motherName], ['الاسم بالإنجليزية', form.englishName],
-      ];
-      const namePattern = /^[\p{L}\p{M}]+(?:[ '\u2019-][\p{L}\p{M}]+)*$/u;
-      const invalidName = namePairs.find(([, value]) => value?.trim() && !namePattern.test(value.trim().replace(/\s+/g, ' ')));
-      if (invalidName) { setError(`${invalidName[0]}: استخدم الحروف والمسافات والشرطة أو الفاصلة العليا فقط.`); return; }
-      const digitsPattern = /^[0-9٠-٩۰-۹]+$/;
-      for (const [label, value] of [['الرقم الوطني', form.nationalId], ['رقم الاكتتاب', form.applicationNumber]] as const) {
-        if (value?.trim() && !digitsPattern.test(value.trim())) { setError(`${label}: أدخل الأرقام فقط.`); return; }
-      }
-      if (form.nationalId?.trim() && normalizeStudentDigits(form.nationalId.trim()).length !== 11) {
-        setError('الرقم الوطني: أدخل 11 رقمًا.'); return;
-      }
-      if (form.phone?.trim() && !/^09\d{8}$/.test(normalizeStudentDigits(form.phone.trim()))) {
-        setError('رقم الهاتف: أدخل رقمًا سوريًا محليًا من 10 أرقام يبدأ بـ 09.'); return;
-      }
-      if (form.nationality?.trim() && !namePattern.test(form.nationality.trim().replace(/\s+/g, ' '))) {
-        setError('الجنسية: أدخل الاسم بالحروف فقط.'); return;
-      }
-      if (form.birthPlace?.trim() && !/^[\p{L}\p{M}\d]+(?:[\s,.'\u2019()/-]+[\p{L}\p{M}\d]+)*$/u.test(form.birthPlace.trim().replace(/\s+/g, ' '))) {
-        setError('مكان الولادة: أدخل اسم المكان بصيغة صحيحة.'); return;
-      }
       const payload: StudentInput = { ...form,
         universityEmail: form.universityEmail?.trim() || null,
         dateOfBirth: form.dateOfBirth || null,
@@ -191,7 +259,7 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
     </DialogContent>
     <DialogActions sx={{ p: 2 }}>
       <Button onClick={onClose} disabled={busy}>إلغاء</Button>
-      <Button variant="contained" onClick={() => void save()} disabled={busy || !catalog || !form.universityId?.trim() || !form.firstName?.trim() || !form.middleName?.trim() || !form.familyName?.trim() || !form.motherName?.trim() || !form.nationalId?.trim() || !form.applicationNumber?.trim() || !form.birthPlace?.trim()}>
+      <Button variant="contained" onClick={() => void save()} disabled={busy || !catalog}>
         {busy ? 'جارٍ الحفظ...' : 'حفظ'}
       </Button>
     </DialogActions>
