@@ -45,7 +45,7 @@ import {
 } from '../../theme/theme';
 
 import {
-  getDashboardCourses,
+  getDashboardCourseCount,
   getDashboardEnrollments,
   getDashboardSections,
   getDashboardStudents,
@@ -1160,8 +1160,8 @@ function AdministrationDashboard({
     DashboardStudent[]
   >([]);
 
-  const [courses, setCourses] =
-    useState<unknown[]>([]);
+  const [courseCount, setCourseCount] =
+    useState(0);
 
   const [
     sections,
@@ -1197,7 +1197,7 @@ function AdministrationDashboard({
       ] = await Promise.all([
         getDashboardStudents(),
 
-        getDashboardCourses(),
+        getDashboardCourseCount(),
 
         getDashboardSections(),
 
@@ -1206,7 +1206,7 @@ function AdministrationDashboard({
 
       setStudents(studentsData);
 
-      setCourses(coursesData);
+      setCourseCount(coursesData);
 
       setSections(sectionsData);
 
@@ -1309,7 +1309,7 @@ function AdministrationDashboard({
         <StatCard
           title="المقررات"
           value={String(
-            courses.length,
+            courseCount,
           )}
           description="إجمالي المقررات الأكاديمية"
           icon={
