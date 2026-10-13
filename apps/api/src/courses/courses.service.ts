@@ -444,6 +444,15 @@ export class CoursesService {
     return course;
   }
 
+  async getStats(actor: { id: string; role: string }) {
+    const allowed = await this.advisorProgramIds(actor);
+    const count = await this.prisma.course.count({
+      ...(allowed ? { where: { planCourses: { some: { studyPlan: { programId: { in: allowed } } } } } } : {}),
+    });
+
+    return { count };
+  }
+
   async findAll(actor: { id: string; role: string }) {
     const allowed = await this.advisorProgramIds(actor);
     const courses = await this.prisma.course.findMany({
