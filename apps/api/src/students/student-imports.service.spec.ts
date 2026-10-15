@@ -122,7 +122,7 @@ describe('Student Excel import', () => {
     const result = await new StudentImportsService(prisma).preview(file([invalid]));
     expect(result.errorCount).toBe(1);
     expect(result.errors[0].message).toContain('الرقم الوطني: أدخل 11 رقمًا');
-    expect(result.errors[0].message).toContain('الهاتف السوري المحلي من 10 أرقام');
+    expect(result.errors[0].message).toContain('رقمًا سوريًا محليًا من 10 أرقام');
     expect(transaction).not.toHaveBeenCalled();
   });
 
