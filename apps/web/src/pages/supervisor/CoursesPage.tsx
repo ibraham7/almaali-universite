@@ -215,16 +215,30 @@ export default function CoursesPage() {
     [filteredCourses, currentPage, rowsPerPage],
   );
 
-  const visibleDepartments = useMemo(
-    () => departments.filter((item) => item.collegeId === form.collegeId),
-    [departments, form.collegeId],
-  );
+  // A course must be attached to a study plan, and advisors only receive the
+  // plans of their assigned programs, so offer only paths that lead to a plan.
+  const plannedPrograms = useMemo(() => {
+    const planProgramIds = new Set(studyPlans.map((plan) => plan.programId));
+    return programs.filter((item) => planProgramIds.has(item.id));
+  }, [programs, studyPlans]);
+
+  const selectableColleges = useMemo(() => {
+    const collegeIds = new Set(plannedPrograms.map((item) =>
+      item.collegeId ?? departments.find((department) => department.id === item.departmentId)?.collegeId,
+    ));
+    return colleges.filter((item) => collegeIds.has(item.id));
+  }, [colleges, departments, plannedPrograms]);
+
+  const visibleDepartments = useMemo(() => {
+    const departmentIds = new Set(plannedPrograms.map((item) => item.departmentId));
+    return departments.filter((item) => item.collegeId === form.collegeId && departmentIds.has(item.id));
+  }, [departments, plannedPrograms, form.collegeId]);
 
   const visiblePrograms = useMemo(
-    () => programs.filter((item) => form.departmentId
+    () => plannedPrograms.filter((item) => form.departmentId
       ? item.departmentId === form.departmentId
       : !item.departmentId && item.collegeId === form.collegeId),
-    [programs, form.departmentId, form.collegeId],
+    [plannedPrograms, form.departmentId, form.collegeId],
   );
 
   const visiblePlans = useMemo(
@@ -512,7 +526,7 @@ export default function CoursesPage() {
         </Button>
       </Box>
 
-      {error && (
+      {error && !dialogOpen && !prerequisiteDialogOpen && (
         <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>
           {error}
         </Alert>
@@ -714,6 +728,7 @@ export default function CoursesPage() {
 
         <DialogContent dividers>
           <Stack spacing={2}>
+            {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
             {!editingCourse && (
               <Box>
                 <Typography sx={{ fontWeight: 700, mb: 1.5 }}>المسار الأكاديمي</Typography>
@@ -736,7 +751,7 @@ export default function CoursesPage() {
                         }))
                       }
                     >
-                      {colleges.map((item) => (
+                      {selectableColleges.map((item) => (
                         <MenuItem key={item.id} value={item.id}>{item.nameAr}</MenuItem>
                       ))}
                     </Select>
@@ -952,6 +967,7 @@ export default function CoursesPage() {
         <DialogTitle>إدارة المتطلبات السابقة</DialogTitle>
 
         <DialogContent dividers>
+          {error && <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>{error}</Alert>}
           {prerequisiteCourse && (
             <Stack spacing={3}>
               <Typography sx={{ fontWeight: 700 }}>

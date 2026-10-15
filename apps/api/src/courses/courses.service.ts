@@ -188,7 +188,7 @@ export class CoursesService {
     });
 
     if (existing) {
-      throw new BadRequestException('Course code already exists');
+      throw new BadRequestException('رمز المقرر مستخدم مسبقًا لمقرر آخر في الجامعة. اختر رمزًا مختلفًا.');
     }
 
     const studyPlan = await this.prisma.studyPlan.findUnique({
@@ -325,7 +325,7 @@ export class CoursesService {
       });
 
       if (existing) {
-        throw new BadRequestException('Course code already exists');
+        throw new BadRequestException('رمز المقرر مستخدم مسبقًا لمقرر آخر في الجامعة. اختر رمزًا مختلفًا.');
       }
     }
 
