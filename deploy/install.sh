@@ -42,7 +42,6 @@ printf 'BRANCH=%s\nAPP_DIR=%s\n' "$BRANCH" "$APP_DIR" > /etc/almaali-deploy.conf
 echo "==> إعداد Nginx"
 cp "$APP_DIR/deploy/nginx-almaali.conf" /etc/nginx/sites-available/almaali
 ln -sf /etc/nginx/sites-available/almaali /etc/nginx/sites-enabled/almaali
-rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx
 
