@@ -150,3 +150,8 @@ export async function getStudentDashboardRegistration() {
 
     return response.data;
 }
+/** The total number of courses in the caller's authorized scope, independent of list pagination. */
+export async function getDashboardCourseCount(): Promise<number> {
+    const response = await apiClient.get<{ count: number }>('/courses/stats');
+    return response.data.count;
+}

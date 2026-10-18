@@ -90,6 +90,11 @@ export class CoursesController {
     );
   }
 
+  @Get('stats')
+  getStats(@Req() request: Request & { user: { id: string; role: string } }) {
+    return this.coursesService.getStats(request.user);
+  }
+
   @Get()
   findAll(@Req() request: Request & { user: { id: string; role: string } }) {
     return this.coursesService.findAll(request.user);
