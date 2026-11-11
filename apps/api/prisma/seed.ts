@@ -114,7 +114,7 @@ async function main() {
         nameAr: 'جامعة اختبار',
         nameEn: 'Test University',
         minGpaForFutureYears: 2,
-        allowedFutureYears: 1,
+        allowedFutureYears: 0,
         requiredElectiveCredits: 12,
       },
     });

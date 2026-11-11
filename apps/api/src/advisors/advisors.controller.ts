@@ -28,4 +28,14 @@ export class AdvisorsController {
   setAssignedPrograms(@Param('id') id: string, @Body() body: { programIds: string[] }, @Req() request: AuthenticatedRequest) {
     return this.advisorsService.setAssignedPrograms(id, body.programIds, request.user.id);
   }
+
+  @Get(':id/colleges')
+  getAssignedColleges(@Param('id') id: string) {
+    return this.advisorsService.getAssignedColleges(id);
+  }
+
+  @Put(':id/colleges')
+  setAssignedColleges(@Param('id') id: string, @Body() body: { collegeIds: string[] }, @Req() request: AuthenticatedRequest) {
+    return this.advisorsService.setAssignedColleges(id, body.collegeIds, request.user.id);
+  }
 }

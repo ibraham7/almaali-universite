@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service.js';
+import { getAdvisorAllowedProgramIds } from '../advisors/advisor-scope.js';
 
 import { CreateCourseDto } from './dto/create-course.dto.js';
 import { UpdateCourseDto } from './dto/update-course.dto.js';
@@ -20,8 +21,7 @@ export class CoursesService {
 
   private async advisorProgramIds(actor: { id: string; role: string }) {
     if (actor.role !== 'ADVISOR') return null;
-    const rows = await this.prisma.advisorProgramAssignment.findMany({ where: { advisorId: actor.id }, select: { programId: true } });
-    return rows.map((row) => row.programId);
+    return getAdvisorAllowedProgramIds(this.prisma, actor.id);
   }
 
   private async assertPlanScope(studyPlanId: string, actor: { id: string; role: string }) {

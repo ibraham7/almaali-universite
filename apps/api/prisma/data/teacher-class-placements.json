@@ -1,0 +1,470 @@
+{
+  "studyPlanKey": "teacher-class",
+  "sourceFile": "قائمة المقررات معلم صف - الخطة الاسترشادية",
+  "levels": [
+    {
+      "levelNumber": 1,
+      "semesterNumber": 1,
+      "label": "المستوى الأول",
+      "year": "السنة الأولى",
+      "items": [
+        {
+          "priority": 1,
+          "course": "مدخل إلى علم التربية",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 2,
+          "course": "مدخل إلى علم النفس العام",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 3,
+          "course": "المهارات الأساسية",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 4,
+          "course": "اللغة العربية",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 5,
+          "course": "اللغة الإنكليزية",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "UNIVERSITY",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 6,
+          "course": "تقانة المعلومات",
+          "isNewCourse": false,
+          "credits": 2,
+          "category": "UNIVERSITY",
+          "requirement": "ELECTIVE"
+        }
+      ]
+    },
+    {
+      "levelNumber": 1,
+      "semesterNumber": 2,
+      "label": "المستوى الثاني",
+      "year": "السنة الأولى",
+      "items": [
+        {
+          "priority": 1,
+          "course": "علم نفس النمو",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 2,
+          "course": "التأهيل الأسري والتربوي",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 3,
+          "course": "مناهج البحث العلمي",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 4,
+          "course": "الصحة النفسية والدعم النفسي الأولي",
+          "isNewCourse": false,
+          "credits": 4,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 5,
+          "course": "علم النفس الفيزيولوجي",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 6,
+          "course": "الثقافة الإسلامية",
+          "isNewCourse": false,
+          "credits": 2,
+          "category": "UNIVERSITY",
+          "requirement": "ELECTIVE"
+        }
+      ]
+    },
+    {
+      "levelNumber": 2,
+      "semesterNumber": 1,
+      "label": "المستوى الثالث",
+      "year": "السنة الثانية",
+      "items": [
+        {
+          "priority": 1,
+          "course": "القياس والتقويم",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 2,
+          "course": "نظريات الشخصية",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 3,
+          "course": "الإحصاء التربوي",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 4,
+          "course": "التربية الأخلاقية",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 5,
+          "course": "علم النفس التربوي",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 6,
+          "course": "المضامين التربوية في القرآن والسنة",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE"
+        }
+      ]
+    },
+    {
+      "levelNumber": 2,
+      "semesterNumber": 2,
+      "label": "المستوى الرابع",
+      "year": "السنة الثانية",
+      "items": [
+        {
+          "priority": 1,
+          "course": "اللغة العربية 2 (التحرير الكتابي)",
+          "isNewCourse": true,
+          "credits": 3,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 2,
+          "course": "مشكلات الأطفال والكبار",
+          "isNewCourse": false,
+          "credits": 4,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 3,
+          "course": "مدخل إلى علم النفس الإسلامي",
+          "isNewCourse": false,
+          "credits": 2,
+          "category": "COLLEGE",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 4,
+          "course": "نظريات الإرشاد والعلاج النفسي",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 5,
+          "course": "الأعراض والأمراض النفسية",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE"
+        },
+        {
+          "priority": 6,
+          "course": "علم النفس الاجتماعي",
+          "isNewCourse": false,
+          "credits": 2,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE"
+        }
+      ]
+    },
+    {
+      "levelNumber": 3,
+      "semesterNumber": 1,
+      "label": "المستوى الخامس",
+      "year": "السنة الثالثة",
+      "items": [
+        {
+          "priority": 1,
+          "course": "مناهج التعليم الأساسي",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 2,
+          "course": "رياضيات (الأعداد والعمليات الحسابية)",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 3,
+          "course": "تعديل السلوك",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 4,
+          "course": "علوم الأحياء والبيئة",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 5,
+          "course": "الارشاد التربوي والمدرسي",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE"
+        },
+        {
+          "priority": 6,
+          "course": "النظم الإسلامية",
+          "isNewCourse": false,
+          "credits": 2,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE"
+        }
+      ]
+    },
+    {
+      "levelNumber": 3,
+      "semesterNumber": 2,
+      "label": "المستوى السادس",
+      "year": "السنة الثالثة",
+      "items": [
+        {
+          "priority": 1,
+          "course": "العلوم (المفاهيم الفيزيائية والكيميائية)",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 2,
+          "course": "طرائق التدريس العامة",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 3,
+          "course": "الإدارة الصفية والمدرسية",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 4,
+          "course": "رياضيات (الهندسة والقياس)",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 5,
+          "course": "صعوبات التعلم",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE"
+        },
+        {
+          "priority": 6,
+          "course": "مهارات الاتصال",
+          "isNewCourse": false,
+          "credits": 2,
+          "category": "UNIVERSITY",
+          "requirement": "ELECTIVE"
+        }
+      ]
+    },
+    {
+      "levelNumber": 4,
+      "semesterNumber": 1,
+      "label": "المستوى السابع",
+      "year": "السنة الرابعة",
+      "items": [
+        {
+          "priority": 1,
+          "course": "دراسات تخصصية باللغة الإنكليزية",
+          "isNewCourse": false,
+          "credits": 2,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 2,
+          "course": "الخط والتربية الفنية",
+          "isNewCourse": false,
+          "credits": 2,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 3,
+          "course": "طرائق تدريس التعليم الأساسي",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 4,
+          "course": "وسائل وتقنيات التعليم",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 5,
+          "course": "التربية العملية1",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 6,
+          "course": "اللغة العربية 3",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE"
+        },
+        {
+          "priority": 7,
+          "course": "المذاهب الفكرية",
+          "isNewCourse": false,
+          "credits": 2,
+          "category": "COLLEGE",
+          "requirement": "ELECTIVE"
+        }
+      ]
+    },
+    {
+      "levelNumber": 4,
+      "semesterNumber": 2,
+      "label": "المستوى الثامن",
+      "year": "السنة الرابعة",
+      "items": [
+        {
+          "priority": 1,
+          "course": "التربية الرياضية ( ألعاب - حركات)",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 2,
+          "course": "بحث تخرج",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 3,
+          "course": "التربية الدينية",
+          "isNewCourse": false,
+          "credits": 2,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 4,
+          "course": "التربية العملية 2",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 5,
+          "course": "مدخل إلى التاريخ والجغرافيا",
+          "isNewCourse": false,
+          "credits": 2,
+          "category": "PROGRAM",
+          "requirement": "MANDATORY"
+        },
+        {
+          "priority": 6,
+          "course": "الأنشطة المدرسية",
+          "isNewCourse": false,
+          "credits": 3,
+          "category": "PROGRAM",
+          "requirement": "ELECTIVE"
+        },
+        {
+          "priority": 7,
+          "course": "الثقافة المجتمعية",
+          "isNewCourse": false,
+          "credits": 2,
+          "category": "UNIVERSITY",
+          "requirement": "ELECTIVE"
+        }
+      ]
+    }
+  ]
+}

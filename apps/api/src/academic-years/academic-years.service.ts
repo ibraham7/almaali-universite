@@ -6,6 +6,10 @@ import {
 } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service.js';
+import {
+  getAdvisorAllowedProgramIds,
+  isProgramAllowedForAdvisor,
+} from '../advisors/advisor-scope.js';
 
 @Injectable()
 export class AcademicYearsService {
@@ -17,11 +21,9 @@ export class AcademicYearsService {
     if (actor.role !== 'ADVISOR') return;
     const plan = await this.prisma.studyPlan.findUnique({ where: { id: studyPlanId }, select: { programId: true } });
     if (!plan) throw new NotFoundException('الخطة الدراسية غير موجودة');
-    const assignment = await this.prisma.advisorProgramAssignment.findFirst({
-      where: { advisorId: actor.id, programId: plan.programId },
-      select: { id: true },
-    });
-    if (!assignment) throw new ForbiddenException('لا تملك صلاحية إدارة هذه الخطة الدراسية.');
+    if (!(await isProgramAllowedForAdvisor(this.prisma, actor.id, plan.programId))) {
+      throw new ForbiddenException('لا تملك صلاحية إدارة هذه الخطة الدراسية.');
+    }
   }
 
   private async resolveLevelNumber(
@@ -167,7 +169,7 @@ export class AcademicYearsService {
 
   async findAll(actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
     const allowed = actor.role === 'ADVISOR'
-      ? (await this.prisma.advisorProgramAssignment.findMany({ where: { advisorId: actor.id }, select: { programId: true } })).map((row) => row.programId)
+      ? await getAdvisorAllowedProgramIds(this.prisma, actor.id)
       : null;
     return this.prisma.academicYear.findMany({
       ...(allowed ? { where: { studyPlan: { programId: { in: allowed } } } } : {}),

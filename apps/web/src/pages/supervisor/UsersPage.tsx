@@ -44,8 +44,8 @@ import {
 
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import { getPrograms, type Program } from '../../api/academicStructure';
-import { getAdvisorPrograms, setAdvisorPrograms } from '../../api/advisors';
+import { getPrograms, getColleges, type Program, type College } from '../../api/academicStructure';
+import { getAdvisorPrograms, setAdvisorPrograms, getAdvisorColleges, setAdvisorColleges } from '../../api/advisors';
 
 import {
     createStaffUser,
@@ -183,6 +183,8 @@ export default function UsersPage() {
     const [scopeAdvisor, setScopeAdvisor] = useState<SystemUser | null>(null);
     const [programs, setPrograms] = useState<Program[]>([]);
     const [selectedProgramIds, setSelectedProgramIds] = useState<string[]>([]);
+    const [colleges, setColleges] = useState<College[]>([]);
+    const [selectedCollegeIds, setSelectedCollegeIds] = useState<string[]>([]);
 
     const [search, setSearch] =
         useState('');
@@ -264,9 +266,16 @@ export default function UsersPage() {
         try {
             setError('');
             setSaving(true);
-            const [programData, assignments] = await Promise.all([getPrograms(), getAdvisorPrograms(user.id)]);
+            const [programData, collegeData, assignments, collegeAssignments] = await Promise.all([
+                getPrograms(),
+                getColleges(),
+                getAdvisorPrograms(user.id),
+                getAdvisorColleges(user.id),
+            ]);
             setPrograms(programData);
+            setColleges(collegeData);
             setSelectedProgramIds(assignments.map((item) => item.id));
+            setSelectedCollegeIds(collegeAssignments.map((item) => item.id));
             setScopeAdvisor(user);
             setScopeDialogOpen(true);
         } catch (requestError) {
@@ -281,9 +290,12 @@ export default function UsersPage() {
         try {
             setSaving(true);
             setError('');
-            await setAdvisorPrograms(scopeAdvisor.id, selectedProgramIds);
+            await Promise.all([
+                setAdvisorPrograms(scopeAdvisor.id, selectedProgramIds),
+                setAdvisorColleges(scopeAdvisor.id, selectedCollegeIds),
+            ]);
             setScopeDialogOpen(false);
-            setSuccess(`تم حفظ ${selectedProgramIds.length} اختصاص للمسؤول ${scopeAdvisor.displayName ?? scopeAdvisor.username ?? ''}.`);
+            setSuccess(`تم حفظ التعيين للمسؤول ${scopeAdvisor.displayName ?? scopeAdvisor.username ?? ''}.`);
         } catch (requestError) {
             setError(getErrorMessage(requestError));
         } finally {
@@ -1152,14 +1164,32 @@ export default function UsersPage() {
                 <DialogTitle>اختصاصات المسؤول</DialogTitle>
                 <DialogContent dividers>
                     <Stack spacing={2} sx={{ pt: 1 }}>
-                        <Alert severity="info">اختر جميع البرامج التي يتولاها هذا المسؤول. يحق له تسجيل مواد الطلاب التابعين لهذه البرامج، وتُعرض الاختصاصات مجمعة بحسب الكلية والقسم.</Alert>
+                        <Alert severity="info">اختر الكليات أو الاختصاصات التي يتولاها هذا المسؤول. تعيين كلية كاملة يشمل تلقائيًا كل أقسامها واختصاصاتها الحالية والمستقبلية، دون حاجة لإعادة التعيين عند إضافة اختصاص جديد لها.</Alert>
                         <FormControl fullWidth>
-                            <InputLabel id="advisor-programs-label">الكلية والقسم والاختصاص</InputLabel>
+                            <InputLabel id="advisor-colleges-label">الكليات (تشمل كل أقسامها تلقائيًا)</InputLabel>
+                            <Select
+                                labelId="advisor-colleges-label"
+                                multiple
+                                value={selectedCollegeIds}
+                                label="الكليات (تشمل كل أقسامها تلقائيًا)"
+                                onChange={(event) => setSelectedCollegeIds(typeof event.target.value === 'string' ? event.target.value.split(',') : event.target.value)}
+                                renderValue={(selected) => `${selected.length} كلية محددة`}
+                            >
+                                {colleges.map((college) => (
+                                    <MenuItem key={college.id} value={college.id}>
+                                        <Checkbox checked={selectedCollegeIds.includes(college.id)} />
+                                        <ListItemText primary={college.nameAr} />
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                        <FormControl fullWidth>
+                            <InputLabel id="advisor-programs-label">اختصاصات محددة (اختياري، بالإضافة إلى الكليات)</InputLabel>
                             <Select
                                 labelId="advisor-programs-label"
                                 multiple
                                 value={selectedProgramIds}
-                                label="الكلية والقسم والاختصاص"
+                                label="اختصاصات محددة (اختياري، بالإضافة إلى الكليات)"
                                 onChange={(event) => setSelectedProgramIds(typeof event.target.value === 'string' ? event.target.value.split(',') : event.target.value)}
                                 renderValue={(selected) => `${selected.length} اختصاص محدد`}
                             >
