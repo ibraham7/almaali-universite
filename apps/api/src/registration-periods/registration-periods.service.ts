@@ -6,6 +6,10 @@ import {
 } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service.js';
+import {
+  getAdvisorAllowedProgramIds,
+  isProgramAllowedForAdvisor,
+} from '../advisors/advisor-scope.js';
 import { CreateRegistrationPeriodDto } from './dto/create-registration-period.dto.js';
 
 type UpdateRegistrationPeriodDto = Partial<CreateRegistrationPeriodDto>;
@@ -87,11 +91,12 @@ export class RegistrationPeriodsService {
       throw new NotFoundException('الفصل الدراسي غير موجود');
     }
     if (actor?.role === 'ADVISOR') {
-      const assignment = await this.prisma.advisorProgramAssignment.findFirst({
-        where: { advisorId: actor.id, programId: semester.academicYear.studyPlan.programId },
-        select: { id: true },
-      });
-      if (!assignment) throw new ForbiddenException('لا تملك صلاحية ضبط فترة هذا الفصل.');
+      const allowed = await isProgramAllowedForAdvisor(
+        this.prisma,
+        actor.id,
+        semester.academicYear.studyPlan.programId,
+      );
+      if (!allowed) throw new ForbiddenException('لا تملك صلاحية ضبط فترة هذا الفصل.');
     }
   }
 
@@ -146,7 +151,7 @@ export class RegistrationPeriodsService {
 
   async findAll(actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
     const allowed = actor.role === 'ADVISOR'
-      ? (await this.prisma.advisorProgramAssignment.findMany({ where: { advisorId: actor.id }, select: { programId: true } })).map((row) => row.programId)
+      ? await getAdvisorAllowedProgramIds(this.prisma, actor.id)
       : null;
     const allowedSemesterIds = allowed
       ? (await this.prisma.semester.findMany({

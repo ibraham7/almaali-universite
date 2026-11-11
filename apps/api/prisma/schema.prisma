@@ -87,6 +87,7 @@ model College {
   university  University   @relation(fields: [universityId], references: [id])
   departments Department[]
   programs    Program[]
+  advisorAssignments AdvisorCollegeAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -218,6 +219,7 @@ model User {
 
   student Student?
   advisorProgramAssignments AdvisorProgramAssignment[]
+  advisorCollegeAssignments AdvisorCollegeAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -235,6 +237,25 @@ model AdvisorProgramAssignment {
 
   @@unique([advisorId, programId])
   @@index([programId])
+}
+
+// Assigns an advisor to an entire college: every department and program
+// under it, including ones added later, without re-assigning the advisor
+// each time. A college assignment and individual program assignments
+// (AdvisorProgramAssignment) can both exist for the same advisor; the
+// allowed-program set is the union of both.
+model AdvisorCollegeAssignment {
+  id        String   @id @default(uuid())
+  advisorId String
+  collegeId String
+
+  advisor User    @relation(fields: [advisorId], references: [id], onDelete: Cascade)
+  college College @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([advisorId, collegeId])
+  @@index([collegeId])
 }
 
 model Student {

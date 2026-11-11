@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service.js';
+import { getAdvisorAllowedProgramIds } from '../advisors/advisor-scope.js';
 
 @Injectable()
 export class StudyPlansService {
@@ -14,11 +15,7 @@ export class StudyPlansService {
 
   private async assignedProgramIds(actor: { id: string; role: string }) {
     if (actor.role !== 'ADVISOR') return null;
-    const rows = await this.prisma.advisorProgramAssignment.findMany({
-      where: { advisorId: actor.id },
-      select: { programId: true },
-    });
-    return rows.map((row) => row.programId);
+    return getAdvisorAllowedProgramIds(this.prisma, actor.id);
   }
 
   private async assertProgramAccess(programId: string, actor: { id: string; role: string }) {

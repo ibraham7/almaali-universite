@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service.js';
+import { isProgramAllowedForAdvisor } from '../advisors/advisor-scope.js';
 import { CreateStudyPlanCourseDto } from './dto/create-study-plan-course.dto.js';
 import { ReorderStudyPlanCoursesDto } from './dto/reorder-study-plan-courses.dto.js';
 
@@ -12,8 +13,9 @@ export class StudyPlanCoursesService {
     if (actor.role !== 'ADVISOR') return;
     const plan = await this.prisma.studyPlan.findUnique({ where: { id: studyPlanId }, select: { programId: true } });
     if (!plan) throw new NotFoundException('الخطة الدراسية غير موجودة');
-    const assignment = await this.prisma.advisorProgramAssignment.findFirst({ where: { advisorId: actor.id, programId: plan.programId }, select: { id: true } });
-    if (!assignment) throw new ForbiddenException('لا تملك صلاحية تعديل مقررات هذه الخطة.');
+    if (!(await isProgramAllowedForAdvisor(this.prisma, actor.id, plan.programId))) {
+      throw new ForbiddenException('لا تملك صلاحية تعديل مقررات هذه الخطة.');
+    }
   }
 
   async create(dto: CreateStudyPlanCourseDto, actor: { id: string; role: string }) {
