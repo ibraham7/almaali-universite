@@ -65,7 +65,10 @@ model University {
   nameEn String
 
   minGpaForFutureYears    Decimal @default(2.0)
-  allowedFutureYears      Int     @default(1)
+  // Students register for their current semester only by default. A
+  // supervisor can raise this from the system settings screen for a
+  // university that wants to allow registering ahead of schedule.
+  allowedFutureYears      Int     @default(0)
   requiredElectiveCredits Int     @default(12)
 
   colleges    College[]
