@@ -88,6 +88,7 @@ export class SemestersService {
     nameEn?: string;
     semesterNumber: number;
     requireMandatoryCourses?: boolean;
+    isActive?: boolean;
   }, actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
     await this.assertLevelAccess(data.academicYearId, actor);
     const academicYear = await this.prisma.academicYear.findUnique({
@@ -118,6 +119,7 @@ export class SemestersService {
         semesterNumber,
         requireMandatoryCourses:
           data.requireMandatoryCourses ?? false,
+        isActive: data.isActive ?? true,
       },
     });
   }
@@ -129,6 +131,7 @@ export class SemestersService {
       nameEn?: string;
       semesterNumber?: number;
       requireMandatoryCourses?: boolean;
+      isActive?: boolean;
     },
     actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' },
   ) {
@@ -174,6 +177,11 @@ export class SemestersService {
           ? {
               requireMandatoryCourses:
                 data.requireMandatoryCourses,
+            }
+          : {}),
+        ...(data.isActive !== undefined
+          ? {
+              isActive: data.isActive,
             }
           : {}),
       },

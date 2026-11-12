@@ -10,6 +10,7 @@ export interface RegistrationPeriod {
   advisorApprovalRequired: boolean;
   dropAllowed: boolean;
   addDropDeadline?: string | null;
+  reason?: string | null;
 }
 
 export interface RegistrationPeriodInput {
@@ -21,6 +22,7 @@ export interface RegistrationPeriodInput {
   advisorApprovalRequired: boolean;
   dropAllowed: boolean;
   addDropDeadline?: string | null;
+  reason?: string | null;
 }
 
 export async function getRegistrationPeriodsBySemester(

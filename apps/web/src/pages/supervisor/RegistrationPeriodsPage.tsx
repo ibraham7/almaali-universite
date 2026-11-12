@@ -59,6 +59,7 @@ type PeriodForm = {
   advisorApprovalRequired: boolean;
   dropAllowed: boolean;
   addDropDeadline: string;
+  reason: string;
 };
 
 const emptyForm: PeriodForm = {
@@ -69,6 +70,7 @@ const emptyForm: PeriodForm = {
   advisorApprovalRequired: true,
   dropAllowed: true,
   addDropDeadline: '',
+  reason: '',
 };
 
 function getErrorMessage(error: unknown) {
@@ -309,6 +311,7 @@ export default function RegistrationPeriodsPage() {
       addDropDeadline: toLocalInputValue(
         period.addDropDeadline,
       ),
+      reason: period.reason ?? '',
     });
     setError('');
     setSuccess('');
@@ -377,6 +380,7 @@ export default function RegistrationPeriodsPage() {
               form.addDropDeadline,
             ).toISOString()
           : null,
+        reason: form.reason.trim() || null,
       };
 
       if (editingPeriod) {
@@ -736,6 +740,16 @@ export default function RegistrationPeriodsPage() {
                           />
                         )}
                       </Stack>
+
+                      {period.reason && (
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ mt: 1 }}
+                        >
+                          سبب التعديل: {period.reason}
+                        </Typography>
+                      )}
                     </Box>
 
                     <Stack
@@ -874,6 +888,19 @@ export default function RegistrationPeriodsPage() {
                   ...current,
                   addDropDeadline:
                     event.target.value,
+                }))
+              }
+            />
+
+            <TextField
+              multiline
+              minRows={2}
+              label="سبب التعديل (اختياري)"
+              value={form.reason}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  reason: event.target.value,
                 }))
               }
             />

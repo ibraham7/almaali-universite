@@ -10,6 +10,8 @@ type CreateTeacherInput = {
   name: string;
   email?: string | null;
   phone?: string | null;
+  qualification?: string | null;
+  specialization?: string | null;
 };
 
 type UpdateTeacherInput = Partial<CreateTeacherInput>;
@@ -52,6 +54,12 @@ export class TeachersService {
         ),
         email: this.normalizeOptional(input.email),
         phone: this.normalizeOptional(input.phone),
+        qualification: this.normalizeOptional(
+          input.qualification,
+        ),
+        specialization: this.normalizeOptional(
+          input.specialization,
+        ),
       },
     });
 
@@ -149,6 +157,20 @@ export class TeachersService {
           ? {
               phone: this.normalizeOptional(
                 input.phone,
+              ),
+            }
+          : {}),
+        ...(input.qualification !== undefined
+          ? {
+              qualification: this.normalizeOptional(
+                input.qualification,
+              ),
+            }
+          : {}),
+        ...(input.specialization !== undefined
+          ? {
+              specialization: this.normalizeOptional(
+                input.specialization,
               ),
             }
           : {}),

@@ -3,6 +3,7 @@ import {
   IsDateString,
   IsInt,
   IsOptional,
+  IsString,
   IsUUID,
   Min,
 } from 'class-validator';
@@ -36,4 +37,8 @@ export class CreateRegistrationPeriodDto {
   @IsOptional()
   @IsDateString()
   addDropDeadline?: string;
+
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }

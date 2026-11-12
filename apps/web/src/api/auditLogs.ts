@@ -24,3 +24,14 @@ export async function getAuditLogs(page: number) {
 
   return response.data;
 }
+
+export async function getAuditLogsForEntity(
+  entity: string,
+  entityId: string,
+) {
+  const response = await apiClient.get<AuditLogEntry[]>(
+    `/audit-logs/${entity}/${entityId}`,
+  );
+
+  return response.data;
+}

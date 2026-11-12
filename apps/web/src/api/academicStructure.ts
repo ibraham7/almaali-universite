@@ -77,6 +77,7 @@ export interface Semester {
     semesterNumber: number;
 
     requireMandatoryCourses: boolean;
+    isActive: boolean;
 
     createdAt?: string;
     updatedAt?: string;
@@ -326,6 +327,8 @@ export async function createSemester(
         semesterNumber: number;
 
         requireMandatoryCourses?: boolean;
+
+        isActive?: boolean;
     },
 ) {
     const response =
@@ -347,6 +350,8 @@ export async function updateSemester(
         semesterNumber?: number;
 
         requireMandatoryCourses?: boolean;
+
+        isActive?: boolean;
     },
 ) {
     const response =

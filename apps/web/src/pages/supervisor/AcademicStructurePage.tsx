@@ -79,6 +79,8 @@ interface DialogForm {
     number: string;
 
     requireMandatoryCourses: boolean;
+
+    isActive: boolean;
 }
 
 const emptyForm: DialogForm = {
@@ -89,6 +91,8 @@ const emptyForm: DialogForm = {
     number: '1',
 
     requireMandatoryCourses: false,
+
+    isActive: true,
 };
 
 function getErrorMessage(
@@ -493,6 +497,11 @@ export default function AcademicStructurePage() {
                     item
                     ? item.requireMandatoryCourses
                     : false,
+
+            isActive:
+                'isActive' in item
+                    ? item.isActive
+                    : true,
         });
 
         setError('');
@@ -784,6 +793,9 @@ export default function AcademicStructurePage() {
 
                             requireMandatoryCourses:
                                 form.requireMandatoryCourses,
+
+                            isActive:
+                                form.isActive,
                         },
                     );
                 } else {
@@ -811,6 +823,9 @@ export default function AcademicStructurePage() {
 
                         requireMandatoryCourses:
                             form.requireMandatoryCourses,
+
+                        isActive:
+                            form.isActive,
                     });
                 }
             }
@@ -1178,6 +1193,9 @@ export default function AcademicStructurePage() {
                             subtitle={`الفصل ${semester.semesterNumber}${semester.requireMandatoryCourses
                                     ? ' • المقررات الإجبارية مطلوبة'
                                     : ''
+                                }${semester.isActive
+                                    ? ''
+                                    : ' • غير نشط'
                                 }`}
                             onEdit={() =>
                                 openEdit(
@@ -1302,6 +1320,36 @@ export default function AcademicStructurePage() {
                                         />
                                     }
                                     label="إلزام الطالب بالمقررات الإجبارية لهذا الفصل"
+                                />
+                            )}
+
+                        {dialogType ===
+                            'semester' && (
+                                <FormControlLabel
+                                    control={
+                                        <Checkbox
+                                            checked={
+                                                form.isActive
+                                            }
+                                            onChange={(
+                                                event,
+                                            ) =>
+                                                setForm(
+                                                    (
+                                                        current,
+                                                    ) => ({
+                                                        ...current,
+
+                                                        isActive:
+                                                            event
+                                                                .target
+                                                                .checked,
+                                                    }),
+                                                )
+                                            }
+                                        />
+                                    }
+                                    label="الفصل نشط (متاح للتسجيل)"
                                 />
                             )}
                     </Stack>

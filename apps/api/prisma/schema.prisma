@@ -180,6 +180,7 @@ model Semester {
   semesterNumber Int
 
   requireMandatoryCourses Boolean @default(false)
+  isActive                Boolean @default(true)
 
   academicYear AcademicYear      @relation(fields: [academicYearId], references: [id])
   planCourses  StudyPlanCourse[]
@@ -321,10 +322,12 @@ model SupportTicketMessage {
 }
 
 model Teacher {
-  id    String  @id @default(uuid())
-  name  String
-  email String?
-  phone String?
+  id             String  @id @default(uuid())
+  name           String
+  email          String?
+  phone          String?
+  qualification  String?
+  specialization String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -342,6 +345,7 @@ model RegistrationPeriod {
   advisorApprovalRequired Boolean   @default(false)
   dropAllowed             Boolean   @default(true)
   addDropDeadline         DateTime?
+  reason                  String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

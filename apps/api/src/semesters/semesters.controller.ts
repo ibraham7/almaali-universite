@@ -40,6 +40,7 @@ export class SemestersController {
       nameEn?: string;
       semesterNumber: number;
       requireMandatoryCourses?: boolean;
+      isActive?: boolean;
     },
     @Req() request: Request & { user: { id: string; role: string } },
   ) {
@@ -57,6 +58,7 @@ export class SemestersController {
       nameEn?: string;
       semesterNumber?: number;
       requireMandatoryCourses?: boolean;
+      isActive?: boolean;
     },
     @Req() request: Request & { user: { id: string; role: string } },
   ) {
