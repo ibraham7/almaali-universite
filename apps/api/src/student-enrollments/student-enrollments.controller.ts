@@ -245,26 +245,26 @@ export class StudentEnrollmentsController {
 
   @Post('items/drop')
   @Roles('REGISTRAR', 'SYSTEM_ADMIN')
-  dropItem(@Body() dto: DropEnrollmentItemDto) {
-    return this.studentEnrollmentsService.dropItem(dto);
+  dropItem(@Body() dto: DropEnrollmentItemDto, @Req() request: AuthenticatedRequest) {
+    return this.studentEnrollmentsService.dropItem(dto, undefined, request.user.id);
   }
 
   @Post(':enrollmentId/confirm')
   @Roles('REGISTRAR', 'SYSTEM_ADMIN')
-  confirm(@Param('enrollmentId') enrollmentId: string) {
-    return this.studentEnrollmentsService.confirm(enrollmentId);
+  confirm(@Param('enrollmentId') enrollmentId: string, @Req() request: AuthenticatedRequest) {
+    return this.studentEnrollmentsService.confirm(enrollmentId, undefined, false, request.user.id);
   }
 
   @Post('items')
   @Roles('REGISTRAR', 'SYSTEM_ADMIN')
-  addItem(@Body() dto: AddEnrollmentItemDto) {
-    return this.studentEnrollmentsService.addItem(dto);
+  addItem(@Body() dto: AddEnrollmentItemDto, @Req() request: AuthenticatedRequest) {
+    return this.studentEnrollmentsService.addItem(dto, undefined, request.user.id);
   }
 
   @Post()
   @Roles('REGISTRAR', 'SYSTEM_ADMIN')
-  create(@Body() dto: CreateStudentEnrollmentDto) {
-    return this.studentEnrollmentsService.create(dto);
+  create(@Body() dto: CreateStudentEnrollmentDto, @Req() request: AuthenticatedRequest) {
+    return this.studentEnrollmentsService.create(dto, request.user.id);
   }
 
   @Get()
