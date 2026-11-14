@@ -158,14 +158,16 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
     </Box>;
   }
 
-  function select(key: keyof StudentInput, label: string, options: Array<{ id: string; nameAr?: string; email?: string }>, clear: Array<keyof StudentInput> = []) {
-    return <TextField select key={key} label={label} fullWidth value={form[key] ?? ''}
+  function select(key: keyof StudentInput, label: string, options: Array<{ id: string; nameAr?: string; email?: string }>, clear: Array<keyof StudentInput> = [], required = false) {
+    const missing = required && submitted && !String(form[key] ?? '').trim();
+    return <TextField select key={key} label={label} required={required} fullWidth value={form[key] ?? ''}
+      error={Boolean(missing)} helperText={missing ? `${label} مطلوب.` : undefined}
       onChange={(event) => setForm((current) => {
         const next: StudentInput = { ...current, [key]: event.target.value || null };
         clear.forEach((dependent) => { next[dependent] = ''; });
         return next;
       })}>
-      <MenuItem value="">غير محدد</MenuItem>
+      {!required && <MenuItem value="">غير محدد</MenuItem>}
       {options.map((option) => <MenuItem key={option.id} value={option.id}>{option.nameAr ?? option.email}</MenuItem>)}
     </TextField>;
   }
@@ -194,6 +196,12 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
         const message = validateStudentField(key, value);
         if (message) nextErrors[key] = message;
       }
+    }
+    for (const [key, label] of [
+      ['collegeId', 'الكلية'], ['programId', 'البرنامج / التخصص'], ['studyPlanId', 'الخطة الدراسية'],
+      ['academicYearId', 'المستوى الأكاديمي'], ['semesterId', 'الفصل الدراسي'],
+    ] as const) {
+      if (!String(form[key] ?? '').trim()) nextErrors[key] = `${label} مطلوب.`;
     }
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
@@ -232,14 +240,14 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
     field('admissionDate', 'تاريخ القبول', false, 'date'),
   ];
   const academic = catalog ? [
-    select('collegeId', 'الكلية', catalog.colleges, ['departmentId', 'programId', 'studyPlanId', 'academicYearId', 'semesterId']),
+    select('collegeId', 'الكلية', catalog.colleges, ['departmentId', 'programId', 'studyPlanId', 'academicYearId', 'semesterId'], true),
     select('departmentId', 'القسم', catalog.departments.filter((item) => item.collegeId === form.collegeId), ['programId', 'studyPlanId', 'academicYearId', 'semesterId']),
     select('programId', 'البرنامج / التخصص', catalog.programs.filter((item) => form.departmentId
       ? item.departmentId === form.departmentId
-      : !item.departmentId && item.collegeId === form.collegeId), ['studyPlanId', 'academicYearId', 'semesterId']),
-    select('studyPlanId', 'الخطة الدراسية', catalog.plans.filter((item) => item.programId === form.programId), ['academicYearId', 'semesterId']),
-    select('academicYearId', 'المستوى الأكاديمي', catalog.years.filter((item) => item.studyPlanId === form.studyPlanId), ['semesterId']),
-    select('semesterId', 'الفصل الدراسي', catalog.semesters.filter((item) => item.academicYearId === form.academicYearId)),
+      : !item.departmentId && item.collegeId === form.collegeId), ['studyPlanId', 'academicYearId', 'semesterId'], true),
+    select('studyPlanId', 'الخطة الدراسية', catalog.plans.filter((item) => item.programId === form.programId), ['academicYearId', 'semesterId'], true),
+    select('academicYearId', 'المستوى الأكاديمي', catalog.years.filter((item) => item.studyPlanId === form.studyPlanId), ['semesterId'], true),
+    select('semesterId', 'الفصل الدراسي', catalog.semesters.filter((item) => item.academicYearId === form.academicYearId), [], true),
     select('advisorId', 'المرشد الأكاديمي', catalog.advisors),
   ] : [];
 
@@ -251,7 +259,7 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
     <DialogTitle>{student ? 'تعديل بيانات الطالب' : 'إضافة طالب'}</DialogTitle>
     <DialogContent dividers>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      <Typography color="text.secondary" sx={{ mb: 2 }}>أدخل البيانات المعتمدة في سجل الطالب. إنشاء حساب الدخول للطالب خطوة منفصلة.</Typography>
+      <Typography color="text.secondary" sx={{ mb: 2 }}>أدخل البيانات المعتمدة في سجل الطالب. الكلية والبرنامج والخطة والمستوى والفصل مطلوبة ليرتبط الطالب بخطته الدراسية ويستطيع تسجيل المقررات. إنشاء حساب الدخول للطالب خطوة منفصلة.</Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 2 }}>
         {studentFields}
         {catalog ? academic : <CircularProgress size={24} />}

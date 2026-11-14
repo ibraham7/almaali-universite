@@ -307,6 +307,8 @@ export default function StudentsPage() {
             programId,
         ]);
 
+    const studentsWithoutPlan = filteredStudents.filter((student) => !student.studyPlanId).length;
+
     async function openStudent(
         student: StudentListItem,
     ) {
@@ -544,6 +546,12 @@ export default function StudentsPage() {
                 />
             </Box>
 
+            {studentsWithoutPlan > 0 && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                    {`${studentsWithoutPlan} طالب غير مرتبط بخطة دراسية ولا يستطيع تسجيل المقررات. عدّل بياناتهم (زر التعديل) وحدّد الكلية والبرنامج والخطة والمستوى والفصل.`}
+                </Alert>
+            )}
+
             {filteredStudents.length ===
                 0 ? (
                 <Card>
@@ -701,6 +709,14 @@ export default function StudentsPage() {
                                                             student.status,
                                                         )}
                                                     />
+
+                                                    {!student.studyPlanId && (
+                                                        <Chip
+                                                            size="small"
+                                                            color="error"
+                                                            label="بدون خطة"
+                                                        />
+                                                    )}
                                                 </Stack>
 
                                                 <Typography

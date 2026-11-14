@@ -12,24 +12,42 @@ function file(rows: string[][]) {
 
 function row(universityId: string, firstName: string, familyName: string, birth = '') {
   const numericId = universityId.replace(/\D/g, '') || '999';
-  return [universityId, firstName, 'عمر', familyName, '', '', birth, '', '', '', '', '', '', '', '', '', '', '', '', '', 'منى', `1234${numericId}`, `456${numericId}`, 'حلب'];
+  const cells = Array<string>(STUDENT_IMPORT_HEADERS.length).fill('');
+  Object.assign(cells, {
+    0: universityId, 1: firstName, 2: 'عمر', 3: familyName, 6: birth,
+    11: 'كلية التربية', 13: 'معلم صف', 14: 'خطة معلم صف', 15: 'السنة الأولى', 16: 'الفصل الأول',
+    20: 'منى', 21: `1234${numericId}`, 22: `456${numericId}`, 23: 'حلب',
+  });
+  return cells;
 }
 
-function database(ids: string[] = []) {
+function withoutPlacement(cells: string[]) {
+  const copy = [...cells];
+  for (const column of [11, 12, 13, 14, 15, 16]) copy[column] = '';
+  return copy;
+}
+
+function database(ids: string[] = [], existingHasPlan = false) {
   const findMany = vi.fn().mockResolvedValue([]);
   const create = vi.fn().mockResolvedValue({});
   const update = vi.fn().mockResolvedValue({});
   const audit = vi.fn().mockResolvedValue({});
   const transaction = vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({ student: { create, update }, auditLog: { create: audit } }));
   const prisma = {
-    college: { findMany }, department: { findMany }, program: { findMany },
-    studyPlan: { findMany }, academicYear: { findMany }, semester: { findMany },
+    college: { findMany: vi.fn().mockResolvedValue([{ id: 'college-1', nameAr: 'كلية التربية' }]) },
+    department: { findMany },
+    program: { findMany: vi.fn().mockResolvedValue([{ id: 'program-1', nameAr: 'معلم صف', collegeId: 'college-1', departmentId: null }]) },
+    studyPlan: { findMany: vi.fn().mockResolvedValue([{ id: 'plan-1', nameAr: 'خطة معلم صف', programId: 'program-1' }]) },
+    academicYear: { findMany: vi.fn().mockResolvedValue([{ id: 'year-1', nameAr: 'السنة الأولى', studyPlanId: 'plan-1' }]) },
+    semester: { findMany: vi.fn().mockResolvedValue([{ id: 'semester-1', nameAr: 'الفصل الأول', academicYearId: 'year-1' }]) },
     user: { findMany }, student: { findMany: vi.fn().mockResolvedValue(ids.map((universityId) => ({
       universityId, firstName: 'سارة', middleName: 'عمر', familyName: 'علي', fullName: 'سارة عمر علي',
       motherName: 'منى', nationalId: 'N-OLD', applicationNumber: 'A-OLD', birthPlace: 'حلب', englishName: null,
       gender: null, dateOfBirth: null, nationality: null, idOrPassport: null,
-      universityEmail: null, phone: null, collegeId: null, departmentId: null, programId: null,
-      studyPlanId: null, academicYearId: null, semesterId: null, status: 'ACTIVE', advisorId: null,
+      universityEmail: null, phone: null,
+      collegeId: existingHasPlan ? 'college-1' : null, departmentId: null, programId: existingHasPlan ? 'program-1' : null,
+      studyPlanId: existingHasPlan ? 'plan-1' : null, academicYearId: existingHasPlan ? 'year-1' : null,
+      semesterId: existingHasPlan ? 'semester-1' : null, status: 'ACTIVE', advisorId: null,
       admissionDate: null,
     }))) },
     $transaction: transaction,
@@ -80,6 +98,8 @@ describe('Student Excel import', () => {
       data: {
         firstName: 'مريم', fullName: 'مريم عمر علي', familyName: 'علي', middleName: 'عمر',
         motherName: 'منى', nationalId: '12342026001', applicationNumber: '4562026001', birthPlace: 'حلب',
+        collegeId: 'college-1', programId: 'program-1', studyPlanId: 'plan-1',
+        academicYearId: 'year-1', semesterId: 'semester-1',
       },
     });
   });
@@ -133,5 +153,26 @@ describe('Student Excel import', () => {
     arabicDigits[22] = '٦٧٨٩';
     const result = await new StudentImportsService(prisma).confirm(file([arabicDigits]), 'registrar-1');
     expect(result.imported).toBe(1);
+  });
+
+  it('rejects a new student row that is not placed in a college, program, plan, level and semester', async () => {
+    const { prisma, transaction } = database();
+    const result = await new StudentImportsService(prisma).preview(file([withoutPlacement(row('2026011', 'هند', 'خالد'))]));
+    expect(result).toMatchObject({ validCount: 0, errorCount: 1 });
+    expect(result.errors[0].message).toContain('يجب تحديد الكلية والبرنامج والخطة والمستوى والفصل');
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects an update that would leave an existing student without a study plan', async () => {
+    const { prisma } = database(['2026001']);
+    const result = await new StudentImportsService(prisma).preview(file([withoutPlacement(row('2026001', 'سارة', 'علي'))]));
+    expect(result).toMatchObject({ validCount: 0, errorCount: 1 });
+    expect(result.errors[0].message).toContain('يجب تحديد الكلية والبرنامج والخطة والمستوى والفصل');
+  });
+
+  it('keeps the plan of an existing student when the placement columns are left blank', async () => {
+    const { prisma } = database(['2026001'], true);
+    const result = await new StudentImportsService(prisma).preview(file([withoutPlacement(row('2026001', 'سارة', 'علي'))]));
+    expect(result).toMatchObject({ validCount: 1, errorCount: 0, updateCount: 1 });
   });
 });
