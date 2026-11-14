@@ -290,6 +290,70 @@ export class CourseSectionsService {
     };
   }
 
+  async createForSemester(
+    semesterId: string,
+    maxCapacity: number,
+    actorUserId?: string,
+    sectionNumber = '1',
+  ) {
+    const number = this.normalizeSectionNumber(sectionNumber);
+    this.validateCapacity(maxCapacity);
+
+    const semester = await this.prisma.semester.findUnique({
+      where: { id: semesterId },
+      select: { id: true },
+    });
+
+    if (!semester) {
+      throw new NotFoundException('الفصل الدراسي غير موجود.');
+    }
+
+    const placements = await this.prisma.studyPlanCourse.findMany({
+      where: { semesterId, course: { status: 'ACTIVE' } },
+      select: { courseId: true },
+    });
+    const courseIds = [...new Set(placements.map((item) => item.courseId))];
+
+    if (courseIds.length === 0) {
+      throw new BadRequestException(
+        'لا توجد مقررات موضوعة في هذا الفصل ضمن الخطة الدراسية.',
+      );
+    }
+
+    const result = await this.prisma.courseSection.createMany({
+      data: courseIds.map((courseId) => ({
+        courseId,
+        semesterId,
+        sectionNumber: number,
+        maxCapacity,
+        status: SectionStatus.OPEN,
+      })),
+      skipDuplicates: true,
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        action: 'SECTIONS_BULK_CREATED',
+        entity: 'Semester',
+        entityId: semesterId,
+        userId: actorUserId,
+        details: JSON.stringify({
+          sectionNumber: number,
+          maxCapacity,
+          created: result.count,
+          skipped: courseIds.length - result.count,
+        }),
+      },
+    });
+
+    return {
+      success: true,
+      total: courseIds.length,
+      created: result.count,
+      skipped: courseIds.length - result.count,
+    };
+  }
+
   async findAll(filters?: {
     semesterId?: string;
     courseId?: string;

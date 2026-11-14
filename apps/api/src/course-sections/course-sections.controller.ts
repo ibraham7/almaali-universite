@@ -7,8 +7,10 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 
 import { CourseSectionsService } from './course-sections.service.js';
 
@@ -31,6 +33,19 @@ export class CourseSectionsController {
   constructor(
     private readonly courseSectionsService: CourseSectionsService,
   ) {}
+
+  @Post('bulk-for-semester')
+  createForSemester(
+    @Body() body: { semesterId: string; maxCapacity: number; sectionNumber?: string },
+    @Req() request: Request & { user: { id: string } },
+  ) {
+    return this.courseSectionsService.createForSemester(
+      body.semesterId,
+      Number(body.maxCapacity),
+      request.user.id,
+      body.sectionNumber,
+    );
+  }
 
   @Post()
   create(

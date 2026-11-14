@@ -98,6 +98,20 @@ export async function getCourseSections(filters?: {
   return data;
 }
 
+export async function createSectionsForSemester(
+  semesterId: string,
+  maxCapacity: number,
+) {
+  const { data } = await apiClient.post<{
+    success: boolean;
+    total: number;
+    created: number;
+    skipped: number;
+  }>('/course-sections/bulk-for-semester', { semesterId, maxCapacity });
+
+  return data;
+}
+
 export async function createCourseSection(
   input: SectionMutationInput,
 ) {
