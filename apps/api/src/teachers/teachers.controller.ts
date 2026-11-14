@@ -38,6 +38,8 @@ export class TeachersController {
       name: string;
       email?: string | null;
       phone?: string | null;
+      qualification?: string | null;
+      specialization?: string | null;
     },
   ) {
     return this.teachersService.create(
@@ -70,6 +72,8 @@ export class TeachersController {
       name?: string;
       email?: string | null;
       phone?: string | null;
+      qualification?: string | null;
+      specialization?: string | null;
     },
   ) {
     return this.teachersService.update(

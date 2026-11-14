@@ -174,6 +174,9 @@ export class StudentImportsService {
       const studyPlanId = resolve(planName, plans, programId, 'programId', 'الخطة', existingStudent?.studyPlanId);
       const academicYearId = resolve(yearName, years, studyPlanId, 'studyPlanId', 'المستوى', existingStudent?.academicYearId);
       const semesterId = resolve(semesterName, semesters, academicYearId, 'academicYearId', 'الفصل', existingStudent?.semesterId);
+      if (!collegeId || !programId || !studyPlanId || !academicYearId || !semesterId) {
+        problems.push('يجب تحديد الكلية والبرنامج والخطة والمستوى والفصل ليرتبط الطالب بخطته الدراسية');
+      }
       const matchingAdvisors = advisorEmail ? advisors.filter((person) => person.email.toLowerCase() === advisorEmail.toLowerCase()) : [];
       if (advisorEmail && matchingAdvisors.length !== 1) problems.push('بريد المرشد غير موجود أو الحساب غير نشط');
 

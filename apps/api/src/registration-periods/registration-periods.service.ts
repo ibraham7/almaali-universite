@@ -145,6 +145,7 @@ export class RegistrationPeriodsService {
           dto.advisorApprovalRequired,
         dropAllowed: dto.dropAllowed,
         addDropDeadline,
+        reason: dto.reason ?? null,
       },
     });
   }
@@ -252,7 +253,10 @@ export class RegistrationPeriodsService {
       addDropDeadline,
     );
 
-    return this.prisma.registrationPeriod.update({
+    const reason =
+      dto.reason === undefined ? current.reason : dto.reason;
+
+    const updated = await this.prisma.registrationPeriod.update({
       where: { id },
       data: {
         semesterId,
@@ -266,8 +270,25 @@ export class RegistrationPeriodsService {
         dropAllowed:
           dto.dropAllowed ?? current.dropAllowed,
         addDropDeadline,
+        reason,
       },
     });
+
+    await this.prisma.auditLog.create({
+      data: {
+        action: 'REGISTRATION_PERIOD_UPDATED',
+        entity: 'RegistrationPeriod',
+        entityId: id,
+        userId: actor.id || undefined,
+        details: JSON.stringify({
+          startDateTime: updated.startDateTime,
+          endDateTime: updated.endDateTime,
+          reason: updated.reason,
+        }),
+      },
+    });
+
+    return updated;
   }
 
   async remove(id: string, actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {

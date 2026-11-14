@@ -46,6 +46,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { getPrograms, getColleges, type Program, type College } from '../../api/academicStructure';
 import { getAdvisorPrograms, setAdvisorPrograms, getAdvisorColleges, setAdvisorColleges } from '../../api/advisors';
+import { getAuditLogsForEntity, type AuditLogEntry } from '../../api/auditLogs';
 
 import {
     createStaffUser,
@@ -185,6 +186,9 @@ export default function UsersPage() {
     const [selectedProgramIds, setSelectedProgramIds] = useState<string[]>([]);
     const [colleges, setColleges] = useState<College[]>([]);
     const [selectedCollegeIds, setSelectedCollegeIds] = useState<string[]>([]);
+    const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+    const [historyEntries, setHistoryEntries] = useState<AuditLogEntry[]>([]);
+    const [historyUser, setHistoryUser] = useState<SystemUser | null>(null);
 
     const [search, setSearch] =
         useState('');
@@ -300,6 +304,18 @@ export default function UsersPage() {
             setError(getErrorMessage(requestError));
         } finally {
             setSaving(false);
+        }
+    }
+
+    async function openAssignmentHistory(user: SystemUser) {
+        try {
+            setError('');
+            const entries = await getAuditLogsForEntity('User', user.id);
+            setHistoryEntries(entries);
+            setHistoryUser(user);
+            setHistoryDialogOpen(true);
+        } catch (requestError) {
+            setError(getErrorMessage(requestError));
         }
     }
 
@@ -929,6 +945,7 @@ export default function UsersPage() {
                                                     آخر دخول: {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString('ar') : 'لم يسجل دخولًا بعد'}
                                                 </Typography>
                                                 {user.role.code === 'ADVISOR' && <Button size="small" sx={{ mt: 1.5 }} onClick={(event) => { event.stopPropagation(); void openAdvisorScopes(user); }}>تعيين الكليات والاختصاصات</Button>}
+                                                {user.role.code === 'ADVISOR' && <Button size="small" sx={{ mt: 1.5, ml: 1 }} onClick={(event) => { event.stopPropagation(); void openAssignmentHistory(user); }}>سجل تعيين الصلاحيات</Button>}
                                             </Box>
                                         </Stack>
                                     </CardContent>
@@ -1145,6 +1162,29 @@ export default function UsersPage() {
                             ? 'جاري الحفظ...'
                             : 'حفظ التغييرات'}
                     </Button>
+                </DialogActions>
+            </Dialog>
+            <Dialog open={historyDialogOpen} onClose={() => setHistoryDialogOpen(false)} fullWidth maxWidth="sm">
+                <DialogTitle>سجل تعيين الصلاحيات{historyUser ? ` — ${historyUser.displayName ?? historyUser.username ?? ''}` : ''}</DialogTitle>
+                <DialogContent dividers>
+                    {historyEntries.length === 0 ? (
+                        <Alert severity="info">لا يوجد سجل تعديلات لهذا المسؤول حتى الآن.</Alert>
+                    ) : (
+                        <Table size="small">
+                            <TableHead><TableRow><TableCell>الوقت</TableCell><TableCell>التفاصيل</TableCell></TableRow></TableHead>
+                            <TableBody>
+                                {historyEntries.map((entry) => (
+                                    <TableRow key={entry.id}>
+                                        <TableCell>{new Date(entry.createdAt).toLocaleString('ar')}</TableCell>
+                                        <TableCell>{entry.details}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setHistoryDialogOpen(false)}>إغلاق</Button>
                 </DialogActions>
             </Dialog>
             <Dialog open={attemptDialogOpen} onClose={() => setAttemptDialogOpen(false)} fullWidth maxWidth="sm">

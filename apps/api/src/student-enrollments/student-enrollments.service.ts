@@ -660,8 +660,8 @@ export class StudentEnrollmentsService {
     );
   }
 
-  async create(dto: CreateStudentEnrollmentDto) {
-    return this.prisma.studentEnrollment.create({
+  async create(dto: CreateStudentEnrollmentDto, actorUserId?: string) {
+    const enrollment = await this.prisma.studentEnrollment.create({
       data: {
         studentId: dto.studentId,
         semesterId: dto.semesterId,
@@ -676,11 +676,25 @@ export class StudentEnrollmentsService {
         approvals: true,
       },
     });
+
+    await this.auditLogs.create({
+      action: 'CREATE_ENROLLMENT',
+      entity: 'StudentEnrollment',
+      entityId: enrollment.id,
+      userId: actorUserId,
+      details: JSON.stringify({
+        studentId: dto.studentId,
+        semesterId: dto.semesterId,
+      }),
+    });
+
+    return enrollment;
   }
 
   async addItem(
     dto: AddEnrollmentItemDto,
     userId?: string,
+    actorUserId?: string,
   ) {
     if (userId) {
       const ownedEnrollment =
@@ -910,7 +924,7 @@ export class StudentEnrollmentsService {
       action: 'ADD_COURSE',
       entity: 'EnrollmentItem',
       entityId: enrollmentItem.id,
-      userId,
+      userId: actorUserId ?? userId,
       details: JSON.stringify({
         enrollmentId: dto.enrollmentId,
         courseId: dto.courseId,
@@ -925,6 +939,7 @@ export class StudentEnrollmentsService {
     enrollmentId: string,
     userId?: string,
     bypassAdvisorApproval = false,
+    actorUserId?: string,
   ) {
     if (userId && !bypassAdvisorApproval) {
       const ownedEnrollment =
@@ -1150,7 +1165,7 @@ export class StudentEnrollmentsService {
         action: 'CONFIRM_REGISTRATION',
         entity: 'StudentEnrollment',
         entityId: enrollmentId,
-        userId,
+        userId: actorUserId ?? userId,
         details: JSON.stringify({
           status: 'PENDING',
           advisorApprovalRequired: true,
@@ -1187,7 +1202,7 @@ export class StudentEnrollmentsService {
       action: 'CONFIRM_REGISTRATION',
       entity: 'StudentEnrollment',
       entityId: enrollmentId,
-      userId,
+      userId: actorUserId ?? userId,
       details: JSON.stringify({
         status: 'CONFIRMED',
         advisorApprovalRequired: false,
@@ -1200,6 +1215,7 @@ export class StudentEnrollmentsService {
   async dropItem(
     dto: DropEnrollmentItemDto,
     userId?: string,
+    actorUserId?: string,
   ) {
     const item =
       await this.prisma.enrollmentItem.findUnique({
@@ -1305,7 +1321,7 @@ export class StudentEnrollmentsService {
       action: 'DROP_COURSE',
       entity: 'EnrollmentItem',
       entityId: item.id,
-      userId,
+      userId: actorUserId ?? userId,
       details: JSON.stringify({
         enrollmentId: item.enrollmentId,
         courseId: item.courseId,

@@ -69,6 +69,13 @@ export class StudentsService {
     for (const field of required) {
       if (!data[field]?.trim()) throw new BadRequestException(`${field} is required`);
     }
+    const structure = [
+      ['collegeId', 'الكلية'], ['programId', 'البرنامج'], ['studyPlanId', 'الخطة الدراسية'],
+      ['academicYearId', 'المستوى الأكاديمي'], ['semesterId', 'الفصل'],
+    ] as const;
+    for (const [field, label] of structure) {
+      if (!data[field]?.trim()) throw new BadRequestException(`${label}: مطلوب لربط الطالب بخطته الدراسية.`);
+    }
     const names: Array<[string, string | null | undefined]> = [
       ['الاسم الأول', data.firstName], ['اسم الأب', data.middleName],
       ['اسم العائلة', data.familyName], ['اسم الأم', data.motherName],

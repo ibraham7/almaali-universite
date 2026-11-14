@@ -53,8 +53,15 @@ export class AdvisorsService {
     if (!advisor || advisor.role.code !== 'ADVISOR') {
       throw new NotFoundException('حساب المسؤول الأكاديمي غير موجود.');
     }
-    const colleges = ids.length ? await this.prisma.college.findMany({ where: { id: { in: ids } }, select: { id: true } }) : [];
+    const colleges = ids.length ? await this.prisma.college.findMany({ where: { id: { in: ids } }, select: { id: true, nameAr: true } }) : [];
     if (colleges.length !== ids.length) throw new BadRequestException('بعض الكليات المحددة غير موجودة.');
+
+    const before = await this.prisma.advisorCollegeAssignment.findMany({
+      where: { advisorId },
+      include: { college: { select: { nameAr: true } } },
+    });
+    const beforeNames = before.map(({ college }) => college.nameAr);
+    const afterNames = colleges.map((college) => college.nameAr);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.advisorCollegeAssignment.deleteMany({ where: { advisorId } });
@@ -65,7 +72,7 @@ export class AdvisorsService {
           entity: 'User',
           entityId: advisorId,
           userId: actingUserId,
-          details: JSON.stringify({ collegeIds: ids }),
+          details: `الكليات قبل التعديل: ${beforeNames.length ? beforeNames.join('، ') : 'لا يوجد'} — الكليات بعد التعديل: ${afterNames.length ? afterNames.join('، ') : 'لا يوجد'}`,
         },
       });
     });
@@ -81,8 +88,15 @@ export class AdvisorsService {
     if (!advisor || advisor.role.code !== 'ADVISOR') {
       throw new NotFoundException('حساب المسؤول الأكاديمي غير موجود.');
     }
-    const programs = ids.length ? await this.prisma.program.findMany({ where: { id: { in: ids } }, select: { id: true } }) : [];
+    const programs = ids.length ? await this.prisma.program.findMany({ where: { id: { in: ids } }, select: { id: true, nameAr: true } }) : [];
     if (programs.length !== ids.length) throw new BadRequestException('بعض الاختصاصات المحددة غير موجودة.');
+
+    const before = await this.prisma.advisorProgramAssignment.findMany({
+      where: { advisorId },
+      include: { program: { select: { nameAr: true } } },
+    });
+    const beforeNames = before.map(({ program }) => program.nameAr);
+    const afterNames = programs.map((program) => program.nameAr);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.advisorProgramAssignment.deleteMany({ where: { advisorId } });
@@ -93,7 +107,7 @@ export class AdvisorsService {
           entity: 'User',
           entityId: advisorId,
           userId: actingUserId,
-          details: JSON.stringify({ programIds: ids }),
+          details: `الاختصاصات قبل التعديل: ${beforeNames.length ? beforeNames.join('، ') : 'لا يوجد'} — الاختصاصات بعد التعديل: ${afterNames.length ? afterNames.join('، ') : 'لا يوجد'}`,
         },
       });
     });
