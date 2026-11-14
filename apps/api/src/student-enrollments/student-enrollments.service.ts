@@ -5,6 +5,7 @@ import { AddEnrollmentItemDto } from './dto/add-enrollment-item.dto.js';
 import { RegistrationValidationService } from '../registration-validation/registration-validation.service.js';
 import { DropEnrollmentItemDto } from './dto/drop-enrollment-item.dto.js';
 import { AuditLogsService } from '../audit-logs/audit-logs.service.js';
+import { isProgramAllowedForAdvisor } from '../advisors/advisor-scope.js';
 
 @Injectable()
 export class StudentEnrollmentsService {
@@ -39,26 +40,23 @@ export class StudentEnrollmentsService {
     });
   }
 
-  private async getStudentForAdvisorRegistration(universityId: string, advisorId: string) {
+  private async getStudentForAdvisorRegistration(universityId: string, actorId: string, role = 'ADVISOR') {
     const student = await this.prisma.student.findUnique({
       where: { universityId },
       select: { id: true, universityId: true, firstName: true, middleName: true, familyName: true, collegeId: true, departmentId: true, programId: true, studyPlanId: true, academicYearId: true, semesterId: true, advisorId: true },
     });
     if (!student) throw new NotFoundException('لم يُعثر على طالب بهذا الرقم الجامعي.');
-    const directlyAssigned = student.advisorId === advisorId;
-    const programAssignment = student.programId
-      ? await this.prisma.advisorProgramAssignment.findUnique({
-          where: { advisorId_programId: { advisorId, programId: student.programId } },
-          select: { id: true },
-        })
-      : null;
-    if (!directlyAssigned && !programAssignment) throw new ForbiddenException('هذا الطالب خارج الاختصاصات المسندة إلى حسابك.');
+    if (role === 'ADVISOR') {
+      const inScope = student.advisorId === actorId
+        || (student.programId ? await isProgramAllowedForAdvisor(this.prisma, actorId, student.programId) : false);
+      if (!inScope) throw new ForbiddenException('هذا الطالب خارج الاختصاصات المسندة إلى حسابك.');
+    }
     if (!student.studyPlanId || !student.academicYearId) throw new ForbiddenException('بيانات الخطة أو المستوى الدراسي للطالب غير مكتملة.');
     return student;
   }
 
-  async getAdvisorRegistrationCatalog(universityId: string, advisorId: string) {
-    const student = await this.getStudentForAdvisorRegistration(universityId, advisorId);
+  async getAdvisorRegistrationCatalog(universityId: string, advisorId: string, role = 'ADVISOR') {
+    const student = await this.getStudentForAdvisorRegistration(universityId, advisorId, role);
     const [plan, level] = await Promise.all([
       this.prisma.studyPlan.findUnique({
         where: { id: student.studyPlanId! },
@@ -102,8 +100,8 @@ export class StudentEnrollmentsService {
     };
   }
 
-  async registerDirectlyByAdvisor(universityId: string, advisorId: string, items: Array<{ courseId: string; sectionId: string }>) {
-    const student = await this.getStudentForAdvisorRegistration(universityId, advisorId);
+  async registerDirectlyByAdvisor(universityId: string, advisorId: string, items: Array<{ courseId: string; sectionId: string }>, role = 'ADVISOR') {
+    const student = await this.getStudentForAdvisorRegistration(universityId, advisorId, role);
     if (!items.length) return { success: false, errors: ['اختر مادة واحدة على الأقل.'] };
     const sections = await Promise.all(items.map(({ sectionId }) => this.prisma.courseSection.findUnique({ where: { id: sectionId }, select: { id: true, semesterId: true } })));
     if (sections.some((section) => !section)) return { success: false, errors: ['إحدى الشعب المحددة غير موجودة.'] };
@@ -124,7 +122,7 @@ export class StudentEnrollmentsService {
     const createdItemIds: string[] = [];
     for (const item of items) {
       try {
-        const added = await this.addItem({ enrollmentId: enrollment.id, ...item }, undefined);
+        const added = await this.addItem({ enrollmentId: enrollment.id, ...item }, undefined, advisorId);
         if (added && typeof added === 'object' && 'success' in added && added.success === false) {
           if (createdItemIds.length) await this.prisma.enrollmentItem.deleteMany({ where: { id: { in: createdItemIds } } });
           return added;

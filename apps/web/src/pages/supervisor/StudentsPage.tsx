@@ -36,6 +36,7 @@ import {
 } from 'react';
 
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 import {
     getStudent,
@@ -166,6 +167,7 @@ function exportStudentsCsv(items: StudentListItem[]) {
 export default function StudentsPage() {
     const { user } = useAuth();
     const canManage = user?.role === 'REGISTRAR' || user?.role === 'SYSTEM_ADMIN';
+    const navigate = useNavigate();
     const [formOpen, setFormOpen] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
     const [editingStudent, setEditingStudent] = useState<StudentListItem | null>(null);
@@ -822,9 +824,12 @@ export default function StudentsPage() {
             >
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     تفاصيل الطالب
-                    {canManage && selectedStudent && <Stack direction="row" spacing={1}>
-                        <Button color="error" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => { setDeleteError(null); setDeleteConfirmation(''); setDeleteDialogOpen(true); }}>حذف الطالب</Button>
-                        <Button onClick={() => { setEditingStudent(selectedStudent); setDialogOpen(false); setFormOpen(true); }}>تعديل البيانات</Button>
+                    {selectedStudent && <Stack direction="row" spacing={1}>
+                        <Button variant="contained" startIcon={<MenuBookOutlinedIcon />} onClick={() => navigate(`/advisor/student-registration?universityId=${encodeURIComponent(selectedStudent.universityId)}`)}>تسجيل مقررات</Button>
+                        {canManage && <>
+                            <Button color="error" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => { setDeleteError(null); setDeleteConfirmation(''); setDeleteDialogOpen(true); }}>حذف الطالب</Button>
+                            <Button onClick={() => { setEditingStudent(selectedStudent); setDialogOpen(false); setFormOpen(true); }}>تعديل البيانات</Button>
+                        </>}
                     </Stack>}
                 </DialogTitle>
 

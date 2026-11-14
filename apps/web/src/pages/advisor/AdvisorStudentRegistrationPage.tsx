@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Alert, Box, Button, Card, CardContent, Checkbox, CircularProgress, FormControl, InputLabel, MenuItem, Select, Stack, TextField, Typography } from '@mui/material';
 import { apiClient } from '../../api/client';
 
@@ -13,24 +14,40 @@ type Catalog = {
 };
 
 export default function AdvisorStudentRegistrationPage() {
-  const [universityId, setUniversityId] = useState('');
+  const [searchParams] = useSearchParams();
+  const initialUniversityId = searchParams.get('universityId')?.trim() ?? '';
+  const [universityId, setUniversityId] = useState(initialUniversityId);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [selected, setSelected] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(Boolean(initialUniversityId));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  async function searchStudent(event: FormEvent) {
-    event.preventDefault(); setLoading(true); setError(''); setSuccess(''); setCatalog(null); setSelected({});
-    try {
-      const response = await apiClient.get<Catalog>(`/student-enrollments/advisor/${encodeURIComponent(universityId.trim())}/catalog`);
-      setCatalog(response.data);
-    } catch (requestError) {
-      const data = (requestError as { response?: { data?: { message?: string | string[] } } }).response?.data;
-      setError(Array.isArray(data?.message) ? data.message.join('، ') : data?.message ?? 'تعذر العثور على الطالب أو أن الطالب غير مسند إلى حسابك.');
-    } finally { setLoading(false); }
+  const fetchCatalog = (id: string) => apiClient.get<Catalog>(`/student-enrollments/advisor/${encodeURIComponent(id.trim())}/catalog`);
+  const describeError = (requestError: unknown) => {
+    const data = (requestError as { response?: { data?: { message?: string | string[] } } }).response?.data;
+    return Array.isArray(data?.message) ? data.message.join('، ') : data?.message ?? 'تعذر العثور على الطالب أو أن الطالب غير مسند إلى حسابك.';
+  };
+
+  function searchStudent(event: FormEvent) {
+    event.preventDefault();
+    setLoading(true); setError(''); setSuccess(''); setCatalog(null); setSelected({});
+    fetchCatalog(universityId)
+      .then((response) => setCatalog(response.data))
+      .catch((requestError) => setError(describeError(requestError)))
+      .finally(() => setLoading(false));
   }
+
+  useEffect(() => {
+    if (!initialUniversityId) return;
+    let active = true;
+    apiClient.get<Catalog>(`/student-enrollments/advisor/${encodeURIComponent(initialUniversityId)}/catalog`)
+      .then((response) => { if (active) setCatalog(response.data); })
+      .catch((requestError) => { if (active) setError(describeError(requestError)); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [initialUniversityId]);
 
   async function register() {
     if (!catalog) return;
