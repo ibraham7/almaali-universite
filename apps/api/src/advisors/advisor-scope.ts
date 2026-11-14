@@ -53,3 +53,33 @@ export async function isProgramAllowedForAdvisor(
   const allowed = await getAdvisorAllowedProgramIds(prisma, advisorId);
   return allowed.includes(programId);
 }
+
+/**
+ * The advisor to route an approval to when a student has none assigned: the
+ * only active advisor covering the student's program or college. Returns
+ * null when there is no such advisor or when several qualify, so the caller
+ * never has to guess between them.
+ */
+export async function findSoleAdvisorForStudent(
+  prisma: PrismaService,
+  student: { programId: string | null; collegeId: string | null },
+): Promise<string | null> {
+  const [byProgram, byCollege] = await Promise.all([
+    student.programId
+      ? prisma.advisorProgramAssignment.findMany({ where: { programId: student.programId }, select: { advisorId: true } })
+      : Promise.resolve([]),
+    student.collegeId
+      ? prisma.advisorCollegeAssignment.findMany({ where: { collegeId: student.collegeId }, select: { advisorId: true } })
+      : Promise.resolve([]),
+  ]);
+
+  const candidates = [...new Set([...byProgram, ...byCollege].map((row) => row.advisorId))];
+  if (candidates.length !== 1) return null;
+
+  const advisor = await prisma.user.findFirst({
+    where: { id: candidates[0], status: 'ACTIVE', role: { code: 'ADVISOR' } },
+    select: { id: true },
+  });
+
+  return advisor?.id ?? null;
+}
