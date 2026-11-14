@@ -5,7 +5,7 @@ import { AddEnrollmentItemDto } from './dto/add-enrollment-item.dto.js';
 import { RegistrationValidationService } from '../registration-validation/registration-validation.service.js';
 import { DropEnrollmentItemDto } from './dto/drop-enrollment-item.dto.js';
 import { AuditLogsService } from '../audit-logs/audit-logs.service.js';
-import { isProgramAllowedForAdvisor } from '../advisors/advisor-scope.js';
+import { findSoleAdvisorForStudent, isProgramAllowedForAdvisor } from '../advisors/advisor-scope.js';
 
 @Injectable()
 export class StudentEnrollmentsService {
@@ -1111,11 +1111,29 @@ export class StudentEnrollmentsService {
       periodValidation.registrationPeriod;
 
     if (registrationPeriod?.advisorApprovalRequired && !bypassAdvisorApproval) {
-      if (!enrollment.student.advisorId) {
-        return {
-          success: false,
-          errors: ['Student advisor is not assigned'],
-        };
+      let advisorId = enrollment.student.advisorId;
+
+      if (!advisorId) {
+        advisorId = await findSoleAdvisorForStudent(this.prisma, enrollment.student);
+
+        if (!advisorId) {
+          return {
+            success: false,
+            errors: ['لا يوجد مرشد أكاديمي مسند لحسابك لاعتماد التسجيل. راجع إدارة الجامعة لتعيين مرشد لك.'],
+          };
+        }
+
+        await this.prisma.student.update({
+          where: { id: enrollment.student.id },
+          data: { advisorId },
+        });
+        await this.auditLogs.create({
+          action: 'STUDENT_ADVISOR_AUTO_ASSIGNED',
+          entity: 'Student',
+          entityId: enrollment.student.id,
+          userId: actorUserId ?? userId,
+          details: JSON.stringify({ advisorId }),
+        });
       }
 
       const existingApproval =
@@ -1129,8 +1147,7 @@ export class StudentEnrollmentsService {
         await this.prisma.advisorApproval.create({
           data: {
             enrollmentId,
-            advisorId:
-              enrollment.student.advisorId,
+            advisorId,
             status: 'PENDING',
           },
         });
