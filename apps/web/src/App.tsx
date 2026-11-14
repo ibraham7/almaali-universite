@@ -78,6 +78,11 @@ function App() {
               path="/advisor/registrations"
               element={<AdvisorRegistrationsPage />}
             />
+          </Route>
+        </Route>
+
+        <Route element={<ProtectedRoute allowedRoles={['ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN']} />}>
+          <Route element={<DashboardLayout />}>
             <Route
               path="/advisor/student-registration"
               element={<AdvisorStudentRegistrationPage />}

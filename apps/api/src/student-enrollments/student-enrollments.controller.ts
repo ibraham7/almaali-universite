@@ -232,15 +232,15 @@ export class StudentEnrollmentsController {
   }
 
   @Get('advisor/:universityId/catalog')
-  @Roles('ADVISOR')
+  @Roles('ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN')
   getAdvisorRegistrationCatalog(@Param('universityId') universityId: string, @Req() request: AuthenticatedRequest) {
-    return this.studentEnrollmentsService.getAdvisorRegistrationCatalog(universityId, request.user.id);
+    return this.studentEnrollmentsService.getAdvisorRegistrationCatalog(universityId, request.user.id, request.user.role);
   }
 
   @Post('advisor/direct-register')
-  @Roles('ADVISOR')
+  @Roles('ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN')
   registerDirectlyByAdvisor(@Body() dto: DirectAdvisorRegistrationDto, @Req() request: AuthenticatedRequest) {
-    return this.studentEnrollmentsService.registerDirectlyByAdvisor(dto.universityId, request.user.id, dto.items);
+    return this.studentEnrollmentsService.registerDirectlyByAdvisor(dto.universityId, request.user.id, dto.items, request.user.role);
   }
 
   @Post('items/drop')
