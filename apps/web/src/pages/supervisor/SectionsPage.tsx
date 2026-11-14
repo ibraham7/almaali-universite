@@ -38,6 +38,7 @@ import axios from 'axios';
 
 import {
   createCourseSection,
+  createSectionsForSemester,
   getClassrooms,
   getCourseSections,
   getTeachers,
@@ -150,6 +151,8 @@ export default function SectionsPage() {
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkCapacity, setBulkCapacity] = useState('50');
 
   const [dialogOpen, setDialogOpen] =
     useState(false);
@@ -494,6 +497,34 @@ export default function SectionsPage() {
     }
   };
 
+  const handleBulkCreate = async () => {
+    const capacity = Number(bulkCapacity);
+
+    if (!semesterId || !Number.isInteger(capacity) || capacity < 1) {
+      setError('اكتب سعة صحيحة (عدد أكبر من صفر).');
+      return;
+    }
+
+    setActionLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const result = await createSectionsForSemester(semesterId, capacity);
+
+      setSuccess(
+        `تم إنشاء ${result.created} شعبة من أصل ${result.total} مقرر` +
+          (result.skipped ? ` (تخطّي ${result.skipped} لأن لها شعبة برقم 1 مسبقًا).` : '.'),
+      );
+      setBulkOpen(false);
+      await loadSections();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleDelete = async (
     section: CourseSection,
   ) => {
@@ -580,18 +611,28 @@ export default function SectionsPage() {
           </Typography>
         </Box>
 
-        <Button
-          variant="contained"
-          startIcon={<AddRoundedIcon />}
-          disabled={
-            !semesterId ||
-            actionLoading ||
-            activeCourses.length === 0
-          }
-          onClick={openCreateDialog}
-        >
-          إضافة شعبة
-        </Button>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+          <Button
+            variant="outlined"
+            disabled={!semesterId || actionLoading}
+            onClick={() => setBulkOpen(true)}
+          >
+            إنشاء شعبة لكل مقررات الفصل
+          </Button>
+
+          <Button
+            variant="contained"
+            startIcon={<AddRoundedIcon />}
+            disabled={
+              !semesterId ||
+              actionLoading ||
+              activeCourses.length === 0
+            }
+            onClick={openCreateDialog}
+          >
+            إضافة شعبة
+          </Button>
+        </Stack>
       </Box>
 
       {error && (
@@ -957,6 +998,39 @@ export default function SectionsPage() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={bulkOpen}
+        onClose={() => !actionLoading && setBulkOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>إنشاء شعبة لكل مقررات الفصل</DialogTitle>
+
+        <DialogContent>
+          <Typography color="text.secondary" sx={{ mb: 2, fontSize: 14 }}>
+            بتنشئ شعبة رقم 1 مفتوحة لكل مقرر موضوع بالخطة في هذا الفصل. المقررات اللي إلها شعبة برقم 1 مسبقًا بتنتخطّى ولا بتتغيّر. بتقدر بعدها تعدّل المدرس والقاعة والمواعيد لكل شعبة.
+          </Typography>
+
+          <TextField
+            fullWidth
+            type="number"
+            label="السعة القصوى لكل شعبة"
+            value={bulkCapacity}
+            onChange={(event) => setBulkCapacity(event.target.value)}
+            slotProps={{ htmlInput: { min: 1 } }}
+          />
+        </DialogContent>
+
+        <DialogActions sx={{ p: 2 }}>
+          <Button disabled={actionLoading} onClick={() => setBulkOpen(false)}>
+            إلغاء
+          </Button>
+          <Button variant="contained" disabled={actionLoading} onClick={() => void handleBulkCreate()}>
+            {actionLoading ? <CircularProgress size={20} color="inherit" /> : 'إنشاء الشعب'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog
         open={dialogOpen}
