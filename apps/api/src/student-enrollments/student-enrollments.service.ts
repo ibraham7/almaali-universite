@@ -208,14 +208,29 @@ export class StudentEnrollmentsService {
         },
       }),
 
-      this.prisma.registrationPeriod.findFirst({
-        where: {
-          semesterId: student.semesterId,
-        },
-        orderBy: {
-          startDateTime: 'desc',
-        },
-      }),
+      this.prisma.registrationPeriod
+        .findFirst({
+          where: {
+            semesterId: student.semesterId,
+            startDateTime: { lte: new Date() },
+            endDateTime: { gte: new Date() },
+          },
+          orderBy: {
+            startDateTime: 'desc',
+          },
+        })
+        .then(
+          (activePeriod) =>
+            activePeriod ??
+            this.prisma.registrationPeriod.findFirst({
+              where: {
+                semesterId: student.semesterId!,
+              },
+              orderBy: {
+                startDateTime: 'desc',
+              },
+            }),
+        ),
 
       this.prisma.studentEnrollment.findUnique({
         where: {
