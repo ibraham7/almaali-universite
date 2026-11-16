@@ -90,13 +90,37 @@ export class StudentEnrollmentsService {
     const maxLevel = level.levelNumber + (planCollege.university.allowedFutureYears ?? 0);
     const courses = await this.prisma.studyPlanCourse.findMany({
       where: { studyPlanId: plan.id, academicYear: { levelNumber: { gte: level.levelNumber, lte: maxLevel } }, course: { status: 'ACTIVE' } },
-      include: { academicYear: true, semester: true, course: { include: { sections: { include: { teacher: true, classroom: true, schedules: true } } } } },
+      include: { academicYear: true, semester: true, course: { include: { prerequisites: { include: { prerequisite: true } }, sections: { include: { teacher: true, classroom: true, schedules: true } } } } },
       orderBy: [{ academicYear: { levelNumber: 'asc' } }, { semester: { semesterNumber: 'asc' } }, { priority: 'asc' }],
     });
+    // معلومات تُستخدم لتنبيه المشرف فور اختيار المقرر (الحد الأقصى للساعات والمتطلبات السابقة)
+    const semesterIds = [...new Set(courses.map((item) => item.semesterId))];
+    const now = new Date();
+    const [periods, enrollments] = await Promise.all([
+      this.prisma.registrationPeriod.findMany({
+        where: { semesterId: { in: semesterIds }, startDateTime: { lte: now }, endDateTime: { gte: now } },
+        orderBy: { startDateTime: 'desc' },
+        select: { semesterId: true, maxCredits: true },
+      }),
+      this.prisma.studentEnrollment.findMany({
+        where: { studentId: student.id, status: { notIn: ['CANCELLED', 'DROPPED'] } },
+        select: { semesterId: true, items: { select: { courseId: true, course: { select: { credits: true } } } } },
+      }),
+    ]);
+    const semesterLimits = Object.fromEntries(semesterIds.map((semesterId) => {
+      const maxCredits = periods.find((period) => period.semesterId === semesterId)?.maxCredits ?? null;
+      const registeredCredits = enrollments.filter((e) => e.semesterId === semesterId).flatMap((e) => e.items).reduce((sum, item) => sum + item.course.credits, 0);
+      return [semesterId, { maxCredits, registeredCredits }];
+    }));
+    const missingFor = (courseId: string, semesterId: string, prerequisites: Array<{ prerequisiteId: string; prerequisite: { code: string; nameAr: string } }>) => {
+      const previous = new Set(enrollments.filter((e) => e.semesterId !== semesterId).flatMap((e) => e.items.map((item) => item.courseId)));
+      return prerequisites.filter((item) => !previous.has(item.prerequisiteId)).map((item) => item.prerequisite.nameAr);
+    };
     return {
       student: { id: student.id, universityId: student.universityId, name: [student.firstName, student.middleName, student.familyName].filter(Boolean).join(' '), programId: student.programId },
       plan: { id: plan.id, nameAr: plan.nameAr, programName: plan.program.nameAr, departmentName: plan.program.department?.nameAr ?? null, collegeName: planCollege.nameAr },
-      courses: courses.map((item) => ({ ...item, course: { ...item.course, sections: item.course.sections.filter((section) => section.semesterId === item.semesterId) } })),
+      semesterLimits,
+      courses: courses.map((item) => ({ ...item, missingPrerequisites: missingFor(item.course.id, item.semesterId, item.course.prerequisites), course: { ...item.course, sections: item.course.sections.filter((section) => section.semesterId === item.semesterId) } })),
     };
   }
 
