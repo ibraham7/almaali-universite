@@ -9,6 +9,18 @@ export interface StudyPlan {
   programId: string;
   nameAr: string;
   nameEn?: string | null;
+  program?: {
+    nameAr: string;
+    college?: { nameAr: string } | null;
+    department?: { nameAr: string; college?: { nameAr: string } | null } | null;
+  } | null;
+}
+
+// Imported plans share the same name, so the program and college are needed to tell them apart.
+export function studyPlanLabel(plan: StudyPlan) {
+  const college = plan.program?.college?.nameAr ?? plan.program?.department?.college?.nameAr;
+  const where = [college, plan.program?.nameAr].filter(Boolean).join(' ← ');
+  return where ? `${where} — ${plan.nameAr}` : plan.nameAr;
 }
 
 export interface AcademicLevel {

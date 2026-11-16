@@ -88,6 +88,15 @@ export class StudyPlansService {
     const allowed = await this.assignedProgramIds(actor);
     return this.prisma.studyPlan.findMany({
       ...(allowed ? { where: { programId: { in: allowed } } } : {}),
+      include: {
+        program: {
+          select: {
+            nameAr: true,
+            college: { select: { nameAr: true } },
+            department: { select: { nameAr: true, college: { select: { nameAr: true } } } },
+          },
+        },
+      },
       orderBy: {
         createdAt: 'asc',
       },
