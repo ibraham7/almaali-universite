@@ -42,6 +42,7 @@ import {
   getPlanCourses,
   getSemesters,
   getStudyPlans,
+  studyPlanLabel,
   removeCourseFromPlan,
   removeCoursePrerequisite,
   reorderPlanCourses,
@@ -809,7 +810,7 @@ export default function StudyPlanPage() {
                       key={plan.id}
                       value={plan.id}
                     >
-                      {plan.nameAr}
+                      {studyPlanLabel(plan)}
                     </MenuItem>
                   ),
                 )}

@@ -55,6 +55,7 @@ import {
   getCourses,
   getSemesters,
   getStudyPlans,
+  studyPlanLabel,
   type AcademicLevel,
   type Course,
   type Semester,
@@ -690,7 +691,7 @@ export default function SectionsPage() {
                     key={plan.id}
                     value={plan.id}
                   >
-                    {plan.nameAr}
+                    {studyPlanLabel(plan)}
                   </MenuItem>
                 ))}
               </Select>
