@@ -6,6 +6,10 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormControl,
   InputAdornment,
@@ -24,6 +28,7 @@ import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded';
 import MeetingRoomOutlinedIcon from '@mui/icons-material/MeetingRoomOutlined';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlineRounded';
+import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 
 import {
   useCallback,
@@ -191,6 +196,9 @@ export default function StudentRegistrationPage() {
     useState<string | null>(null);
 
   const [success, setSuccess] =
+    useState<string | null>(null);
+
+  const [actionError, setActionError] =
     useState<string | null>(null);
 
   const loadRegistration =
@@ -379,21 +387,21 @@ export default function StudentRegistrationPage() {
 
     try {
       setActionLoading('reopen');
-      setError(null);
+      setActionError(null);
       setSuccess(null);
 
       const response = await reopenMyEnrollment();
       const responseError = getResponseError(response);
 
       if (responseError) {
-        setError(responseError);
+        setActionError(responseError);
         return;
       }
 
       setSuccess('يمكنك الآن تعديل التسجيل وإعادة تأكيده.');
       await loadRegistration();
     } catch (requestError) {
-      setError(getErrorMessage(requestError));
+      setActionError(getErrorMessage(requestError));
     } finally {
       setActionLoading(null);
     }
@@ -409,7 +417,7 @@ export default function StudentRegistrationPage() {
       selectedSections[planCourse.id];
 
     if (!sectionId) {
-      setError(
+      setActionError(
         'اختر شعبة للمقرر أولًا.',
       );
 
@@ -421,7 +429,7 @@ export default function StudentRegistrationPage() {
         `add-${planCourse.id}`,
       );
 
-      setError(null);
+      setActionError(null);
       setSuccess(null);
 
       const response =
@@ -434,7 +442,7 @@ export default function StudentRegistrationPage() {
         getResponseError(response);
 
       if (responseError) {
-        setError(responseError);
+        setActionError(responseError);
         return;
       }
 
@@ -442,7 +450,7 @@ export default function StudentRegistrationPage() {
 
       await loadRegistration();
     } catch (requestError) {
-      setError(
+      setActionError(
         getErrorMessage(requestError),
       );
     } finally {
@@ -458,7 +466,7 @@ export default function StudentRegistrationPage() {
         `drop-${enrollmentItemId}`,
       );
 
-      setError(null);
+      setActionError(null);
       setSuccess(null);
 
       const response =
@@ -470,7 +478,7 @@ export default function StudentRegistrationPage() {
         getResponseError(response);
 
       if (responseError) {
-        setError(responseError);
+        setActionError(responseError);
         return;
       }
 
@@ -478,7 +486,7 @@ export default function StudentRegistrationPage() {
 
       await loadRegistration();
     } catch (requestError) {
-      setError(
+      setActionError(
         getErrorMessage(requestError),
       );
     } finally {
@@ -488,7 +496,7 @@ export default function StudentRegistrationPage() {
 
   async function handleConfirm() {
     if (!enrollment?.items.length) {
-      setError(
+      setActionError(
         'سلة التسجيل فارغة.',
       );
 
@@ -498,7 +506,7 @@ export default function StudentRegistrationPage() {
     try {
       setActionLoading('confirm');
 
-      setError(null);
+      setActionError(null);
       setSuccess(null);
 
       const response =
@@ -508,7 +516,7 @@ export default function StudentRegistrationPage() {
         getResponseError(response);
 
       if (responseError) {
-        setError(responseError);
+        setActionError(responseError);
         return;
       }
 
@@ -521,7 +529,7 @@ export default function StudentRegistrationPage() {
 
       await loadRegistration();
     } catch (requestError) {
-      setError(
+      setActionError(
         getErrorMessage(requestError),
       );
     } finally {
@@ -1565,11 +1573,19 @@ export default function StudentRegistrationPage() {
             top: {
               xl: 24,
             },
+            display: 'flex',
+            flexDirection: 'column',
+            maxHeight: {
+              xl: 'calc(100vh - 48px)',
+            },
           }}
         >
           <CardContent
             sx={{
               p: '22px !important',
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: 0,
             }}
           >
             <Stack
@@ -1619,7 +1635,16 @@ export default function StudentRegistrationPage() {
                 </Typography>
               </Box>
             ) : (
-              <Stack spacing={1.5}>
+              <Stack
+                spacing={1.5}
+                sx={{
+                  flex: '1 1 auto',
+                  minHeight: 0,
+                  maxHeight: { xs: '60vh', xl: 'none' },
+                  overflowY: 'auto',
+                  pr: 0.5,
+                }}
+              >
                 {enrollment.items.map(
                   (item) => (
                     <Box
@@ -1783,6 +1808,28 @@ export default function StudentRegistrationPage() {
           </CardContent>
         </Card>
       </Box>
+
+      <Dialog
+        open={Boolean(actionError)}
+        onClose={() => setActionError(null)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <WarningAmberRoundedIcon color="warning" />
+          لا يمكن إتمام العملية
+        </DialogTitle>
+
+        <DialogContent>
+          <Typography>{actionError}</Typography>
+        </DialogContent>
+
+        <DialogActions sx={{ p: 2 }}>
+          <Button variant="contained" onClick={() => setActionError(null)}>
+            حسنًا
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
