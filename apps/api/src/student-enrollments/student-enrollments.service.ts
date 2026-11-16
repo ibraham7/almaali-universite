@@ -149,21 +149,21 @@ export class StudentEnrollmentsService {
     if (!student.studyPlanId) {
       return {
         success: false,
-        errors: ['Student is not assigned to a study plan'],
+        errors: ['حسابك غير مرتبط بخطة دراسية. راجع إدارة الجامعة.'],
       };
     }
 
     if (!student.academicYearId) {
       return {
         success: false,
-        errors: ['Student is not assigned to an academic level'],
+        errors: ['حسابك غير مرتبط بمستوى دراسي. راجع إدارة الجامعة.'],
       };
     }
 
     if (!student.semesterId) {
       return {
         success: false,
-        errors: ['Student is not assigned to a semester'],
+        errors: ['حسابك غير مرتبط بفصل دراسي. راجع إدارة الجامعة.'],
       };
     }
 
@@ -425,7 +425,7 @@ export class StudentEnrollmentsService {
     if (!student.semesterId) {
       return {
         success: false,
-        errors: ['Student is not assigned to a semester'],
+        errors: ['حسابك غير مرتبط بفصل دراسي. راجع إدارة الجامعة.'],
       };
     }
 
@@ -477,7 +477,7 @@ export class StudentEnrollmentsService {
     if (!registrationPeriod) {
       return {
         success: false,
-        errors: ['Registration period is closed'],
+        errors: ['فترة التسجيل مغلقة حاليًا.'],
       };
     }
 
@@ -533,7 +533,7 @@ export class StudentEnrollmentsService {
     if (!student.semesterId) {
       return {
         success: false,
-        errors: ['Student is not assigned to a semester'],
+        errors: ['حسابك غير مرتبط بفصل دراسي. راجع إدارة الجامعة.'],
       };
     }
 
@@ -569,7 +569,7 @@ export class StudentEnrollmentsService {
       if (!registrationPeriod) {
         return {
           success: false,
-          errors: ['Registration period is closed'],
+          errors: ['فترة التسجيل مغلقة حاليًا.'],
         };
       }
 
@@ -616,7 +616,7 @@ export class StudentEnrollmentsService {
     if (!student.semesterId) {
       return {
         success: false,
-        errors: ['Student is not assigned to a semester'],
+        errors: ['حسابك غير مرتبط بفصل دراسي. راجع إدارة الجامعة.'],
       };
     }
 
@@ -1324,7 +1324,7 @@ export class StudentEnrollmentsService {
     ) {
       return {
         success: false,
-        errors: ['Add/drop deadline has passed'],
+        errors: ['انتهى موعد الإضافة والحذف.'],
       };
     }
 

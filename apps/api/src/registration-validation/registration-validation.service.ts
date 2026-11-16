@@ -28,7 +28,7 @@ export class RegistrationValidationService {
       return {
         valid: false,
         errors: [
-          'Enrollment can only be modified while it is in DRAFT status',
+          'لا يمكن تعديل التسجيل بعد إرساله. أعد فتحه أولًا.',
         ],
       };
     }
@@ -74,7 +74,7 @@ export class RegistrationValidationService {
     if (section.status !== 'OPEN') {
       return {
         valid: false,
-        errors: ['Section is closed'],
+        errors: ['هذه الشعبة مغلقة.'],
       };
     }
 
@@ -85,7 +85,7 @@ export class RegistrationValidationService {
     ) {
       return {
         valid: false,
-        errors: ['Section is full'],
+        errors: ['هذه الشعبة ممتلئة.'],
       };
     }
 
@@ -173,7 +173,7 @@ export class RegistrationValidationService {
       return {
         valid: false,
         errors: [
-          'Student is not assigned to a study plan',
+          'حسابك غير مرتبط بخطة دراسية. راجع إدارة الجامعة.',
         ],
       };
     }
@@ -182,7 +182,7 @@ export class RegistrationValidationService {
       return {
         valid: false,
         errors: [
-          'Student is not assigned to an academic level',
+          'حسابك غير مرتبط بمستوى دراسي. راجع إدارة الجامعة.',
         ],
       };
     }
@@ -372,7 +372,7 @@ export class RegistrationValidationService {
       return {
         valid: false,
         errors: [
-          'Course is not available within the allowed study-plan levels',
+          'هذا المقرر غير متاح ضمن المستويات المسموح لك بها.',
         ],
       };
     }
@@ -499,7 +499,7 @@ export class RegistrationValidationService {
       return {
         valid: false,
         errors: [
-          `Missing prerequisites: ${missingPrerequisites.join(', ')}`,
+          `لا يمكن تسجيل هذا المقرر قبل اجتياز المتطلبات السابقة: ${missingPrerequisites.join('، ')}`,
         ],
       };
     }
@@ -564,7 +564,7 @@ export class RegistrationValidationService {
       return {
         valid: false,
         errors: [
-          'Student is not assigned to a study plan',
+          'حسابك غير مرتبط بخطة دراسية. راجع إدارة الجامعة.',
         ],
       };
     }
@@ -573,7 +573,7 @@ export class RegistrationValidationService {
       return {
         valid: false,
         errors: [
-          'Student is not assigned to an academic level',
+          'حسابك غير مرتبط بمستوى دراسي. راجع إدارة الجامعة.',
         ],
       };
     }
@@ -702,7 +702,7 @@ export class RegistrationValidationService {
             return {
               valid: false,
               errors: [
-                'Schedule conflict detected',
+                'يوجد تعارض في مواعيد المحاضرات مع مقرر مسجّل لديك.',
               ],
             };
           }
@@ -759,7 +759,7 @@ export class RegistrationValidationService {
       return {
         valid: false,
         errors: [
-          'Registration period is closed',
+          'فترة التسجيل مغلقة حاليًا.',
         ],
       };
     }
@@ -835,7 +835,7 @@ export class RegistrationValidationService {
       return {
         valid: false,
         errors: [
-          'Maximum credit limit exceeded',
+          `لا يمكنك إضافة هذا المقرر لأنك ستتجاوز الحد الأقصى المسموح من الساعات (${registrationPeriod.maxCredits} ساعة). مجموع ساعاتك الحالي ${currentCredits} ساعة، وهذا المقرر ${course.credits} ساعات.`,
         ],
       };
     }
