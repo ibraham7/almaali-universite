@@ -5,6 +5,14 @@ import {
 } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service.js';
+import type { ProgramLevel } from '../generated/prisma/client.js';
+
+export const PROGRAM_LEVELS: Record<ProgramLevel, { nameAr: string; nameEn: string }> = {
+  BACHELOR: { nameAr: 'بكالوريوس', nameEn: 'Bachelor' },
+  DIPLOMA: { nameAr: 'دبلوم', nameEn: 'Diploma' },
+  MASTER: { nameAr: 'ماجستير', nameEn: 'Master' },
+  DOCTORATE: { nameAr: 'دكتوراه', nameEn: 'Doctorate' },
+};
 
 @Injectable()
 export class ProgramsService {
@@ -14,77 +22,58 @@ export class ProgramsService {
 
   async create(data: {
     departmentId?: string;
-    collegeId?: string;
-    nameAr: string;
-    nameEn?: string;
+    level?: string;
   }) {
-    if (!data.departmentId && !data.collegeId) {
-      throw new BadRequestException('اختر الكلية أو القسم لإنشاء الاختصاص.');
+    if (!data.departmentId) {
+      throw new BadRequestException('اختر القسم/الاختصاص أولًا لإضافة البرنامج.');
     }
-    const department = data.departmentId
-      ? await this.prisma.department.findUnique({ where: { id: data.departmentId }, select: { collegeId: true } })
-      : null;
-    if (data.departmentId && !department) {
-      throw new NotFoundException('القسم المحدد غير موجود.');
-    }
-    const collegeId = department?.collegeId ?? data.collegeId;
-    if (!collegeId) throw new NotFoundException('الكلية المحددة غير موجودة.');
-    if (!department) {
-      const college = await this.prisma.college.findUnique({ where: { id: collegeId }, select: { id: true } });
-      if (!college) throw new NotFoundException('الكلية المحددة غير موجودة.');
-    }
+    const level = this.parseLevel(data.level);
+    const department = await this.prisma.department.findUnique({
+      where: { id: data.departmentId },
+      select: { collegeId: true },
+    });
+    if (!department) throw new NotFoundException('القسم المحدد غير موجود.');
+    const exists = await this.prisma.program.findFirst({
+      where: { departmentId: data.departmentId, level },
+      select: { id: true },
+    });
+    if (exists) throw new BadRequestException(`برنامج ${PROGRAM_LEVELS[level].nameAr} موجود مسبقًا لهذا القسم.`);
     return this.prisma.program.create({
       data: {
         departmentId: data.departmentId,
-        collegeId,
-
-        nameAr:
-          data.nameAr.trim(),
-
-        nameEn:
-          data.nameEn?.trim(),
+        collegeId: department.collegeId,
+        level,
+        nameAr: PROGRAM_LEVELS[level].nameAr,
+        nameEn: PROGRAM_LEVELS[level].nameEn,
       },
     });
   }
 
   async update(
     id: string,
-    data: {
-      nameAr?: string;
-      nameEn?: string;
-    },
+    data: { level?: string },
   ) {
-    const program =
-      await this.prisma.program.findUnique({
-        where: { id },
-      });
-
-    if (!program) {
-      throw new NotFoundException(
-        'Program not found',
-      );
-    }
-
+    const program = await this.prisma.program.findUnique({ where: { id } });
+    if (!program) throw new NotFoundException('Program not found');
+    if (data.level === undefined) return program;
+    const level = this.parseLevel(data.level);
+    if (level === program.level) return program;
+    const exists = await this.prisma.program.findFirst({
+      where: { departmentId: program.departmentId, level, NOT: { id } },
+      select: { id: true },
+    });
+    if (exists) throw new BadRequestException(`برنامج ${PROGRAM_LEVELS[level].nameAr} موجود مسبقًا لهذا القسم.`);
     return this.prisma.program.update({
       where: { id },
-
-      data: {
-        ...(data.nameAr !== undefined
-          ? {
-            nameAr:
-              data.nameAr.trim(),
-          }
-          : {}),
-
-        ...(data.nameEn !== undefined
-          ? {
-            nameEn:
-              data.nameEn.trim() ||
-              null,
-          }
-          : {}),
-      },
+      data: { level, nameAr: PROGRAM_LEVELS[level].nameAr, nameEn: PROGRAM_LEVELS[level].nameEn },
     });
+  }
+
+  private parseLevel(value?: string): ProgramLevel {
+    if (!value || !(value in PROGRAM_LEVELS)) {
+      throw new BadRequestException('اختر نوع البرنامج: بكالوريوس أو دبلوم أو ماجستير أو دكتوراه.');
+    }
+    return value as ProgramLevel;
   }
 
   async findAll() {

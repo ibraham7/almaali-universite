@@ -25,8 +25,18 @@ export interface Department {
     updatedAt?: string;
 }
 
+export type ProgramLevel = 'BACHELOR' | 'DIPLOMA' | 'MASTER' | 'DOCTORATE';
+
+export const PROGRAM_LEVEL_OPTIONS: Array<{ value: ProgramLevel; label: string }> = [
+    { value: 'BACHELOR', label: 'بكالوريوس' },
+    { value: 'DIPLOMA', label: 'دبلوم' },
+    { value: 'MASTER', label: 'ماجستير' },
+    { value: 'DOCTORATE', label: 'دكتوراه' },
+];
+
 export interface Program {
     id: string;
+    level?: ProgramLevel;
     departmentId?: string | null;
     collegeId?: string | null;
 
@@ -183,12 +193,8 @@ export async function getPrograms() {
 
 export async function createProgram(
     data: {
-        departmentId?: string;
-        collegeId?: string;
-
-        nameAr: string;
-
-        nameEn?: string;
+        departmentId: string;
+        level: ProgramLevel;
     },
 ) {
     const response =
@@ -203,8 +209,7 @@ export async function createProgram(
 export async function updateProgram(
     id: string,
     data: {
-        nameAr?: string;
-        nameEn?: string;
+        level: ProgramLevel;
     },
 ) {
     const response =

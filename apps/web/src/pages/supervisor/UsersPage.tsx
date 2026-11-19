@@ -1236,7 +1236,7 @@ export default function UsersPage() {
                                 {programs.map((program) => (
                                     <MenuItem key={program.id} value={program.id}>
                                         <Checkbox checked={selectedProgramIds.includes(program.id)} />
-                                        <ListItemText primary={program.nameAr} secondary={`${program.department?.nameAr ? `${program.department.nameAr} · ` : ''}${program.college?.nameAr ?? program.department?.college?.nameAr ?? 'كلية غير محددة'}`} />
+                                        <ListItemText primary={program.department?.nameAr ? `${program.department.nameAr} — ${program.nameAr}` : program.nameAr} secondary={program.college?.nameAr ?? program.department?.college?.nameAr ?? 'كلية غير محددة'} />
                                     </MenuItem>
                                 ))}
                             </Select>
