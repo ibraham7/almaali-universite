@@ -16,14 +16,18 @@ function form(file: File) {
   return data;
 }
 
+// The shared client defaults to application/json, which makes the server see no file.
+// multipart/form-data lets axios add the correct boundary for the browser.
+const multipart = { headers: { 'Content-Type': 'multipart/form-data' } };
+
 export async function previewStudentImport(file: File) {
-  const response = await apiClient.post<StudentImportPreview>('/students/import/preview', form(file));
+  const response = await apiClient.post<StudentImportPreview>('/students/import/preview', form(file), multipart);
   return response.data;
 }
 
 export async function confirmStudentImport(file: File) {
   const response = await apiClient.post<{ total: number; imported: number; updated: number; errors: number; duplicates: number }>(
-    '/students/import/confirm', form(file),
+    '/students/import/confirm', form(file), multipart,
   );
   return response.data;
 }
