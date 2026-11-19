@@ -1052,7 +1052,12 @@ export default function StudentRegistrationPage() {
                   <Box key={group.key}>
                     <Box
                       sx={{
-                        mb: 1.25,
+                        position: 'sticky',
+                        top: { xs: 58, sm: 66, md: 70 },
+                        zIndex: 5,
+                        bgcolor: 'background.default',
+                        py: 1,
+                        mb: 0.5,
                         display: 'flex',
                         flexDirection: {
                           xs: 'column',
@@ -1571,12 +1576,12 @@ export default function StudentRegistrationPage() {
               xl: 'sticky',
             },
             top: {
-              xl: 24,
+              xl: 86,
             },
             display: 'flex',
             flexDirection: 'column',
             maxHeight: {
-              xl: 'calc(100vh - 48px)',
+              xl: 'calc(100vh - 102px)',
             },
           }}
         >

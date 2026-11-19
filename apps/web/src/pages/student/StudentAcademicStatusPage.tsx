@@ -66,12 +66,13 @@ export default function StudentAcademicStatusPage() {
 
   return (
     <Box>
+      <Box sx={{ position: { md: 'sticky' }, top: { md: 70 }, zIndex: 5, bgcolor: 'background.default', pt: 1, pb: 2, mb: 1 }}>
       <Typography variant="h4" sx={{ mb: 1 }}>الحالة الأكاديمية</Typography>
-      <Typography color="text.secondary" sx={{ mb: 3 }}>
+      <Typography color="text.secondary" sx={{ mb: 2 }}>
         الرقم الجامعي: {data.student.universityId} · المستوى الحالي: {data.student.currentLevel} · {data.studyPlan}
       </Typography>
 
-      <Card sx={{ mb: 3 }}>
+      <Card>
         <CardContent>
           <Typography variant="subtitle1" sx={{ mb: 1.5, fontWeight: 700 }}>عرض مقررات السنوات</Typography>
           <ToggleButtonGroup
@@ -86,6 +87,7 @@ export default function StudentAcademicStatusPage() {
           </ToggleButtonGroup>
         </CardContent>
       </Card>
+      </Box>
 
       <Card>
         <CardContent>

@@ -84,6 +84,7 @@ export async function importCourseResults(
     await apiClient.post<CourseResultImportResponse>(
       `/course-results/import/${semesterId}`,
       formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
     );
 
   return response.data;
