@@ -652,6 +652,7 @@ export default function CoursesPage() {
                         {placements.map((placement) => (
                           <Typography key={placement.id} color="text.secondary" sx={{ fontSize: 12.5 }}>
                             {placement.studyPlan.program.college?.nameAr ?? placement.studyPlan.program.department?.college.nameAr ?? 'كلية غير محددة'}
+                            {placement.studyPlan.program.department?.nameAr ? ` • ${placement.studyPlan.program.department.nameAr}` : ''}
                             {' • '}
                             {placement.studyPlan.program.nameAr}
                             {' • '}

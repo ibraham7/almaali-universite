@@ -22,6 +22,13 @@ enum RoleCode {
   SYSTEM_ADMIN
 }
 
+enum ProgramLevel {
+  BACHELOR
+  DIPLOMA
+  MASTER
+  DOCTORATE
+}
+
 enum CourseType {
   THEORY
   PRACTICAL
@@ -116,6 +123,8 @@ model Program {
   collegeId    String?
   nameAr       String
   nameEn       String?
+  // نوع البرنامج: بكالوريوس / دبلوم / ماجستير / دكتوراه. الاسم العربي يُشتق منه.
+  level        ProgramLevel @default(BACHELOR)
 
   department Department? @relation(fields: [departmentId], references: [id])
   college    College?    @relation(fields: [collegeId], references: [id])

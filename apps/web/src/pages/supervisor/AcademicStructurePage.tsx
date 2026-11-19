@@ -11,6 +11,7 @@ import {
     DialogContent,
     DialogTitle,
     FormControlLabel,
+    MenuItem,
     Stack,
     TextField,
     Typography,
@@ -53,6 +54,8 @@ import {
     updateCollege,
     updateDepartment,
     updateProgram,
+    PROGRAM_LEVEL_OPTIONS,
+    type ProgramLevel,
     updateSemester,
     updateStudyPlan,
     type AcademicLevel,
@@ -72,6 +75,8 @@ type EntityType =
     | 'semester';
 
 interface DialogForm {
+    level: ProgramLevel;
+
     nameAr: string;
 
     nameEn: string;
@@ -84,6 +89,8 @@ interface DialogForm {
 }
 
 const emptyForm: DialogForm = {
+    level: 'BACHELOR',
+
     nameAr: '',
 
     nameEn: '',
@@ -474,6 +481,11 @@ export default function AcademicStructurePage() {
         setEditingId(item.id);
 
         setForm({
+            level:
+                'level' in item && typeof item.level === 'string'
+                    ? (item.level as ProgramLevel)
+                    : 'BACHELOR',
+
             nameAr:
                 item.nameAr,
 
@@ -537,7 +549,7 @@ export default function AcademicStructurePage() {
     }
 
     async function saveEntity() {
-        if (!form.nameAr.trim()) {
+        if (dialogType !== 'program' && !form.nameAr.trim()) {
             setError(
                 'الاسم العربي مطلوب.',
             );
@@ -655,38 +667,17 @@ export default function AcademicStructurePage() {
                 'program'
             ) {
                 if (editingId) {
-                    await updateProgram(
-                        editingId,
-                        {
-                            nameAr:
-                                form.nameAr.trim(),
-
-                            nameEn:
-                                form.nameEn.trim(),
-                        },
-                    );
+                    await updateProgram(editingId, { level: form.level });
                 } else {
-                    if (
-                !selectedCollegeId
-                    ) {
-                        setError(
-                            'اختر الكلية أو القسم أولًا.',
-                        );
+                    if (!selectedDepartmentId) {
+                        setError('اختر القسم/الاختصاص أولًا.');
 
                         return;
                     }
 
                     await createProgram({
-                        ...(selectedDepartmentId
-                            ? { departmentId: selectedDepartmentId }
-                            : { collegeId: selectedCollegeId }),
-
-                        nameAr:
-                            form.nameAr.trim(),
-
-                        nameEn:
-                            form.nameEn.trim() ||
-                            undefined,
+                        departmentId: selectedDepartmentId,
+                        level: form.level,
                     });
                 }
             }
@@ -1053,7 +1044,7 @@ export default function AcademicStructurePage() {
                 addLabel="إضافة برنامج"
                 showAdd={!isAdvisor}
                 disabled={
-                    !selectedCollegeId
+                    !selectedDepartmentId
                 }
                 onAdd={() =>
                     openCreate('program')
@@ -1223,6 +1214,29 @@ export default function AcademicStructurePage() {
 
                 <DialogContent dividers>
                     <Stack spacing={2}>
+                        {dialogType === 'program' && (
+                            <TextField
+                                select
+                                label="نوع البرنامج"
+                                value={form.level}
+                                onChange={(event) =>
+                                    setForm((current) => ({
+                                        ...current,
+                                        level: event.target.value as ProgramLevel,
+                                    }))
+                                }
+                                required
+                                fullWidth
+                            >
+                                {PROGRAM_LEVEL_OPTIONS.map((option) => (
+                                    <MenuItem key={option.value} value={option.value}>
+                                        {option.label}
+                                    </MenuItem>
+                                ))}
+                            </TextField>
+                        )}
+
+                        {dialogType !== 'program' && (<>
                         <TextField
                             label="الاسم بالعربية"
                             value={form.nameAr}
@@ -1257,6 +1271,7 @@ export default function AcademicStructurePage() {
                             }
                             fullWidth
                         />
+                        </>)}
 
                         {(dialogType ===
                             'level' ||

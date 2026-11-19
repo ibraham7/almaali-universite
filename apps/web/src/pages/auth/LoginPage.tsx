@@ -21,19 +21,8 @@ import {
 
 import { useAuth } from '../../auth/AuthContext';
 
-function getDefaultRoute(role: string) {
-  switch (role.toUpperCase()) {
-    case 'STUDENT':
-      return '/student/registration';
-
-    case 'ADVISOR':
-    case 'SUPERVISOR':
-      return '/supervisor/study-plan';
-
-    default:
-      return '/dashboard';
-  }
-}
+// كل الأدوار تبدأ من الصفحة الرئيسية، ومنها تنتقل لبقية الأقسام من القائمة.
+const DEFAULT_ROUTE = '/dashboard';
 
 export default function LoginPage() {
   const showTestLogins =
@@ -59,7 +48,7 @@ export default function LoginPage() {
   if (isAuthenticated && user) {
     return (
       <Navigate
-        to={getDefaultRoute(user.role)}
+        to={DEFAULT_ROUTE}
         replace
       />
     );
@@ -74,13 +63,13 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const loggedInUser = await login({
+      await login({
         username,
         password,
       });
 
       navigate(
-        getDefaultRoute(loggedInUser.role),
+        DEFAULT_ROUTE,
         {
           replace: true,
         },

@@ -38,9 +38,7 @@ export class ProgramsController {
     @Body()
     body: {
       departmentId?: string;
-      collegeId?: string;
-      nameAr: string;
-      nameEn?: string;
+      level?: string;
     },
   ) {
     return this.programsService.create(
@@ -59,8 +57,7 @@ export class ProgramsController {
 
     @Body()
     body: {
-      nameAr?: string;
-      nameEn?: string;
+      level?: string;
     },
   ) {
     return this.programsService.update(
