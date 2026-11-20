@@ -95,15 +95,40 @@ describe('Student management', () => {
     expect((StudentsService.prototype as unknown as Record<string, unknown>).remove).toBeUndefined();
   });
 
-  it('requires the college, program, plan, level and semester so a student always has a study plan', async () => {
-    const prisma = { $transaction: vi.fn() } as unknown as PrismaService;
-    for (const [field, label] of [
-      ['collegeId', 'الكلية'], ['programId', 'البرنامج'], ['studyPlanId', 'الخطة الدراسية'],
-      ['academicYearId', 'المستوى الأكاديمي'], ['semesterId', 'الفصل'],
-    ] as const) {
-      await expect(new StudentsService(prisma).create({ ...data, [field]: null }, 'registrar-1'))
-        .rejects.toThrow(`${label}: مطلوب لربط الطالب بخطته الدراسية.`);
-    }
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+  it('creates a student without a study plan or a family name (linked later when the registration is approved)', async () => {
+    const create = vi.fn().mockImplementation(({ data: row }) => Promise.resolve({ id: 'student-9', ...row }));
+    const prisma = {
+      student: { findFirst: vi.fn().mockResolvedValue(null) },
+      $transaction: (fn: (tx: unknown) => Promise<unknown>) => fn({ student: { create }, auditLog: { create: vi.fn() } }),
+    } as unknown as PrismaService;
+    const { familyName, collegeId, programId, studyPlanId, academicYearId, semesterId, ...ministry } = data;
+    void [familyName, collegeId, programId, studyPlanId, academicYearId, semesterId];
+    await new StudentsService(prisma).create({ ...ministry, meritNumber: '555123' }, 'registrar-1');
+    expect(create).toHaveBeenCalledWith({ data: expect.objectContaining({
+      familyName: '', fullName: 'سارة عمر', meritNumber: '555123', studyPlanId: null, programId: null,
+    }) });
+  });
+
+  it('approves the registration of students without a plan and skips the ones that already have one', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const audit = vi.fn().mockResolvedValue({});
+    const prisma = {
+      ...catalog(),
+      department: { findUnique: vi.fn().mockResolvedValue({ id: 'dep-1', collegeId: 'college-1' }) },
+      program: { findUnique: vi.fn().mockResolvedValue({ id: 'program-1', collegeId: 'college-1', departmentId: 'dep-1' }) },
+      student: { findMany: vi.fn().mockResolvedValue([
+        { id: 's1', universityId: '1', studyPlanId: null },
+        { id: 's2', universityId: '2', studyPlanId: 'plan-9' },
+      ]) },
+      $transaction: (fn: (tx: unknown) => Promise<unknown>) => fn({ student: { updateMany }, auditLog: { create: audit } }),
+    } as unknown as PrismaService;
+    const result = await new StudentsService(prisma).approveRegistration({
+      studentIds: ['s1', 's2', 's3'], collegeId: 'college-1', departmentId: 'dep-1', programId: 'program-1',
+      studyPlanId: 'plan-1', academicYearId: 'year-1', semesterId: 'semester-1',
+    }, 'registrar-1');
+    expect(result.approved).toBe(1);
+    expect(result.skipped.map((item) => item.reason)).toEqual(['مرتبط بخطة دراسية مسبقاً', 'الطالب غير موجود']);
+    expect(updateMany).toHaveBeenCalledWith({ where: { id: { in: ['s1'] }, studyPlanId: null }, data: expect.objectContaining({ studyPlanId: 'plan-1', semesterId: 'semester-1' }) });
+    expect(audit).toHaveBeenCalledWith({ data: expect.objectContaining({ action: 'STUDENTS_REGISTRATION_APPROVED', userId: 'registrar-1' }) });
   });
 });

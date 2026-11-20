@@ -8,6 +8,7 @@ export interface StudentImportPreview {
   updateCount: number;
   errorCount: number;
   problemCount: number;
+  notes: string[];
   duplicateCount: number;
   errors: ImportError[];
   rows: Array<{ rowNumber: number; universityId: string; name: string; college: string; program: string; action: string }>;

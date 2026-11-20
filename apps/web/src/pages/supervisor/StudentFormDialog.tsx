@@ -55,7 +55,7 @@ function initialValues(student: StudentListItem | null): StudentInput {
   const gender = ['ذكر', 'male', 'm'].includes(rawGender ?? '') ? 'ذكر'
     : ['أنثى', 'انثى', 'female', 'f'].includes(rawGender ?? '') ? 'أنثى' : '';
   return {
-    universityId: student.universityId, firstName: student.firstName, familyName: student.familyName,
+    universityId: student.universityId, firstName: student.firstName, familyName: student.familyName, meritNumber: student.meritNumber,
     middleName: student.middleName, motherName: student.motherName, nationalId: student.nationalId,
     applicationNumber: student.applicationNumber, birthPlace: student.birthPlace,
     englishName: student.englishName, gender,
@@ -176,11 +176,11 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
     setSubmitted(true);
     setError('');
     const requiredKeys: Array<keyof StudentInput> = [
-      'universityId', 'firstName', 'middleName', 'familyName', 'motherName',
+      'universityId', 'firstName', 'middleName', 'motherName',
       'nationalId', 'applicationNumber', 'birthPlace',
     ];
     const validationKeys: Array<keyof StudentInput> = [
-      ...requiredKeys, 'englishName', 'phone', 'nationality',
+      ...requiredKeys, 'familyName', 'englishName', 'phone', 'nationality',
     ];
     const nextErrors: StudentFieldErrors = {};
     for (const key of validationKeys) {
@@ -196,12 +196,6 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
         const message = validateStudentField(key, value);
         if (message) nextErrors[key] = message;
       }
-    }
-    for (const [key, label] of [
-      ['collegeId', 'الكلية'], ['programId', 'البرنامج / التخصص'], ['studyPlanId', 'الخطة الدراسية'],
-      ['academicYearId', 'المستوى الأكاديمي'], ['semesterId', 'الفصل الدراسي'],
-    ] as const) {
-      if (!String(form[key] ?? '').trim()) nextErrors[key] = `${label} مطلوب.`;
     }
     setFieldErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
@@ -226,9 +220,10 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
 
   const fields = [
     field('universityId', 'الرقم الجامعي', true), field('firstName', 'الاسم الأول', true),
-    field('middleName', 'اسم الأب', true), field('familyName', 'اسم العائلة', true),
+    field('middleName', 'اسم الأب', true), field('familyName', 'اسم العائلة'),
     field('motherName', 'اسم الأم', true), field('nationalId', 'الرقم الوطني', true),
     field('applicationNumber', 'رقم الاكتتاب', true), field('birthPlace', 'مكان الولادة', true),
+    field('meritNumber', 'رقم المفاضلة (الرقم الوزاري)'),
     field('englishName', 'الاسم بالإنجليزية'),
     <TextField select key="gender" label="الجنس" fullWidth value={form.gender ?? ''}
       onChange={(event) => setForm((current) => ({ ...current, gender: event.target.value || null }))}>
@@ -240,14 +235,14 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
     field('admissionDate', 'تاريخ القبول', false, 'date'),
   ];
   const academic = catalog ? [
-    select('collegeId', 'الكلية', catalog.colleges, ['departmentId', 'programId', 'studyPlanId', 'academicYearId', 'semesterId'], true),
+    select('collegeId', 'الكلية', catalog.colleges, ['departmentId', 'programId', 'studyPlanId', 'academicYearId', 'semesterId']),
     select('departmentId', 'القسم', catalog.departments.filter((item) => item.collegeId === form.collegeId), ['programId', 'studyPlanId', 'academicYearId', 'semesterId']),
     select('programId', 'البرنامج / التخصص', catalog.programs.filter((item) => form.departmentId
       ? item.departmentId === form.departmentId
       : !item.departmentId && item.collegeId === form.collegeId), ['studyPlanId', 'academicYearId', 'semesterId'], true),
-    select('studyPlanId', 'الخطة الدراسية', catalog.plans.filter((item) => item.programId === form.programId), ['academicYearId', 'semesterId'], true),
-    select('academicYearId', 'المستوى الأكاديمي', catalog.years.filter((item) => item.studyPlanId === form.studyPlanId), ['semesterId'], true),
-    select('semesterId', 'الفصل الدراسي', catalog.semesters.filter((item) => item.academicYearId === form.academicYearId), [], true),
+    select('studyPlanId', 'الخطة الدراسية', catalog.plans.filter((item) => item.programId === form.programId), ['academicYearId', 'semesterId']),
+    select('academicYearId', 'المستوى الأكاديمي', catalog.years.filter((item) => item.studyPlanId === form.studyPlanId), ['semesterId']),
+    select('semesterId', 'الفصل الدراسي', catalog.semesters.filter((item) => item.academicYearId === form.academicYearId), []),
     select('advisorId', 'المرشد الأكاديمي', catalog.advisors),
   ] : [];
 
@@ -259,7 +254,7 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
     <DialogTitle>{student ? 'تعديل بيانات الطالب' : 'إضافة طالب'}</DialogTitle>
     <DialogContent dividers>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-      <Typography color="text.secondary" sx={{ mb: 2 }}>أدخل البيانات المعتمدة في سجل الطالب. الكلية والبرنامج والخطة والمستوى والفصل مطلوبة ليرتبط الطالب بخطته الدراسية ويستطيع تسجيل المقررات. إنشاء حساب الدخول للطالب خطوة منفصلة.</Typography>
+      <Typography color="text.secondary" sx={{ mb: 2 }}>أدخل البيانات المعتمدة في سجل الطالب. الخطة الدراسية غير مطلوبة هنا: يُربط الطالب بخطته عند اعتماد التسجيل من صفحة الطلاب (زر «اعتماد التسجيل»)، وبعدها يستطيع تسجيل المقررات. إنشاء حساب الدخول للطالب خطوة منفصلة.</Typography>
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 2 }}>
         {studentFields}
         {catalog ? academic : <CircularProgress size={24} />}

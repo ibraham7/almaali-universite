@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service.js';
-import { StudentInputDto } from './dto/student-input.dto.js';
+import { ApproveRegistrationDto, StudentInputDto } from './dto/student-input.dto.js';
 import { digitVariants, isDigitsOnly, isPersonName, isPlaceName, isSyrianMobile, isSyrianNationalId, normalizeDigits, normalizeGender, normalizeText } from './student-data-validation.js';
 
 interface FindStudentsOptions {
@@ -65,16 +65,9 @@ export class StudentsService {
   }
 
   private normalize(data: StudentInputDto) {
-    const required = ['universityId', 'firstName', 'middleName', 'familyName', 'motherName', 'nationalId', 'applicationNumber', 'birthPlace'] as const;
+    const required = ['universityId', 'firstName', 'middleName', 'motherName', 'nationalId', 'applicationNumber', 'birthPlace'] as const;
     for (const field of required) {
       if (!data[field]?.trim()) throw new BadRequestException(`${field} is required`);
-    }
-    const structure = [
-      ['collegeId', 'الكلية'], ['programId', 'البرنامج'], ['studyPlanId', 'الخطة الدراسية'],
-      ['academicYearId', 'المستوى الأكاديمي'], ['semesterId', 'الفصل'],
-    ] as const;
-    for (const [field, label] of structure) {
-      if (!data[field]?.trim()) throw new BadRequestException(`${label}: مطلوب لربط الطالب بخطته الدراسية.`);
     }
     const names: Array<[string, string | null | undefined]> = [
       ['الاسم الأول', data.firstName], ['اسم الأب', data.middleName],
@@ -114,7 +107,8 @@ export class StudentsService {
       universityId: normalizeText(data.universityId),
       firstName: normalizeText(data.firstName),
       fullName: [data.firstName, data.middleName, data.familyName].map((value) => value?.trim()).filter(Boolean).join(' '),
-      familyName: normalizeText(data.familyName),
+      familyName: data.familyName?.trim() ? normalizeText(data.familyName) : '',
+      meritNumber: data.meritNumber?.trim() || null,
       middleName: data.middleName?.trim() ? normalizeText(data.middleName) : null,
       motherName: data.motherName?.trim() ? normalizeText(data.motherName) : null,
       nationalId: data.nationalId?.trim() ? normalizeDigits(data.nationalId.trim()) : null,
@@ -137,6 +131,45 @@ export class StudentsService {
       advisorId: optional(data.advisorId),
       admissionDate: date(data.admissionDate),
     };
+  }
+
+  // اعتماد التسجيل: يربط الطلاب الذين بلا خطة بالكلية والقسم والبرنامج والخطة والمستوى والفصل.
+  // من لديه خطة مسبقاً يُتخطى (يعدَّل من نموذج الطالب)، ويُرجَع سبب كل تخطٍّ.
+  async approveRegistration(dto: ApproveRegistrationDto, actingUserId: string) {
+    await this.validateStructure(dto as unknown as StudentInputDto);
+    const students = await this.prisma.student.findMany({
+      where: { id: { in: dto.studentIds } },
+      select: { id: true, universityId: true, studyPlanId: true },
+    });
+    const found = new Map(students.map((student) => [student.id, student]));
+    const skipped: Array<{ studentId: string; universityId: string; reason: string }> = [];
+    const approvable: string[] = [];
+    for (const id of dto.studentIds) {
+      const student = found.get(id);
+      if (!student) skipped.push({ studentId: id, universityId: '', reason: 'الطالب غير موجود' });
+      else if (student.studyPlanId) skipped.push({ studentId: id, universityId: student.universityId, reason: 'مرتبط بخطة دراسية مسبقاً' });
+      else approvable.push(id);
+    }
+    if (approvable.length) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.student.updateMany({
+          where: { id: { in: approvable }, studyPlanId: null },
+          data: {
+            collegeId: dto.collegeId, departmentId: dto.departmentId, programId: dto.programId,
+            studyPlanId: dto.studyPlanId, academicYearId: dto.academicYearId, semesterId: dto.semesterId,
+          },
+        });
+        await tx.auditLog.create({ data: {
+          action: 'STUDENTS_REGISTRATION_APPROVED', entity: 'Student', userId: actingUserId,
+          details: JSON.stringify({
+            count: approvable.length, studentIds: approvable,
+            collegeId: dto.collegeId, departmentId: dto.departmentId, programId: dto.programId,
+            studyPlanId: dto.studyPlanId, academicYearId: dto.academicYearId, semesterId: dto.semesterId,
+          }),
+        } });
+      });
+    }
+    return { approved: approvable.length, skipped };
   }
 
   private rethrowDuplicate(error: unknown): never {

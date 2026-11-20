@@ -1,4 +1,4 @@
-import { IsDateString, IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsDateString, IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class StudentInputDto {
   @IsString() @IsNotEmpty() @MaxLength(50)
@@ -7,8 +7,11 @@ export class StudentInputDto {
   @IsString() @IsNotEmpty() @MaxLength(100)
   firstName!: string;
 
-  @IsString() @IsNotEmpty() @MaxLength(100)
-  familyName!: string;
+  @IsOptional() @IsString() @MaxLength(100)
+  familyName?: string | null;
+
+  @IsOptional() @IsString() @MaxLength(100)
+  meritNumber?: string | null;
 
   @IsOptional() @IsString() @MaxLength(100)
   middleName?: string | null;
@@ -76,3 +79,27 @@ export class StudentInputDto {
 
 // An edit is submitted as a complete form, so the same validation applies.
 export class UpdateStudentDto extends StudentInputDto {}
+
+// اعتماد التسجيل: ربط طلاب مستوردين (بدون خطة) بخطتهم الدراسية.
+export class ApproveRegistrationDto {
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(5000) @IsString({ each: true })
+  studentIds!: string[];
+
+  @IsString() @IsNotEmpty()
+  collegeId!: string;
+
+  @IsString() @IsNotEmpty()
+  departmentId!: string;
+
+  @IsString() @IsNotEmpty()
+  programId!: string;
+
+  @IsString() @IsNotEmpty()
+  studyPlanId!: string;
+
+  @IsString() @IsNotEmpty()
+  academicYearId!: string;
+
+  @IsString() @IsNotEmpty()
+  semesterId!: string;
+}

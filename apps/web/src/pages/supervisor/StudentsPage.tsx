@@ -45,6 +45,7 @@ import {
 import { useAuth } from '../../auth/AuthContext';
 import StudentFormDialog from './StudentFormDialog';
 import StudentImportDialog from './StudentImportDialog';
+import ApproveRegistrationDialog from './ApproveRegistrationDialog';
 import { getColleges, getDepartments, getPrograms, type College, type Department, type Program } from '../../api/academicStructure';
 
 function getErrorMessage(
@@ -167,6 +168,7 @@ export default function StudentsPage() {
     const navigate = useNavigate();
     const [formOpen, setFormOpen] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
+    const [approveTargets, setApproveTargets] = useState<Array<{ id: string; universityId: string; name: string }> | null>(null);
     const [editingStudent, setEditingStudent] = useState<StudentListItem | null>(null);
     const [students, setStudents] =
         useState<StudentListItem[]>([]);
@@ -302,7 +304,9 @@ export default function StudentsPage() {
             programId,
         ]);
 
-    const studentsWithoutPlan = filteredStudents.filter((student) => !student.studyPlanId).length;
+    const pendingStudents = filteredStudents.filter((student) => !student.studyPlanId);
+    const studentsWithoutPlan = pendingStudents.length;
+    const toTarget = (student: StudentListItem) => ({ id: student.id, universityId: student.universityId, name: [student.firstName, student.middleName, student.familyName].filter(Boolean).join(' ') });
 
     async function openStudent(
         student: StudentListItem,
@@ -522,8 +526,9 @@ export default function StudentsPage() {
             </Box>
 
             {studentsWithoutPlan > 0 && (
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                    {`${studentsWithoutPlan} طالب غير مرتبط بخطة دراسية ولا يستطيع تسجيل المقررات. عدّل بياناتهم (زر التعديل) وحدّد الكلية والبرنامج والخطة والمستوى والفصل.`}
+                <Alert severity="info" sx={{ mb: 2 }}
+                    action={canManage ? <Button color="inherit" size="small" onClick={() => setApproveTargets(pendingStudents.map(toTarget))}>اعتماد التسجيل</Button> : undefined}>
+                    {`${studentsWithoutPlan} طالب بانتظار اعتماد التسجيل (غير مرتبطين بخطة دراسية، ولا يستطيعون تسجيل المقررات). عند الاعتماد يُربطون بالخطة. صفّ القائمة بالكلية أو القسم أو البحث أولاً لاعتماد مجموعة محددة.`}
                 </Alert>
             )}
 
@@ -688,8 +693,8 @@ export default function StudentsPage() {
                                                     {!student.studyPlanId && (
                                                         <Chip
                                                             size="small"
-                                                            color="error"
-                                                            label="بدون خطة"
+                                                            color="warning"
+                                                            label="بانتظار اعتماد التسجيل"
                                                         />
                                                     )}
                                                 </Stack>
@@ -798,6 +803,7 @@ export default function StudentsPage() {
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     تفاصيل الطالب
                     {selectedStudent && <Stack direction="row" spacing={1}>
+                        {canManage && !selectedStudent.studyPlanId && <Button variant="contained" color="success" onClick={() => { setDialogOpen(false); setApproveTargets([toTarget(selectedStudent)]); }}>اعتماد التسجيل</Button>}
                         <Button variant="contained" startIcon={<MenuBookOutlinedIcon />} onClick={() => navigate(`/advisor/student-registration?universityId=${encodeURIComponent(selectedStudent.universityId)}`)}>تسجيل مقررات</Button>
                         {canManage && <>
                             <Button onClick={() => { setEditingStudent(selectedStudent); setDialogOpen(false); setFormOpen(true); }}>تعديل البيانات</Button>
@@ -1149,6 +1155,9 @@ export default function StudentsPage() {
             {canManage && <StudentFormDialog open={formOpen} student={editingStudent}
                 onClose={() => setFormOpen(false)}
                 onSaved={() => { void loadStudents(); }} />}
+            {canManage && <ApproveRegistrationDialog open={approveTargets !== null} students={approveTargets ?? []}
+                onClose={() => setApproveTargets(null)}
+                onDone={(message) => { setSuccess(message); void loadStudents(); }} />}
             {canManage && <StudentImportDialog open={importOpen}
                 onClose={() => setImportOpen(false)}
                 onImported={() => { void loadStudents(); }} />}

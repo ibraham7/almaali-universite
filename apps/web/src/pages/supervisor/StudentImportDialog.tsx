@@ -254,6 +254,7 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
           <Alert severity={preview.errorCount ? 'warning' : 'success'}>
             إجمالي الصفوف: {preview.total} | الصالحة: {preview.validCount} (إضافة {preview.validCount - preview.updateCount}، تحديث {preview.updateCount}) | الصفوف التي فيها أخطاء: {preview.errorCount} | عدد الأخطاء: {preview.problemCount} | المكررة داخل الملف: {preview.duplicateCount}
           </Alert>
+          {preview.notes?.map((note) => <Alert key={note} severity="info">{note}</Alert>)}
           {preview.errors.length > 0 && <>
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>الأخطاء ({preview.errors.length})</Typography>

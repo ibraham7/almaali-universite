@@ -249,7 +249,7 @@ export class StudentImportsService {
     const seenNationalIds = new Set<string>();
     const valid: Array<{ rowNumber: number; isUpdate: boolean; providedColumns: boolean[]; data: {
       universityId: string; firstName: string; middleName: string | null; familyName: string;
-      fullName: string; motherName: string; nationalId: string; applicationNumber: string; birthPlace: string;
+      fullName: string; meritNumber: string | null; motherName: string; nationalId: string; applicationNumber: string; birthPlace: string;
       englishName: string | null; gender: string | null; dateOfBirth: Date | null;
       nationality: string | null; idOrPassport: string | null; universityEmail: string | null;
       phone: string | null; collegeId: string | null; departmentId: string | null;
@@ -258,7 +258,7 @@ export class StudentImportsService {
     }; college: string; program: string }> = [];
 
     const defaults = options.defaults ?? {};
-    const placementGaps = new Map<string, number>();
+    const ignored = new Map<string, number>();
     const defaultNames = {
       college: colleges.find((item) => item.id === defaults.collegeId)?.nameAr ?? '',
       department: departments.find((item) => item.id === defaults.departmentId)?.nameAr ?? '',
@@ -271,7 +271,7 @@ export class StudentImportsService {
       const [universityId, firstName, middleName, familyName, englishName, gender, birth, nationality,
         idOrPassport, universityEmail, phoneCell, collegeCell, departmentCell, programCell, planCell,
         yearCell, semesterCell, status, advisorEmail, admitted, motherName, nationalId,
-        applicationNumber, birthPlace] = row.cells;
+        applicationNumber, birthPlace, meritNumber] = row.cells;
       // رقم الهاتف المخزّن كرقم بـ Excel يفقد الصفر الأول (9 أرقام تبدأ بـ 9)
       const phone = /^9\d{8}$/.test(normalizeDigits(phoneCell)) ? `0${normalizeDigits(phoneCell)}` : phoneCell;
       const knownStudent = existingById.get(normalizeText(universityId));
@@ -299,9 +299,10 @@ export class StudentImportsService {
         applicationNumber: normalizedApplicationNumber || (previous?.applicationNumber ? normalizeDigits(previous.applicationNumber) : ''),
         birthPlace: normalizeText(birthPlace) || previous?.birthPlace || '',
       };
+      if (normalizedFamilyName.length > 100) problems.push('اسم العائلة: أطول من المسموح (100 حرف)');
       for (const [label, key, value, max] of [
         ['الرقم الجامعي', 'universityId', normalizedUniversityId, 50], ['الاسم الأول', 'firstName', normalizedFirstName, 100],
-        ['اسم الأب', 'middleName', values.middleName, 100], ['اسم العائلة', 'familyName', normalizedFamilyName, 100],
+        ['اسم الأب', 'middleName', values.middleName, 100],
         ['اسم الأم', 'motherName', values.motherName, 100], ['الرقم الوطني', 'nationalId', values.nationalId, 100],
         ['رقم الاكتتاب', 'applicationNumber', values.applicationNumber, 100], ['مكان الولادة', 'birthPlace', values.birthPlace, 100],
       ] as const) {
@@ -337,7 +338,7 @@ export class StudentImportsService {
       const dateOfBirth = birth ? this.parseDate(birth, 'تاريخ الميلاد', problems) : existingStudent?.dateOfBirth ?? null;
       const admissionDate = admitted ? this.parseDate(admitted, 'تاريخ القبول', problems) : existingStudent?.admissionDate ?? null;
 
-      const resolve = <T extends { id: string; nameAr: string }>(name: string, entries: T[], parentId: string | null, parentKey: keyof T | undefined, label: string, fallbackId?: string | null, ordinal = false) => {
+      const resolve = <T extends { id: string; nameAr: string }>(name: string, entries: T[], parentId: string | null, parentKey: keyof T | undefined, label: string, fallbackId?: string | null, ordinal = false, skipWhenNoParent = false) => {
         if (!name) {
           if (!fallbackId) return null;
           const previous = entries.find((entry) => entry.id === fallbackId);
@@ -347,7 +348,12 @@ export class StudentImportsService {
           }
           return fallbackId;
         }
-        if (parentKey && !parentId) { problems.push(`${label}: اختر المستوى الأكاديمي السابق`); return null; }
+        if (parentKey && !parentId) {
+          // الخطة غير محددة (تُحدَّد عند اعتماد التسجيل): تُتجاهل هذه الخلية ويُنبَّه المستخدم بدل اعتبارها خطأ
+          if (skipWhenNoParent) { ignored.set(label, (ignored.get(label) ?? 0) + 1); return null; }
+          problems.push(`${label}: اختر المستوى الأكاديمي السابق`);
+          return null;
+        }
         const scoped = entries.filter((entry) => !parentKey || entry[parentKey] === parentId);
         // مطابقة متدرجة: اسم مطابق تماماً، ثم بعد توحيد الحروف والمسافات، ثم الترتيب (الأولى = 1)، ثم احتواء فريد
         const norm = StudentImportsService.normalizeHeader;
@@ -364,17 +370,12 @@ export class StudentImportsService {
       };
       const collegeId = resolve(collegeName, colleges, null, undefined, 'الكلية', existingStudent?.collegeId);
       const departmentId = resolve(departmentName, departments, collegeId, 'collegeId', 'القسم', existingStudent?.departmentId);
-      const programId = departmentId
-        ? resolve(programName, programs, departmentId, 'departmentId', 'البرنامج', existingStudent?.programId)
-        : resolve(programName, programs.filter((program) => !program.departmentId), collegeId, 'collegeId', 'البرنامج', existingStudent?.programId);
-      const studyPlanId = resolve(planName, plans, programId, 'programId', 'الخطة الدراسية', existingStudent?.studyPlanId);
-      const academicYearId = resolve(yearName, years, studyPlanId, 'studyPlanId', 'المستوى الأكاديمي', existingStudent?.academicYearId, true);
-      const semesterId = resolve(semesterName, semesters, academicYearId, 'academicYearId', 'الفصل الدراسي', existingStudent?.semesterId, true);
-      for (const [label, id, fieldKey, defaultKey] of [['الكلية', collegeId, 'college', 'collegeId'], ['البرنامج', programId, 'program', 'programId'], ['الخطة الدراسية', studyPlanId, 'plan', 'studyPlanId'], ['المستوى الأكاديمي', academicYearId, 'year', 'academicYearId'], ['الفصل الدراسي', semesterId, 'semester', 'semesterId']] as const) {
-        const noSource = (mapping[fieldKey] === null || mapping[fieldKey] === undefined) && !defaults[defaultKey];
-        if (!id && noSource) { placementGaps.set(label, (placementGaps.get(label) ?? 0) + 1); continue; }
-        if (!id && !problems.some((item) => item.startsWith(`${label}:`))) problems.push(`${label}: مطلوب لربط الطالب بخطته الدراسية (أضف عموداً بالملف أو اختر قيمة افتراضية)`);
-      }
+      let programId: string | null = null;
+      if (departmentId) programId = resolve(programName, programs, departmentId, 'departmentId', 'البرنامج', existingStudent?.programId, false, true);
+      else if (programName) ignored.set('البرنامج', (ignored.get('البرنامج') ?? 0) + 1);
+      const studyPlanId = resolve(planName, plans, programId, 'programId', 'الخطة الدراسية', existingStudent?.studyPlanId, false, true);
+      const academicYearId = resolve(yearName, years, studyPlanId, 'studyPlanId', 'المستوى الأكاديمي', existingStudent?.academicYearId, true, true);
+      const semesterId = resolve(semesterName, semesters, academicYearId, 'academicYearId', 'الفصل الدراسي', existingStudent?.semesterId, true, true);
       const matchingAdvisors = advisorEmail ? advisors.filter((person) => person.email.toLowerCase() === advisorEmail.toLowerCase()) : [];
       if (advisorEmail && matchingAdvisors.length !== 1) problems.push('بريد المرشد: غير موجود أو الحساب غير نشط');
 
@@ -387,8 +388,9 @@ export class StudentImportsService {
         }
       } else {
         valid.push({ rowNumber: row.rowNumber, isUpdate: Boolean(existingStudent), providedColumns: row.cells.map(Boolean), college: collegeName, program: programName,
-          data: { universityId: normalizedUniversityId, firstName: normalizedFirstName, middleName: values.middleName, familyName: normalizedFamilyName,
-            fullName: [normalizedFirstName, values.middleName, normalizedFamilyName].filter(Boolean).join(' '),
+          data: { universityId: normalizedUniversityId, firstName: normalizedFirstName, middleName: values.middleName, familyName: normalizedFamilyName || previous?.familyName || '',
+            meritNumber: meritNumber?.trim() || existingStudent?.meritNumber || null,
+            fullName: [normalizedFirstName, values.middleName, normalizedFamilyName || previous?.familyName].filter(Boolean).join(' '),
             motherName: values.motherName, nationalId: values.nationalId,
             applicationNumber: values.applicationNumber, birthPlace: values.birthPlace,
             englishName: englishName ? normalizeText(englishName) : existingStudent?.englishName || null, gender: normalizedGender || existingStudent?.gender || null, dateOfBirth,
@@ -401,12 +403,10 @@ export class StudentImportsService {
       }
     }
 
-    for (const [label, count] of placementGaps) {
-      errors.push({ rowNumber: 0, universityId: '', column: label, message: `غير مربوط بأي عمود ولا توجد له قيمة افتراضية، ويؤثر على ${count} صف. اربطه بعمود من الملف أو اختر قيمة افتراضية` });
-    }
+    const notes = [...ignored].map(([label, count]) => `تم تجاهل «${label}» في ${count} صف لأن الخطة الدراسية غير محددة. يُربط الطالب بالخطة والمستوى والفصل لاحقاً عند اعتماد التسجيل من صفحة الطلاب.`);
     const globalErrors = errors.filter((item) => item.rowNumber === 0).length;
     return {
-      total: parsed.length, validCount: valid.length, updateCount: valid.filter((item) => item.isUpdate).length, errorCount: rowsWithErrors + globalErrors, problemCount: errors.length, duplicateCount, errors,
+      total: parsed.length, validCount: valid.length, updateCount: valid.filter((item) => item.isUpdate).length, errorCount: rowsWithErrors + globalErrors, notes, problemCount: errors.length, duplicateCount, errors,
       rows: valid.map((item) => ({ rowNumber: item.rowNumber, universityId: item.data.universityId,
         name: [item.data.firstName, item.data.middleName, item.data.familyName].filter(Boolean).join(' '),
         college: item.college, program: item.program, action: item.isUpdate ? 'تحديث' : 'إضافة' })),
@@ -430,7 +430,7 @@ export class StudentImportsService {
       phone: 10, collegeId: 11, departmentId: 12, programId: 13,
       studyPlanId: 14, academicYearId: 15, semesterId: 16, status: 17,
       advisorId: 18, admissionDate: 19, motherName: 20, nationalId: 21,
-      applicationNumber: 22, birthPlace: 23,
+      applicationNumber: 22, birthPlace: 23, meritNumber: 24,
     };
     try {
       await this.prisma.$transaction(async (tx) => {

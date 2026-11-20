@@ -15,7 +15,7 @@ function row(universityId: string, firstName: string, familyName: string, birth 
   const cells = Array<string>(STUDENT_IMPORT_HEADERS.length).fill('');
   Object.assign(cells, {
     0: universityId, 1: firstName, 2: 'عمر', 3: familyName, 6: birth,
-    11: 'كلية التربية', 13: 'معلم صف', 14: 'خطة معلم صف', 15: 'السنة الأولى', 16: 'الفصل الأول',
+    11: 'كلية التربية', 12: 'قسم معلم صف', 13: 'معلم صف', 14: 'خطة معلم صف', 15: 'السنة الأولى', 16: 'الفصل الأول',
     20: 'منى', 21: `1234${numericId}`, 22: `456${numericId}`, 23: 'حلب',
   });
   return cells;
@@ -35,8 +35,8 @@ function database(ids: string[] = [], existingHasPlan = false) {
   const transaction = vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({ student: { create, update }, auditLog: { create: audit } }));
   const prisma = {
     college: { findMany: vi.fn().mockResolvedValue([{ id: 'college-1', nameAr: 'كلية التربية' }]) },
-    department: { findMany },
-    program: { findMany: vi.fn().mockResolvedValue([{ id: 'program-1', nameAr: 'معلم صف', collegeId: 'college-1', departmentId: null }]) },
+    department: { findMany: vi.fn().mockResolvedValue([{ id: 'dep-1', nameAr: 'قسم معلم صف', collegeId: 'college-1' }]) },
+    program: { findMany: vi.fn().mockResolvedValue([{ id: 'program-1', nameAr: 'معلم صف', collegeId: 'college-1', departmentId: 'dep-1' }]) },
     studyPlan: { findMany: vi.fn().mockResolvedValue([{ id: 'plan-1', nameAr: 'خطة معلم صف', programId: 'program-1' }]) },
     academicYear: { findMany: vi.fn().mockResolvedValue([{ id: 'year-1', nameAr: 'السنة الأولى', studyPlanId: 'plan-1' }]) },
     semester: { findMany: vi.fn().mockResolvedValue([{ id: 'semester-1', nameAr: 'الفصل الأول', academicYearId: 'year-1' }]) },
@@ -45,7 +45,7 @@ function database(ids: string[] = [], existingHasPlan = false) {
       motherName: 'منى', nationalId: 'N-OLD', applicationNumber: 'A-OLD', birthPlace: 'حلب', englishName: null,
       gender: null, dateOfBirth: null, nationality: null, idOrPassport: null,
       universityEmail: null, phone: null,
-      collegeId: existingHasPlan ? 'college-1' : null, departmentId: null, programId: existingHasPlan ? 'program-1' : null,
+      collegeId: existingHasPlan ? 'college-1' : null, departmentId: existingHasPlan ? 'dep-1' : null, programId: existingHasPlan ? 'program-1' : null,
       studyPlanId: existingHasPlan ? 'plan-1' : null, academicYearId: existingHasPlan ? 'year-1' : null,
       semesterId: existingHasPlan ? 'semester-1' : null, status: 'ACTIVE', advisorId: null,
       admissionDate: null,
@@ -100,7 +100,7 @@ describe('Student Excel import', () => {
       data: {
         firstName: 'مريم', fullName: 'مريم عمر علي', familyName: 'علي', middleName: 'عمر',
         motherName: 'منى', nationalId: '12342026001', applicationNumber: '4562026001', birthPlace: 'حلب',
-        collegeId: 'college-1', programId: 'program-1', studyPlanId: 'plan-1',
+        collegeId: 'college-1', departmentId: 'dep-1', programId: 'program-1', studyPlanId: 'plan-1',
         academicYearId: 'year-1', semesterId: 'semester-1',
       },
     });
@@ -159,21 +159,23 @@ describe('Student Excel import', () => {
     expect(result.imported).toBe(1);
   });
 
-  it('rejects a new student row that is not placed in a college, program, plan, level and semester', async () => {
-    const { prisma, transaction } = database();
-    const result = await new StudentImportsService(prisma).preview(file([withoutPlacement(row('2026011', 'هند', 'خالد'))]));
-    expect(result).toMatchObject({ validCount: 0, errorCount: 1 });
-    expect(result.errors.map((item) => item.column)).toEqual(['الكلية', 'البرنامج', 'الخطة الدراسية', 'المستوى الأكاديمي', 'الفصل الدراسي']);
-    expect(result.errors[0].message).toContain('مطلوب لربط الطالب بخطته الدراسية');
-    expect(transaction).not.toHaveBeenCalled();
+  it('imports a new student without a plan: the plan is linked later when the registration is approved', async () => {
+    const { prisma, create } = database();
+    const result = await new StudentImportsService(prisma).confirm(file([withoutPlacement(row('2026011', 'هند', 'خالد'))]), 'registrar-1');
+    expect(result).toMatchObject({ imported: 1, errors: 0 });
+    expect(create).toHaveBeenCalledWith({ data: expect.objectContaining({ studyPlanId: null, collegeId: null, semesterId: null }) });
   });
 
-  it('rejects an update that would leave an existing student without a study plan', async () => {
-    const { prisma } = database(['2026001']);
-    const result = await new StudentImportsService(prisma).preview(file([withoutPlacement(row('2026001', 'سارة', 'علي'))]));
-    expect(result).toMatchObject({ validCount: 0, errorCount: 1 });
-    expect(result.errors.map((item) => item.column)).toEqual(['الكلية', 'البرنامج', 'الخطة الدراسية', 'المستوى الأكاديمي', 'الفصل الدراسي']);
-    expect(result.errors[0].message).toContain('مطلوب لربط الطالب بخطته الدراسية');
+  it('accepts a student without a family name and keeps the ministry number', async () => {
+    const { prisma, create } = database();
+    const service = new StudentImportsService(prisma);
+    const upload = ministryFile(['رقم الاكتتاب', 'اسم الطالب', 'الأب', 'الأم', 'الرقم الوطني', 'مكان الولادة', 'الرقم الجامعي', 'الرقم الجامعي المولد على نظام الوزارة'],
+      [['7001', 'هند', 'عمر', 'منى', '12345678901', 'حلب', '2026012', '9988776655']]);
+    const info = service.inspect(upload);
+    expect(info.suggestedMapping.meritNumber).toBe(7);
+    expect(info.suggestedMapping.universityId).toBe(6);
+    await service.confirm(upload, 'registrar-1', { mapping: info.suggestedMapping });
+    expect(create).toHaveBeenCalledWith({ data: expect.objectContaining({ universityId: '2026012', familyName: '', fullName: 'هند عمر', meritNumber: '9988776655', studyPlanId: null }) });
   });
 
   it('keeps the plan of an existing student when the placement columns are left blank', async () => {
@@ -280,17 +282,6 @@ describe('Student Excel import', () => {
     expect(result.errors.some((item) => item.rowNumber === 0 && item.column === 'الرقم الجامعي' && item.message.includes('بادئة'))).toBe(true);
   });
 
-  it('reports a missing placement once, not once per row', async () => {
-    const { prisma } = database();
-    const service = new StudentImportsService(prisma);
-    const upload = ministryFile(noUniversityId, noIdRows);
-    const result = await service.preview(upload, { mapping: service.inspect(upload).suggestedMapping, universityIdSource: { mode: 'applicationNumber' } });
-    const placement = result.errors.filter((item) => item.column === 'الكلية');
-    expect(placement).toHaveLength(1);
-    expect(placement[0]).toMatchObject({ rowNumber: 0 });
-    expect(placement[0].message).toContain('2 صف');
-  });
-
   it('matches the level and semester by their order, so «الأولى» or «1» match «السنة الأولى»', async () => {
     const { prisma } = database();
     const service = new StudentImportsService(prisma);
@@ -321,5 +312,15 @@ describe('Student Excel import', () => {
     // the file has no family-name column, and the generated ministry number is a second, separate column
     expect(info.suggestedMapping.familyName).toBeNull();
     expect(info.suggestedMapping.universityId).not.toBe(2);
+  });
+
+  it('ignores the level and semester columns when no plan is chosen, with a note instead of an error', async () => {
+    const { prisma } = database();
+    const service = new StudentImportsService(prisma);
+    const upload = ministryFile(['رقم الاكتتاب', 'اسم الطالب', 'الأب', 'الأم', 'الرقم الوطني', 'مكان الولادة', 'الرقم الجامعي', 'السنة الدراسية'],
+      [['7001', 'هند', 'عمر', 'منى', '12345678901', 'حلب', '2026013', 'الأولى'], ['7002', 'سارة', 'علي', 'ليلى', '12345678902', 'دمشق', '2026014', 'الثانية']]);
+    const result = await service.preview(upload, { mapping: service.inspect(upload).suggestedMapping });
+    expect(result).toMatchObject({ validCount: 2, errorCount: 0 });
+    expect(result.notes.join(' ')).toContain('تم تجاهل «المستوى الأكاديمي» في 2 صف');
   });
 });
