@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service.js';
-import { ApproveRegistrationDto, StudentInputDto } from './dto/student-input.dto.js';
+import { ApproveRegistrationDto, StudentInputDto, TransferCollegeDto } from './dto/student-input.dto.js';
 import { digitVariants, isDigitsOnly, isPersonName, isPlaceName, isSyrianMobile, isSyrianNationalId, normalizeDigits, normalizeGender, normalizeText } from './student-data-validation.js';
 
 interface FindStudentsOptions {
@@ -170,6 +170,69 @@ export class StudentsService {
       });
     }
     return { approved: approvable.length, skipped };
+  }
+
+  // نقل طالب إلى كلية أخرى: يتغير رمز الكلية في رقمه الجامعي (السنة الأصلية تبقى) ويبقى الرقم القديم بالسجل.
+  // سجلات الطالب (تسجيلات، نتائج، عمليات) مرتبطة بمعرّفه الداخلي فلا تتأثر. خطته تُفكّ (تابعة للكلية القديمة)
+  // فيعود «بانتظار اعتماد التسجيل» ويُربط بخطة الكلية الجديدة. تسجيل الدخول يتبع الرقم الجديد.
+  async transferCollege(id: string, dto: TransferCollegeDto, actingUserId: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { id },
+      select: { id: true, universityId: true, collegeId: true, advisorId: true, userId: true, createdAt: true },
+    });
+    if (!student) throw new NotFoundException('الطالب غير موجود.');
+    if (student.collegeId === dto.collegeId) throw new BadRequestException('الطالب مسجل في هذه الكلية أصلاً.');
+    const college = await this.prisma.college.findUnique({ where: { id: dto.collegeId }, select: { id: true, nameAr: true, code: true } });
+    if (!college) throw new NotFoundException('الكلية المحددة غير موجودة.');
+    if (!college.code) throw new BadRequestException(`كلية «${college.nameAr}» ليس لها رمز. أضف رمز الكلية من شاشة الهيكل الأكاديمي أولاً.`);
+    const open = await this.prisma.studentEnrollment.count({ where: { studentId: id, status: { in: ['DRAFT', 'PENDING', 'APPROVED'] } } });
+    if (open > 0) throw new ConflictException('لدى الطالب تسجيل غير منتهٍ (مسودة أو قيد الموافقة أو معتمد). أنهِه أو ألغِه قبل النقل.');
+
+    const match = /^(\d{2})\d{2}\d{3}$/.exec(student.universityId);
+    const year = match ? match[1] : dto.admissionYear ? String(dto.admissionYear).slice(-2) : null;
+    if (!year) throw new BadRequestException('رقم الطالب الحالي لا يتبع صيغة (سنة + كلية + تسلسل). أدخل سنة القبول لتوليد الرقم الجديد.');
+    const prefix = `${year}${college.code}`;
+    const [current, past] = await Promise.all([
+      this.prisma.student.findMany({ where: { universityId: { startsWith: prefix } }, select: { universityId: true } }),
+      this.prisma.studentNumberHistory.findMany({ where: { universityId: { startsWith: prefix } }, select: { universityId: true } }),
+    ]);
+    let last = 0;
+    for (const item of [...current, ...past]) {
+      if (item.universityId.length !== prefix.length + 3) continue;
+      const suffix = Number(item.universityId.slice(prefix.length));
+      if (Number.isInteger(suffix) && suffix > last) last = suffix;
+    }
+    if (last >= 999) throw new ConflictException('تجاوز التسلسل 999 لهذه الكلية والسنة.');
+    const newNumber = `${prefix}${String(last + 1).padStart(3, '0')}`;
+
+    const previous = await this.prisma.studentNumberHistory.findFirst({ where: { studentId: id }, orderBy: { validTo: 'desc' }, select: { validTo: true } });
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.studentNumberHistory.create({ data: {
+          studentId: id, universityId: student.universityId, collegeId: student.collegeId,
+          replacedByUniversityId: newNumber, reason: dto.reason?.trim() || null, changedById: actingUserId,
+          validFrom: previous?.validTo ?? student.createdAt,
+        } });
+        await tx.student.update({ where: { id }, data: {
+          universityId: newNumber, collegeId: dto.collegeId,
+          departmentId: null, programId: null, studyPlanId: null, academicYearId: null, semesterId: null, advisorId: null,
+        } });
+        if (student.userId) {
+          const account = await tx.user.findUnique({ where: { id: student.userId }, select: { email: true } });
+          if (account?.email === `${student.universityId}@students.local`) {
+            await tx.user.update({ where: { id: student.userId }, data: { email: `${newNumber}@students.local` } });
+          }
+        }
+        await tx.auditLog.create({ data: {
+          action: 'STUDENT_COLLEGE_TRANSFER', entity: 'Student', entityId: id, userId: actingUserId,
+          details: JSON.stringify({
+            oldUniversityId: student.universityId, newUniversityId: newNumber,
+            fromCollegeId: student.collegeId, toCollegeId: dto.collegeId, previousAdvisorId: student.advisorId, reason: dto.reason?.trim() || null,
+          }),
+        } });
+      });
+    } catch (error) { return this.rethrowDuplicate(error); }
+    return { universityId: newNumber, previousUniversityId: student.universityId, college: college.nameAr };
   }
 
   private rethrowDuplicate(error: unknown): never {
@@ -380,6 +443,12 @@ export class StudentsService {
                     mode: 'insensitive',
                   },
                 },
+                // الأرقام الجامعية السابقة (بعد النقل بين الكليات)
+                {
+                  numberHistory: {
+                    some: { universityId: { contains: search, mode: 'insensitive' } },
+                  },
+                },
                 {
                   firstName: {
                     contains: search,
@@ -416,6 +485,7 @@ export class StudentsService {
       },
 
       include: {
+        numberHistory: { select: { universityId: true, validTo: true } },
         user: {
           select: {
             id: true,
@@ -466,6 +536,7 @@ export class StudentsService {
         },
 
         include: {
+          numberHistory: { orderBy: { validTo: 'desc' } },
           user: {
             select: {
               id: true,

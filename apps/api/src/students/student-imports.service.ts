@@ -248,7 +248,12 @@ export class StudentImportsService {
         sequenceDigits = 3;
       }
       if (uniMode === 'generate' || uniMode === 'byCollege') {
-        const taken = await this.prisma.student.findMany({ where: { universityId: { startsWith: prefixForNew } }, select: { universityId: true } });
+        const [takenNow, takenBefore] = await Promise.all([
+          this.prisma.student.findMany({ where: { universityId: { startsWith: prefixForNew } }, select: { universityId: true } }),
+          this.prisma.studentNumberHistory.findMany({ where: { universityId: { startsWith: prefixForNew } }, select: { universityId: true } }),
+        ]);
+        // الأرقام السابقة (بعد النقل بين الكليات) لا يُعاد إصدارها
+        const taken = [...takenNow, ...takenBefore];
         for (const item of taken) {
           if (uniMode === 'byCollege' && item.universityId.length !== prefixForNew.length + sequenceDigits) continue;
           const suffix = Number(item.universityId.slice(prefixForNew.length));

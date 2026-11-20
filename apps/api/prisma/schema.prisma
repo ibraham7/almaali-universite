@@ -318,6 +318,7 @@ model Student {
 
   enrollments StudentEnrollment[]
   results     CourseResult[]
+  numberHistory StudentNumberHistory[]
 }
 
 model SupportTicket {
@@ -663,4 +664,23 @@ model SignupAttempt {
 
   @@index([ipHash, createdAt])
   @@index([createdAt])
+}
+
+// الأرقام الجامعية السابقة للطالب (تتغير عند النقل بين الكليات). لا تُحذف ولا يُعاد إصدارها،
+// وكل سجلات الطالب مرتبطة بمعرّفه الداخلي فتبقى سليمة.
+model StudentNumberHistory {
+  id                     String   @id @default(uuid())
+  studentId              String
+  universityId           String   @unique
+  collegeId              String?
+  replacedByUniversityId String
+  reason                 String?
+  changedById            String?
+  validFrom              DateTime
+  validTo                DateTime @default(now())
+  createdAt              DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@index([studentId])
 }
