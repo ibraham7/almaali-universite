@@ -50,6 +50,7 @@ function database(ids: string[] = [], existingHasPlan = false) {
       semesterId: existingHasPlan ? 'semester-1' : null, status: 'ACTIVE', advisorId: null,
       admissionDate: null,
     }))) },
+    studentNumberHistory: { findMany: vi.fn().mockResolvedValue([]) },
     $transaction: transaction,
   } as unknown as PrismaService;
   return { prisma, transaction, create, update, audit };

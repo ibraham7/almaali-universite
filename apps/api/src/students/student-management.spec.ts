@@ -131,4 +131,54 @@ describe('Student management', () => {
     expect(updateMany).toHaveBeenCalledWith({ where: { id: { in: ['s1'] }, studyPlanId: null }, data: expect.objectContaining({ studyPlanId: 'plan-1', semesterId: 'semester-1' }) });
     expect(audit).toHaveBeenCalledWith({ data: expect.objectContaining({ action: 'STUDENTS_REGISTRATION_APPROVED', userId: 'registrar-1' }) });
   });
+
+  describe('college transfer', () => {
+    const transferSetup = (overrides: Record<string, unknown> = {}) => {
+      const historyCreate = vi.fn().mockResolvedValue({});
+      const studentUpdate = vi.fn().mockResolvedValue({});
+      const userUpdate = vi.fn().mockResolvedValue({});
+      const audit = vi.fn().mockResolvedValue({});
+      const prisma = {
+        student: {
+          findUnique: vi.fn().mockResolvedValue({ id: 's1', universityId: '2701004', collegeId: 'c-old', advisorId: 'adv-1', userId: 'u1', createdAt: new Date('2026-09-01') }),
+          findMany: vi.fn().mockResolvedValue([{ universityId: '2702001' }, { universityId: '2702002' }]),
+        },
+        college: { findUnique: vi.fn().mockResolvedValue({ id: 'c-new', nameAr: 'كلية التربية', code: '02' }) },
+        studentEnrollment: { count: vi.fn().mockResolvedValue(0) },
+        studentNumberHistory: { findMany: vi.fn().mockResolvedValue([{ universityId: '2702003' }]), findFirst: vi.fn().mockResolvedValue(null) },
+        $transaction: (fn: (tx: unknown) => Promise<unknown>) => fn({
+          studentNumberHistory: { create: historyCreate }, student: { update: studentUpdate },
+          user: { findUnique: vi.fn().mockResolvedValue({ email: '2701004@students.local' }), update: userUpdate }, auditLog: { create: audit },
+        }),
+        ...overrides,
+      } as unknown as PrismaService;
+      return { prisma, historyCreate, studentUpdate, userUpdate, audit };
+    };
+
+    it('gives a new number with the new college code and the original year, keeps the old number, moves the login', async () => {
+      const { prisma, historyCreate, studentUpdate, userUpdate, audit } = transferSetup();
+      const result = await new StudentsService(prisma).transferCollege('s1', { collegeId: 'c-new', reason: 'طلب نقل' }, 'registrar-1');
+      // 27 + 02 + next free sequence (001, 002 are used by students, 003 by a previous number)
+      expect(result).toMatchObject({ universityId: '2702004', previousUniversityId: '2701004' });
+      expect(historyCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ studentId: 's1', universityId: '2701004', replacedByUniversityId: '2702004', collegeId: 'c-old', changedById: 'registrar-1' }) });
+      expect(studentUpdate).toHaveBeenCalledWith({ where: { id: 's1' }, data: expect.objectContaining({ universityId: '2702004', collegeId: 'c-new', studyPlanId: null, semesterId: null, advisorId: null }) });
+      expect(userUpdate).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { email: '2702004@students.local' } });
+      expect(audit).toHaveBeenCalledWith({ data: expect.objectContaining({ action: 'STUDENT_COLLEGE_TRANSFER', entityId: 's1' }) });
+    });
+
+    it('refuses the same college, a college without a code, and a student with an open registration', async () => {
+      const service = (overrides: Record<string, unknown>) => new StudentsService(transferSetup(overrides).prisma);
+      await expect(service({}).transferCollege('s1', { collegeId: 'c-old' }, 'r')).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service({ college: { findUnique: vi.fn().mockResolvedValue({ id: 'c-new', nameAr: 'كلية', code: null }) } }).transferCollege('s1', { collegeId: 'c-new' }, 'r')).rejects.toBeInstanceOf(BadRequestException);
+      await expect(service({ studentEnrollment: { count: vi.fn().mockResolvedValue(1) } }).transferCollege('s1', { collegeId: 'c-new' }, 'r')).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('asks for the admission year when the current number does not follow the numbering format', async () => {
+      const odd = { student: { findUnique: vi.fn().mockResolvedValue({ id: 's1', universityId: 'TEST-1002', collegeId: 'c-old', advisorId: null, userId: null, createdAt: new Date() }), findMany: vi.fn().mockResolvedValue([]) } };
+      await expect(new StudentsService(transferSetup(odd).prisma).transferCollege('s1', { collegeId: 'c-new' }, 'r')).rejects.toBeInstanceOf(BadRequestException);
+      const { prisma, studentUpdate } = transferSetup(odd);
+      await new StudentsService(prisma).transferCollege('s1', { collegeId: 'c-new', admissionYear: 2027 }, 'r');
+      expect(studentUpdate).toHaveBeenCalledWith({ where: { id: 's1' }, data: expect.objectContaining({ universityId: '2702004' }) });
+    });
+  });
 });

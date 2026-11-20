@@ -19,6 +19,15 @@ export interface StudentEnrollmentSummary {
   updatedAt: string;
 }
 
+export interface StudentNumberHistoryItem {
+  id: string;
+  universityId: string;
+  replacedByUniversityId: string;
+  reason?: string | null;
+  validFrom: string;
+  validTo: string;
+}
+
 export interface StudentListItem {
   id: string;
   universityId: string;
@@ -61,6 +70,7 @@ export interface StudentListItem {
   user?: StudentUser | null;
 
   enrollments: StudentEnrollmentSummary[];
+  numberHistory?: StudentNumberHistoryItem[];
 }
 
 export interface StudentCourse {
@@ -233,5 +243,10 @@ export interface ApproveRegistrationInput {
 
 export async function approveStudentRegistration(data: ApproveRegistrationInput) {
   const response = await apiClient.post<{ approved: number; skipped: Array<{ studentId: string; universityId: string; reason: string }> }>('/students/approve-registration', data);
+  return response.data;
+}
+
+export async function transferStudentCollege(id: string, data: { collegeId: string; reason?: string; admissionYear?: number }) {
+  const response = await apiClient.post<{ universityId: string; previousUniversityId: string; college: string }>(`/students/${id}/transfer-college`, data);
   return response.data;
 }

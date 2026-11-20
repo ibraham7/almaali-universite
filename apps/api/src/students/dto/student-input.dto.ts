@@ -1,4 +1,4 @@
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsDateString, IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsDateString, IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 export class StudentInputDto {
   @IsString() @IsNotEmpty() @MaxLength(50)
@@ -102,4 +102,17 @@ export class ApproveRegistrationDto {
 
   @IsString() @IsNotEmpty()
   semesterId!: string;
+}
+
+// نقل الطالب إلى كلية أخرى: رقم جامعي جديد برمز الكلية الجديدة (السنة الأصلية نفسها)، والرقم القديم يُحفظ.
+export class TransferCollegeDto {
+  @IsString() @IsNotEmpty()
+  collegeId!: string;
+
+  @IsOptional() @IsString() @MaxLength(500)
+  reason?: string;
+
+  // يُستخدم فقط إذا كان رقم الطالب الحالي لا يتبع صيغة (سنة + كلية + تسلسل)
+  @IsOptional() @IsInt() @Min(2000) @Max(2099)
+  admissionYear?: number;
 }

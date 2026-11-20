@@ -46,6 +46,7 @@ import { useAuth } from '../../auth/AuthContext';
 import StudentFormDialog from './StudentFormDialog';
 import StudentImportDialog from './StudentImportDialog';
 import ApproveRegistrationDialog from './ApproveRegistrationDialog';
+import TransferCollegeDialog from './TransferCollegeDialog';
 import { getColleges, getDepartments, getPrograms, type College, type Department, type Program } from '../../api/academicStructure';
 
 function getErrorMessage(
@@ -168,6 +169,7 @@ export default function StudentsPage() {
     const navigate = useNavigate();
     const [formOpen, setFormOpen] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
+    const [transferOpen, setTransferOpen] = useState(false);
     const [approveTargets, setApproveTargets] = useState<Array<{ id: string; universityId: string; name: string }> | null>(null);
     const [editingStudent, setEditingStudent] = useState<StudentListItem | null>(null);
     const [students, setStudents] =
@@ -282,6 +284,8 @@ export default function StudentsPage() {
                         student.englishName,
                         student.universityEmail,
                         student.user?.email,
+                        // الأرقام الجامعية السابقة (بعد النقل بين الكليات)
+                        ...(student.numberHistory ?? []).map((item) => item.universityId),
                     ];
 
                     return values.some(
@@ -811,6 +815,7 @@ export default function StudentsPage() {
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     تفاصيل الطالب
                     {selectedStudent && <Stack direction="row" spacing={1}>
+                        {canManage && <Button color="warning" onClick={() => { setDialogOpen(false); setTransferOpen(true); }}>نقل إلى كلية أخرى</Button>}
                         {canManage && !selectedStudent.studyPlanId && <Button variant="contained" color="success" onClick={() => { setDialogOpen(false); setApproveTargets([toTarget(selectedStudent)]); }}>اعتماد التسجيل</Button>}
                         <Button variant="contained" startIcon={<MenuBookOutlinedIcon />} onClick={() => navigate(`/advisor/student-registration?universityId=${encodeURIComponent(selectedStudent.universityId)}`)}>تسجيل مقررات</Button>
                         {canManage && <>
@@ -856,6 +861,12 @@ export default function StudentsPage() {
                                         selectedStudent.universityId
                                     }
                                 </Typography>
+
+                                {selectedStudent.numberHistory && selectedStudent.numberHistory.length > 0 && (
+                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                        {`أرقام جامعية سابقة: ${selectedStudent.numberHistory.map((item) => `${item.universityId} (حتى ${new Date(item.validTo).toLocaleDateString('ar-SY')})`).join('، ')}`}
+                                    </Typography>
+                                )}
                             </Box>
 
                             <Divider />
@@ -1163,6 +1174,10 @@ export default function StudentsPage() {
             {canManage && <StudentFormDialog open={formOpen} student={editingStudent}
                 onClose={() => setFormOpen(false)}
                 onSaved={() => { void loadStudents(); }} />}
+            {canManage && <TransferCollegeDialog open={transferOpen}
+                student={selectedStudent ? { id: selectedStudent.id, universityId: selectedStudent.universityId, name: fullName(selectedStudent), collegeId: selectedStudent.collegeId } : null}
+                onClose={() => setTransferOpen(false)}
+                onDone={(message) => { setSuccess(message); setSelectedStudent(null); void loadStudents(); }} />}
             {canManage && <ApproveRegistrationDialog open={approveTargets !== null} students={approveTargets ?? []}
                 onClose={() => setApproveTargets(null)}
                 onDone={(message) => { setSuccess(message); void loadStudents(); }} />}
