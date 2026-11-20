@@ -61,6 +61,25 @@ function saveMapping(info: ImportInspection, mapping: Record<string, number | nu
   try { localStorage.setItem(signature(info), JSON.stringify(mapping)); } catch { /* التخزين المحلي غير متاح */ }
 }
 
+// المطابقة المحفوظة تُعتمد فقط لما فيها قيمة، وما كان غير مربوط فيها يُملأ من الاقتراح الجديد
+// (حتى لا تبقى مطابقة قديمة ناقصة تتغلب على اقتراح أدق).
+function mergeMapping(info: ImportInspection, saved: Record<string, number | null> | null) {
+  const mapping: Record<string, number | null> = {};
+  const used = new Set<number>();
+  const valid = new Set(info.columns.map((column) => column.index));
+  for (const field of info.fields) {
+    const value = saved?.[field.key];
+    if (typeof value === 'number' && valid.has(value) && !used.has(value)) { mapping[field.key] = value; used.add(value); }
+  }
+  for (const field of info.fields) {
+    if (mapping[field.key] !== undefined) continue;
+    const suggested = info.suggestedMapping[field.key];
+    mapping[field.key] = typeof suggested === 'number' && !used.has(suggested) ? suggested : null;
+    if (typeof mapping[field.key] === 'number') used.add(mapping[field.key] as number);
+  }
+  return mapping;
+}
+
 export default function StudentImportDialog({ open, onClose, onImported }: {
   open: boolean;
   onClose: () => void;
@@ -96,7 +115,7 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
     try {
       const result = await inspectStudentImport(nextFile, options);
       setInfo(result);
-      setMapping(loadSavedMapping(result) ?? result.suggestedMapping);
+      setMapping(mergeMapping(result, loadSavedMapping(result)));
       setPreview(null);
       setStep(1);
     } catch (cause) { setError(errorText(cause)); }
