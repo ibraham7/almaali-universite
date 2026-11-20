@@ -21,9 +21,10 @@ export async function studentSignupRequest(data: {
   fullName: string;
   fatherName: string;
   motherName: string;
-  nationalId: string;
+  nationalId?: string;
   applicationNumber: string;
-  birthPlace: string;
+  birthPlace?: string;
+  dateOfBirth?: string;
 }) {
   const response = await apiClient.post<{ verificationToken: string }>(
     '/auth/student-signup', data,

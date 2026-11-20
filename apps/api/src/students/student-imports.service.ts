@@ -12,12 +12,14 @@ export const STUDENT_IMPORT_HEADERS = [
   'بريد المرشد', 'تاريخ القبول', 'اسم الأم', 'الرقم الوطني', 'رقم الاكتتاب', 'مكان الولادة',
 ] as const;
 
+const SILENT = '\u0000silent';
+
 interface ImportFile { buffer: Buffer; originalname: string }
 export interface ImportError { rowNumber: number; universityId: string; column?: string; message: string }
 export interface ImportOptions {
   sheet?: string; headerRow?: number; mapping?: Record<string, number | null>;
   // مصدر الرقم الجامعي: عمود بالملف (الأصل)، أو رقم الاكتتاب، أو توليد تلقائي ببادئة وتسلسل
-  universityIdSource?: { mode: 'column' | 'applicationNumber' | 'generate'; prefix?: string };
+  universityIdSource?: { mode: 'column' | 'applicationNumber' | 'generate'; prefix?: string; digits?: number };
   defaults?: { collegeId?: string; departmentId?: string; programId?: string; studyPlanId?: string; academicYearId?: string; semesterId?: string };
 }
 interface ParsedRow { rowNumber: number; cells: string[] }
@@ -238,7 +240,7 @@ export class StudentImportsService {
         const owner = nationalKey ? existing.find((item) => item.nationalId && normalizeDigits(item.nationalId) === nationalKey) : undefined;
         // الطالب الموجود (بنفس الرقم الوطني) يحتفظ برقمه الجامعي حتى لا يتكرر عند إعادة الاستيراد
         if (owner) row.cells[0] = owner.universityId;
-        else if (uniMode === 'generate') row.cells[0] = `${prefix}${String(++counter).padStart(4, '0')}`;
+        else if (uniMode === 'generate') row.cells[0] = `${prefix}${String(++counter).padStart(Math.min(Math.max(Math.trunc(options.universityIdSource?.digits ?? 4), 1), 10), '0')}`;
       }
     }
     const seen = new Set<string>();
@@ -250,7 +252,7 @@ export class StudentImportsService {
     const seenNationalIds = new Set<string>();
     const valid: Array<{ rowNumber: number; isUpdate: boolean; providedColumns: boolean[]; data: {
       universityId: string; firstName: string; middleName: string | null; familyName: string;
-      fullName: string; meritNumber: string | null; motherName: string; nationalId: string; applicationNumber: string; birthPlace: string;
+      fullName: string; meritNumber: string | null; motherName: string; nationalId: string | null; applicationNumber: string; birthPlace: string | null;
       englishName: string | null; gender: string | null; dateOfBirth: Date | null;
       nationality: string | null; idOrPassport: string | null; universityEmail: string | null;
       phone: string | null; collegeId: string | null; departmentId: string | null;
@@ -258,6 +260,17 @@ export class StudentImportsService {
       semesterId: string | null; status: string; advisorId: string | null; admissionDate: Date | null;
     }; college: string; program: string }> = [];
 
+    // عمود مربوط لكن فارغ بكل الصفوف: يُبلَّغ عنه مرة واحدة بدل خطأ لكل صف
+    const emptyColumns = new Set<string>();
+    IMPORT_FIELDS.forEach((field, index) => {
+      const column = mapping[field.key];
+      if (field.required && column !== null && column !== undefined && parsed.every((row) => !row.cells[index])) {
+        emptyColumns.add(field.key);
+        errors.push({ rowNumber: 0, universityId: '', column: columnOf(field.label), message: field.key === 'universityId'
+          ? 'العمود فارغ في كل الصفوف (الرقم الجامعي تعطيه الجامعة). عبّئه في الملف، أو اختر من «مصدر الرقم الجامعي» توليداً تلقائياً أو استخدام رقم الاكتتاب'
+          : 'العمود فارغ في كل الصفوف. عبّئه في الملف أو اختر عموداً آخر' });
+      }
+    });
     const defaults = options.defaults ?? {};
     const ignored = new Map<string, number>();
     const defaultNames = {
@@ -304,13 +317,17 @@ export class StudentImportsService {
       for (const [label, key, value, max] of [
         ['الرقم الجامعي', 'universityId', normalizedUniversityId, 50], ['الاسم الأول', 'firstName', normalizedFirstName, 100],
         ['اسم الأب', 'middleName', values.middleName, 100],
-        ['اسم الأم', 'motherName', values.motherName, 100], ['الرقم الوطني', 'nationalId', values.nationalId, 100],
-        ['رقم الاكتتاب', 'applicationNumber', values.applicationNumber, 100], ['مكان الولادة', 'birthPlace', values.birthPlace, 100],
+        ['اسم الأم', 'motherName', values.motherName, 100], ['رقم الاكتتاب', 'applicationNumber', values.applicationNumber, 100],
       ] as const) {
         const uniUnmapped = key === 'universityId' && uniMode === 'column' && (mapping.universityId === null || mapping.universityId === undefined);
-        if (!value && !unmappedRequiredKeys.has(key) && !uniUnmapped) problems.push(`${label}: مطلوب لإنشاء حساب الطالب`);
+        if (!value && !unmappedRequiredKeys.has(key) && !uniUnmapped) {
+          // العمود الفارغ بكل الصفوف أُبلغ عنه مرة واحدة: يبقى الصف غير صالح دون تكرار الرسالة
+          problems.push(emptyColumns.has(key) ? SILENT : `${label}: مطلوب لإنشاء حساب الطالب`);
+        }
         if (value.length > max) problems.push(`${label}: أطول من المسموح (${max} حرفاً)`);
       }
+      if (values.nationalId.length > 100) problems.push('الرقم الوطني: أطول من المسموح (100 حرف)');
+      if (values.birthPlace.length > 100) problems.push('مكان الولادة: أطول من المسموح (100 حرف)');
       if (universityEmail.length > 200) problems.push('البريد الجامعي: أطول من المسموح (200 حرف)');
       if (phone.length > 50) problems.push('رقم الهاتف: أطول من المسموح (50 حرفاً)');
       for (const [label, value] of [['الاسم الأول', normalizedFirstName], ['اسم الأب', values.middleName],
@@ -383,6 +400,7 @@ export class StudentImportsService {
       if (problems.length) {
         rowsWithErrors++;
         for (const problem of problems) {
+          if (problem === SILENT) continue;
           const separator = problem.indexOf(':');
           const label = separator > 0 ? problem.slice(0, separator) : '';
           errors.push({ rowNumber: row.rowNumber, universityId, column: label ? columnOf(label) : undefined, message: separator > 0 ? problem.slice(separator + 1).trim() : problem });
@@ -392,8 +410,8 @@ export class StudentImportsService {
           data: { universityId: normalizedUniversityId, firstName: normalizedFirstName, middleName: values.middleName, familyName: normalizedFamilyName || previous?.familyName || '',
             meritNumber: meritNumber?.trim() || existingStudent?.meritNumber || null,
             fullName: [normalizedFirstName, values.middleName, normalizedFamilyName || previous?.familyName].filter(Boolean).join(' '),
-            motherName: values.motherName, nationalId: values.nationalId,
-            applicationNumber: values.applicationNumber, birthPlace: values.birthPlace,
+            motherName: values.motherName, nationalId: values.nationalId || null,
+            applicationNumber: values.applicationNumber, birthPlace: values.birthPlace || null,
             englishName: englishName ? normalizeText(englishName) : existingStudent?.englishName || null, gender: normalizedGender || existingStudent?.gender || null, dateOfBirth,
             nationality: nationality || existingStudent?.nationality || null, idOrPassport: idOrPassport || existingStudent?.idOrPassport || null,
             universityEmail: universityEmail || existingStudent?.universityEmail || null, phone: phone ? normalizeDigits(phone) : existingStudent?.phone || null,

@@ -90,7 +90,7 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
   const [info, setInfo] = useState<ImportInspection | null>(null);
   const [mapping, setMapping] = useState<Record<string, number | null>>({});
   const [defaults, setDefaults] = useState<ImportDefaults>({});
-  const [idSource, setIdSource] = useState<UniversityIdSource>({ mode: 'column', prefix: String(new Date().getFullYear()) });
+  const [idSource, setIdSource] = useState<UniversityIdSource>({ mode: 'column', prefix: String(new Date().getFullYear()), digits: 4 });
   const [preview, setPreview] = useState<StudentImportPreview | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -107,7 +107,7 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
   }, [open, catalog]);
 
   function reset() {
-    setStep(0); setFile(null); setInfo(null); setMapping({}); setDefaults({}); setIdSource({ mode: 'column', prefix: String(new Date().getFullYear()) }); setPreview(null); setError(''); setSuccess('');
+    setStep(0); setFile(null); setInfo(null); setMapping({}); setDefaults({}); setIdSource({ mode: 'column', prefix: String(new Date().getFullYear()), digits: 4 }); setPreview(null); setError(''); setSuccess('');
   }
 
   async function inspect(nextFile: File, options?: { sheet?: string; headerRow?: number }) {
@@ -231,9 +231,16 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
                 <MenuItem value="applicationNumber">استخدام رقم الاكتتاب كرقم جامعي</MenuItem>
                 <MenuItem value="generate">توليد تلقائي: بادئة + رقم تسلسلي</MenuItem>
               </TextField>
-              {idSource.mode === 'generate' && <TextField size="small" label="بادئة الرقم الجامعي" value={idSource.prefix ?? ''} sx={{ width: 220 }}
-                helperText="مثال: 2026 فيصير 20260001"
-                onChange={(event) => setIdSource((current) => ({ ...current, prefix: event.target.value }))} />}
+              {idSource.mode === 'generate' && <>
+                <TextField size="small" label="بادئة الرقم الجامعي" value={idSource.prefix ?? ''} sx={{ width: 200 }}
+                  onChange={(event) => setIdSource((current) => ({ ...current, prefix: event.target.value }))} />
+                <TextField size="small" type="number" label="عدد خانات التسلسل" value={idSource.digits ?? 4} sx={{ width: 170 }}
+                  slotProps={{ htmlInput: { min: 1, max: 10 } }}
+                  onChange={(event) => setIdSource((current) => ({ ...current, digits: Number(event.target.value) || 4 }))} />
+                <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center' }}>
+                  مثال: {(idSource.prefix ?? '')}{String(1).padStart(Math.min(Math.max(idSource.digits ?? 4, 1), 10), '0')}
+                </Typography>
+              </>}
             </Stack>
           </Box>
           {groups.map(({ group, fields }) => <Box key={group}>

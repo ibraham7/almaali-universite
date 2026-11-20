@@ -230,4 +230,32 @@ describe('AuthService', () => {
     });
     expect(prisma.student.findUnique).not.toHaveBeenCalled();
   });
+
+  const ministryRecord = (extra: Record<string, unknown> = {}) => ({
+    id: 'student-2', universityId: 'U-2', firstName: 'Sara', fullName: 'Sara Ali', middleName: 'Omar', familyName: 'Ali',
+    motherName: 'Mona', nationalId: null, applicationNumber: '67890', birthPlace: null, dateOfBirth: new Date('2004-03-25T00:00:00.000Z'), userId: null, ...extra,
+  });
+  const ministryInput = { universityId: 'U-2', fullName: 'Sara Ali', fatherName: 'Omar', motherName: 'Mona', applicationNumber: '67890', dateOfBirth: '2004-03-25' };
+
+  it('verifies a student whose record has no national ID or birth place (ministry file) by the data it does have', async () => {
+    process.env.JWT_SECRET = 'test-secret';
+    prisma.student.findUnique.mockResolvedValue(ministryRecord());
+    const result = await service.signupStudent(ministryInput, '127.0.0.1');
+    expect(result.verificationToken).toBe('token');
+  });
+
+  it('rejects a wrong date of birth when the record has one', async () => {
+    process.env.JWT_SECRET = 'test-secret';
+    prisma.student.findUnique.mockResolvedValue(ministryRecord());
+    await expect(service.signupStudent({ ...ministryInput, dateOfBirth: '2004-03-26' }, '127.0.0.1')).rejects.toMatchObject({ response: { mismatchedFields: ['تاريخ الميلاد'] } });
+    await expect(service.signupStudent({ ...ministryInput, dateOfBirth: undefined }, '127.0.0.1')).rejects.toMatchObject({ response: { mismatchedFields: ['تاريخ الميلاد'] } });
+  });
+
+  it('still requires the national ID and birth place once the record has them (completed later by the university)', async () => {
+    process.env.JWT_SECRET = 'test-secret';
+    prisma.student.findUnique.mockResolvedValue(ministryRecord({ nationalId: '12345678901', birthPlace: 'Aleppo' }));
+    await expect(service.signupStudent(ministryInput, '127.0.0.1')).rejects.toMatchObject({ response: { mismatchedFields: ['الرقم الوطني', 'مكان الولادة'] } });
+    const ok = await service.signupStudent({ ...ministryInput, nationalId: '12345678901', birthPlace: 'Aleppo' }, '127.0.0.1');
+    expect(ok.verificationToken).toBe('token');
+  });
 });

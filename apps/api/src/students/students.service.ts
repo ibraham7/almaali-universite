@@ -65,7 +65,7 @@ export class StudentsService {
   }
 
   private normalize(data: StudentInputDto) {
-    const required = ['universityId', 'firstName', 'middleName', 'motherName', 'nationalId', 'applicationNumber', 'birthPlace'] as const;
+    const required = ['universityId', 'firstName', 'middleName', 'motherName', 'applicationNumber'] as const;
     for (const field of required) {
       if (!data[field]?.trim()) throw new BadRequestException(`${field} is required`);
     }

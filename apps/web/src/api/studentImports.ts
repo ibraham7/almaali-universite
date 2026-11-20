@@ -33,7 +33,7 @@ export interface ImportDefaults {
   studyPlanId?: string; academicYearId?: string; semesterId?: string;
 }
 
-export interface UniversityIdSource { mode: 'column' | 'applicationNumber' | 'generate'; prefix?: string }
+export interface UniversityIdSource { mode: 'column' | 'applicationNumber' | 'generate'; prefix?: string; digits?: number }
 
 export interface ImportOptions {
   universityIdSource?: UniversityIdSource;

@@ -117,8 +117,8 @@ describe('Student Excel import', () => {
     const { prisma, transaction } = database();
     const incomplete = row('2026004', 'هند', 'خالد');
     incomplete[20] = '';
-    const result = await new StudentImportsService(prisma).preview(file([incomplete]));
-    expect(result).toMatchObject({ validCount: 0, errorCount: 1 });
+    const result = await new StudentImportsService(prisma).preview(file([incomplete, row('2026005', 'سارة', 'علي')]));
+    expect(result).toMatchObject({ validCount: 1, errorCount: 1 });
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toMatchObject({ rowNumber: 2, column: 'اسم الأم' });
     expect(result.errors[0].message).toContain('مطلوب');
@@ -231,7 +231,10 @@ describe('Student Excel import', () => {
     const upload = ministryFile(['الرقم الجامعي', 'الاسم', 'الأب', 'الكنية'], [['2026600', 'هند', 'عمر', 'خالد'], ['2026601', 'سارة', 'علي', 'أحمد']]);
     const result = await service.preview(upload, { mapping: service.inspect(upload).suggestedMapping });
     const unmapped = result.errors.filter((item) => item.rowNumber === 0).map((item) => item.column);
-    expect(unmapped).toEqual(expect.arrayContaining(['اسم الأم', 'الرقم الوطني', 'رقم الاكتتاب', 'مكان الولادة']));
+    expect(unmapped).toEqual(expect.arrayContaining(['اسم الأم', 'رقم الاكتتاب']));
+    // الرقم الوطني ومكان الولادة لم يعودا مطلوبين (ملف الوزارة لا يتضمنهما)
+    expect(unmapped).not.toContain('الرقم الوطني');
+    expect(unmapped).not.toContain('مكان الولادة');
     expect(result.errors.filter((item) => item.message.includes('مطلوب لإنشاء حساب الطالب'))).toHaveLength(0);
   });
 
@@ -335,5 +338,36 @@ describe('Student Excel import', () => {
     const headers = ['رقم الجامعي', 'تم التسجيل؟', 'رقم الاتصال', 'البريد الالكتروني', 'رقم الاكتتاب', 'الاسم', 'اسم الأب', 'الكنية', 'الجنس', 'تاريخ الميلاد', 'اسم الأم'];
     const info = new StudentImportsService(prisma).inspect(ministryFile(headers, [Array(headers.length).fill('x')], 'تقرير'));
     expect(info.suggestedMapping).toMatchObject({ universityId: 0, phone: 2, universityEmail: 3, applicationNumber: 4, firstName: 5, middleName: 6, familyName: 7, gender: 8, dateOfBirth: 9, motherName: 10 });
+  });
+
+  it('reports a mapped column that is empty in every row once, not once per row', async () => {
+    const { prisma } = database();
+    const service = new StudentImportsService(prisma);
+    const upload = ministryFile(['رقم الجامعي', 'رقم الاكتتاب', 'اسم الطالب', 'الأب', 'الأم', 'الرقم الوطني', 'مكان الولادة'],
+      [['', '7001', 'هند', 'عمر', 'منى', '12345678901', 'حلب'], ['', '7002', 'سارة', 'علي', 'ليلى', '12345678902', 'دمشق']]);
+    const result = await service.preview(upload, { mapping: service.inspect(upload).suggestedMapping });
+    const universityNumber = result.errors.filter((item) => item.column === 'رقم الجامعي');
+    expect(universityNumber).toHaveLength(1);
+    expect(universityNumber[0]).toMatchObject({ rowNumber: 0 });
+    expect(universityNumber[0].message).toContain('تعطيه الجامعة');
+  });
+
+  it('imports the ministry file without national ID or birth place (completed later)', async () => {
+    const { prisma, create } = database();
+    const service = new StudentImportsService(prisma);
+    const upload = ministryFile(['رقم الجامعي', 'رقم الاكتتاب', 'الاسم', 'الأب', 'الكنية', 'الأم', 'تاريخ الميلاد'],
+      [['2026901', '8101', 'هند', 'عمر', 'خالد', 'منى', '2004-03-25'], ['2026902', '8102', 'سارة', 'علي', 'أحمد', 'ليلى', '2005-01-10']]);
+    const options = { mapping: service.inspect(upload).suggestedMapping };
+    expect(await service.preview(upload, options)).toMatchObject({ validCount: 2, errorCount: 0 });
+    await service.confirm(upload, 'registrar-1', options);
+    expect(create.mock.calls[0][0].data).toMatchObject({ nationalId: null, birthPlace: null, applicationNumber: '8101' });
+  });
+
+  it('generates university numbers with the chosen number of digits', async () => {
+    const { prisma, create } = database();
+    const service = new StudentImportsService(prisma);
+    const upload = ministryFile(['رقم الاكتتاب', 'الاسم', 'الأب', 'الأم'], [['8101', 'هند', 'عمر', 'منى'], ['8102', 'سارة', 'علي', 'ليلى']]);
+    await service.confirm(upload, 'registrar-1', { mapping: service.inspect(upload).suggestedMapping, universityIdSource: { mode: 'generate', prefix: 'S26-', digits: 5 } });
+    expect(create.mock.calls.map((call) => call[0].data.universityId)).toEqual(['S26-00001', 'S26-00002']);
   });
 });

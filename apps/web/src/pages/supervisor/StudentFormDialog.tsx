@@ -126,11 +126,9 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
     const isKnown = options.slice(0, -1).includes(value);
     const otherSelected = key === 'birthPlace' ? birthPlaceOtherSelected : !isKnown;
     const selectedValue = isKnown ? value : otherSelected ? STUDENT_OTHER_OPTION : '';
-    const validationError = fieldErrors[key] || (submitted && key === 'birthPlace' && !value.trim() ? 'مكان الولادة مطلوب.' : '');
+    const validationError = fieldErrors[key] || '';
     return <Box key={key} sx={{ display: 'grid', gap: 2 }}>
-      <TextField select label={label} required={key === 'birthPlace'} fullWidth value={selectedValue}
-        error={submitted && key === 'birthPlace' && !selectedValue}
-        helperText={submitted && key === 'birthPlace' && !selectedValue ? 'اختر مكان الولادة.' : undefined}
+      <TextField select label={label} fullWidth value={selectedValue}
         onChange={(event) => {
           const selected = event.target.value;
           if (key === 'birthPlace') {
@@ -142,12 +140,12 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
           }
           setFieldErrors((current) => ({ ...current, [key]: '' }));
         }}>
-        {key === 'birthPlace' && <MenuItem value="">اختر مكان الولادة</MenuItem>}
+        {key === 'birthPlace' && <MenuItem value="">غير محدد (يُستكمل لاحقاً)</MenuItem>}
         {options.slice(0, -1).map((option) => <MenuItem key={option} value={option}>{option}</MenuItem>)}
         <MenuItem value={STUDENT_OTHER_OPTION}>{options.at(-1)}</MenuItem>
       </TextField>
       {otherSelected && <TextField key={`${key}-other`} label={key === 'nationality' ? 'الجنسية الأخرى' : 'مكان الولادة الآخر'}
-        required={key === 'birthPlace'} fullWidth value={value}
+        fullWidth value={value}
         error={Boolean(validationError)}
         helperText={validationError || 'اختر من القائمة إن كان الخيار متاحًا، وإلا أدخل القيمة كما في السجل الرسمي.'}
         onChange={(event) => {
@@ -176,11 +174,10 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
     setSubmitted(true);
     setError('');
     const requiredKeys: Array<keyof StudentInput> = [
-      'universityId', 'firstName', 'middleName', 'motherName',
-      'nationalId', 'applicationNumber', 'birthPlace',
+      'universityId', 'firstName', 'middleName', 'motherName', 'applicationNumber',
     ];
     const validationKeys: Array<keyof StudentInput> = [
-      ...requiredKeys, 'familyName', 'englishName', 'phone', 'nationality',
+      ...requiredKeys, 'familyName', 'nationalId', 'birthPlace', 'englishName', 'phone', 'nationality',
     ];
     const nextErrors: StudentFieldErrors = {};
     for (const key of validationKeys) {
@@ -221,8 +218,8 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
   const fields = [
     field('universityId', 'الرقم الجامعي', true), field('firstName', 'الاسم الأول', true),
     field('middleName', 'اسم الأب', true), field('familyName', 'اسم العائلة'),
-    field('motherName', 'اسم الأم', true), field('nationalId', 'الرقم الوطني', true),
-    field('applicationNumber', 'رقم الاكتتاب', true), field('birthPlace', 'مكان الولادة', true),
+    field('motherName', 'اسم الأم', true), field('nationalId', 'الرقم الوطني'),
+    field('applicationNumber', 'رقم الاكتتاب', true),
     field('meritNumber', 'رقم المفاضلة (الرقم الوزاري)'),
     field('englishName', 'الاسم بالإنجليزية'),
     <TextField select key="gender" label="الجنس" fullWidth value={form.gender ?? ''}
