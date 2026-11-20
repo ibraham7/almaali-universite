@@ -10,7 +10,7 @@ export interface ImportField {
 
 // الترتيب هنا هو الترتيب الداخلي القديم للأعمدة، ويبقى كما هو.
 export const IMPORT_FIELDS: ImportField[] = [
-  { key: 'universityId', label: 'الرقم الجامعي', required: true, group: 'identity', aliases: ['الرقم الجامعي', 'رقم جامعي', 'الرقم الجامعى', 'رقم الطالب', 'university id', 'student id', 'id'] },
+  { key: 'universityId', label: 'الرقم الجامعي', required: true, group: 'identity', aliases: ['الرقم الجامعي', 'رقم الجامعي', 'رقم جامعي', 'الرقم الجامعى', 'رقم الطالب', 'university id', 'student id', 'id'] },
   { key: 'firstName', label: 'الاسم الأول', required: true, group: 'identity', aliases: ['الاسم الأول', 'الاسم الاول', 'الاسم', 'اسم الطالب', 'first name', 'name'] },
   { key: 'middleName', label: 'اسم الأب', required: true, group: 'identity', aliases: ['اسم الأب', 'اسم الاب', 'الأب', 'الاب', 'father name', 'father'] },
   { key: 'familyName', label: 'اسم العائلة', required: false, group: 'identity', aliases: ['اسم العائلة', 'العائلة', 'الكنية', 'الشهرة', 'النسبة', 'last name', 'family name', 'surname'] },
@@ -20,7 +20,7 @@ export const IMPORT_FIELDS: ImportField[] = [
   { key: 'nationality', label: 'الجنسية', required: false, group: 'identity', aliases: ['الجنسية', 'nationality'] },
   { key: 'idOrPassport', label: 'رقم الهوية أو جواز السفر', required: false, group: 'identity', aliases: ['رقم الهوية أو جواز السفر', 'رقم الهوية', 'رقم جواز السفر', 'جواز السفر', 'passport', 'passport number'] },
   { key: 'universityEmail', label: 'البريد الجامعي', required: false, group: 'contact', aliases: ['البريد الجامعي', 'البريد الإلكتروني', 'البريد الالكتروني', 'الايميل', 'email', 'e-mail'] },
-  { key: 'phone', label: 'رقم الهاتف', required: false, group: 'contact', aliases: ['رقم الهاتف', 'الهاتف', 'رقم الموبايل', 'الموبايل', 'الجوال', 'رقم الجوال', 'phone', 'mobile'] },
+  { key: 'phone', label: 'رقم الهاتف', required: false, group: 'contact', aliases: ['رقم الهاتف', 'رقم الاتصال', 'الاتصال', 'الهاتف', 'رقم الموبايل', 'الموبايل', 'الجوال', 'رقم الجوال', 'phone', 'mobile'] },
   { key: 'college', label: 'الكلية', required: false, group: 'academic', aliases: ['الكلية', 'كلية', 'college', 'faculty'] },
   { key: 'department', label: 'القسم', required: false, group: 'academic', aliases: ['القسم', 'الاختصاص', 'التخصص', 'department', 'major'] },
   { key: 'program', label: 'البرنامج', required: false, group: 'academic', aliases: ['البرنامج', 'برنامج', 'نوع البرنامج', 'الدرجة العلمية', 'program', 'degree'] },
@@ -31,9 +31,9 @@ export const IMPORT_FIELDS: ImportField[] = [
   { key: 'advisorEmail', label: 'بريد المرشد', required: false, group: 'academic', aliases: ['بريد المرشد', 'المرشد', 'المشرف', 'advisor email', 'advisor'] },
   { key: 'admissionDate', label: 'تاريخ القبول', required: false, group: 'academic', aliases: ['تاريخ القبول', 'تاريخ التسجيل', 'تاريخ الانتساب', 'admission date'] },
   { key: 'motherName', label: 'اسم الأم', required: true, group: 'identity', aliases: ['اسم الأم', 'اسم الام', 'الأم', 'الام', 'mother name', 'mother'] },
-  { key: 'nationalId', label: 'الرقم الوطني', required: true, group: 'identity', aliases: ['الرقم الوطني', 'الرقم القومي', 'national id', 'national number', 'nid'] },
+  { key: 'nationalId', label: 'الرقم الوطني', required: true, group: 'identity', aliases: ['الرقم الوطني', 'رقم وطني', 'الرقم القومي', 'national id', 'national number', 'nid'] },
   { key: 'applicationNumber', label: 'رقم الاكتتاب', required: true, group: 'identity', aliases: ['رقم الاكتتاب', 'الاكتتاب', 'رقم الطلب', 'رقم التقديم', 'application number', 'application no'] },
-  { key: 'birthPlace', label: 'مكان الولادة', required: true, group: 'identity', aliases: ['مكان الولادة', 'مكان الميلاد', 'الولادة مكان', 'birth place', 'place of birth'] },
+  { key: 'birthPlace', label: 'مكان الولادة', required: true, group: 'identity', aliases: ['مكان الولادة', 'محل الولادة', 'محل الميلاد', 'مكان الميلاد', 'الولادة مكان', 'birth place', 'place of birth'] },
   // يأتي بعد الحقول القديمة حتى يبقى ترتيبها الداخلي كما هو
   { key: 'meritNumber', label: 'رقم المفاضلة', required: false, group: 'identity', aliases: ['رقم المفاضلة', 'الرقم الجامعي المولد على نظام الوزارة', 'الرقم الجامعي المولد', 'الرقم الوزاري', 'رقم المفاضله', 'merit number', 'ministry number'] },
 ];

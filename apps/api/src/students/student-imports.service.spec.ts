@@ -323,4 +323,11 @@ describe('Student Excel import', () => {
     expect(result).toMatchObject({ validCount: 2, errorCount: 0 });
     expect(result.notes.join(' ')).toContain('تم تجاهل «المستوى الأكاديمي» في 2 صف');
   });
+
+  it('recognizes the headers of the ministry report: «رقم الجامعي» and «رقم الاتصال»', () => {
+    const { prisma } = database();
+    const headers = ['رقم الجامعي', 'تم التسجيل؟', 'رقم الاتصال', 'البريد الالكتروني', 'رقم الاكتتاب', 'الاسم', 'اسم الأب', 'الكنية', 'الجنس', 'تاريخ الميلاد', 'اسم الأم'];
+    const info = new StudentImportsService(prisma).inspect(ministryFile(headers, [Array(headers.length).fill('x')], 'تقرير'));
+    expect(info.suggestedMapping).toMatchObject({ universityId: 0, phone: 2, universityEmail: 3, applicationNumber: 4, firstName: 5, middleName: 6, familyName: 7, gender: 8, dateOfBirth: 9, motherName: 10 });
+  });
 });
