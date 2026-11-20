@@ -34,7 +34,7 @@ function database(ids: string[] = [], existingHasPlan = false) {
   const audit = vi.fn().mockResolvedValue({});
   const transaction = vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({ student: { create, update }, auditLog: { create: audit } }));
   const prisma = {
-    college: { findMany: vi.fn().mockResolvedValue([{ id: 'college-1', nameAr: 'كلية التربية' }]) },
+    college: { findMany: vi.fn().mockResolvedValue([{ id: 'college-1', nameAr: 'كلية التربية', code: '01' }, { id: 'college-2', nameAr: 'كلية بلا رمز', code: null }]) },
     department: { findMany: vi.fn().mockResolvedValue([{ id: 'dep-1', nameAr: 'قسم معلم صف', collegeId: 'college-1' }]) },
     program: { findMany: vi.fn().mockResolvedValue([{ id: 'program-1', nameAr: 'معلم صف', collegeId: 'college-1', departmentId: 'dep-1' }]) },
     studyPlan: { findMany: vi.fn().mockResolvedValue([{ id: 'plan-1', nameAr: 'خطة معلم صف', programId: 'program-1' }]) },
@@ -369,5 +369,33 @@ describe('Student Excel import', () => {
     const upload = ministryFile(['رقم الاكتتاب', 'الاسم', 'الأب', 'الأم'], [['8101', 'هند', 'عمر', 'منى'], ['8102', 'سارة', 'علي', 'ليلى']]);
     await service.confirm(upload, 'registrar-1', { mapping: service.inspect(upload).suggestedMapping, universityIdSource: { mode: 'generate', prefix: 'S26-', digits: 5 } });
     expect(create.mock.calls.map((call) => call[0].data.universityId)).toEqual(['S26-00001', 'S26-00002']);
+  });
+
+  const byCollegeRows = [['8101', 'هند', 'عمر', 'منى'], ['8102', 'سارة', 'علي', 'ليلى']];
+  const byCollegeHeaders = ['رقم الاكتتاب', 'الاسم', 'الأب', 'الأم'];
+
+  it('generates year + college code + 3-digit sequence (27 + 01 + 001 = 2701001), continuing the sequence', async () => {
+    const { prisma, create } = database();
+    (prisma.student as unknown as { findMany: ReturnType<typeof vi.fn> }).findMany = vi.fn().mockImplementation(({ where }: { where: { universityId?: { startsWith?: string } } }) =>
+      Promise.resolve(where.universityId?.startsWith === '2701' ? [{ universityId: '2701007' }, { universityId: '27010099' }] : []));
+    const service = new StudentImportsService(prisma);
+    const upload = ministryFile(byCollegeHeaders, byCollegeRows);
+    const options = { mapping: service.inspect(upload).suggestedMapping, defaults: { collegeId: 'college-1' }, universityIdSource: { mode: 'byCollege' as const, year: 2027 } };
+    expect(await service.preview(upload, options)).toMatchObject({ validCount: 2, errorCount: 0 });
+    await service.confirm(upload, 'registrar-1', options);
+    expect(create.mock.calls.map((call) => call[0].data.universityId)).toEqual(['2701008', '2701009']);
+    expect(create.mock.calls[0][0].data.collegeId).toBe('college-1');
+  });
+
+  it('asks for the year, the college and a college code before generating by college', async () => {
+    const { prisma } = database();
+    const service = new StudentImportsService(prisma);
+    const upload = ministryFile(byCollegeHeaders, byCollegeRows);
+    const mapping = service.inspect(upload).suggestedMapping;
+    const messages = async (options: Parameters<StudentImportsService['preview']>[1]) =>
+      (await service.preview(upload, options)).errors.filter((item) => item.rowNumber === 0).map((item) => item.message).join(' | ');
+    expect(await messages({ mapping, defaults: { collegeId: 'college-1' }, universityIdSource: { mode: 'byCollege' } })).toContain('سنة القبول');
+    expect(await messages({ mapping, universityIdSource: { mode: 'byCollege', year: 2027 } })).toContain('اختر الكلية');
+    expect(await messages({ mapping, defaults: { collegeId: 'college-2' }, universityIdSource: { mode: 'byCollege', year: 2027 } })).toContain('ليس لها رمز');
   });
 });

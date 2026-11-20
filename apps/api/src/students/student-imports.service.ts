@@ -19,7 +19,7 @@ export interface ImportError { rowNumber: number; universityId: string; column?:
 export interface ImportOptions {
   sheet?: string; headerRow?: number; mapping?: Record<string, number | null>;
   // مصدر الرقم الجامعي: عمود بالملف (الأصل)، أو رقم الاكتتاب، أو توليد تلقائي ببادئة وتسلسل
-  universityIdSource?: { mode: 'column' | 'applicationNumber' | 'generate'; prefix?: string; digits?: number };
+  universityIdSource?: { mode: 'column' | 'applicationNumber' | 'generate' | 'byCollege'; prefix?: string; digits?: number; year?: number };
   defaults?: { collegeId?: string; departmentId?: string; programId?: string; studyPlanId?: string; academicYearId?: string; semesterId?: string };
 }
 interface ParsedRow { rowNumber: number; cells: string[] }
@@ -164,6 +164,15 @@ export class StudentImportsService {
     if (uniMode === 'generate' && !normalizeText(options.universityIdSource?.prefix ?? '')) {
       fileErrors.push({ rowNumber: 0, universityId: '', column: 'الرقم الجامعي', message: 'اكتب بادئة الرقم الجامعي المولَّد (مثل 2026) حتى لا تتكرر الأرقام' });
     }
+    if (uniMode === 'byCollege') {
+      const year = options.universityIdSource?.year;
+      if (!Number.isInteger(year) || (year as number) < 2000 || (year as number) > 2099) {
+        fileErrors.push({ rowNumber: 0, universityId: '', column: 'الرقم الجامعي', message: 'اكتب سنة القبول بأربع خانات (مثل 2027) لتوليد الرقم الجامعي' });
+      }
+      if (!options.defaults?.collegeId) {
+        fileErrors.push({ rowNumber: 0, universityId: '', column: 'الرقم الجامعي', message: 'اختر الكلية لتوليد الرقم الجامعي (السنة + رمز الكلية + التسلسل)' });
+      }
+    }
     if (uniMode === 'column' && (universityIdColumn === null || universityIdColumn === undefined)) {
       fileErrors.push({ rowNumber: 0, universityId: '', column: 'الرقم الجامعي', message: 'الحقل «الرقم الجامعي» غير مربوط بأي عمود. اربطه بعمود الرقم الجامعي، أو اختر استخدام رقم الاكتتاب أو توليد الرقم تلقائياً' });
     }
@@ -228,10 +237,21 @@ export class StudentImportsService {
     if (uniMode !== 'column') {
       const prefix = normalizeText(options.universityIdSource?.prefix ?? '');
       let counter = 0;
-      if (uniMode === 'generate') {
-        const taken = await this.prisma.student.findMany({ where: { universityId: { startsWith: prefix } }, select: { universityId: true } });
+      let prefixForNew = prefix;
+      let sequenceDigits = Math.min(Math.max(Math.trunc(options.universityIdSource?.digits ?? 4), 1), 10);
+      if (uniMode === 'byCollege') {
+        // الرقم = السنة (خانتان) + رمز الكلية (رقمان) + تسلسل 3 خانات. التسلسل لكل (سنة، كلية).
+        const year = options.universityIdSource?.year;
+        const collegeCode = colleges.find((item) => item.id === options.defaults?.collegeId)?.code ?? '';
+        if (!collegeCode) fileErrors.push({ rowNumber: 0, universityId: '', column: 'الرقم الجامعي', message: 'الكلية المختارة ليس لها رمز. أضف رمز الكلية (رقمين) من شاشة الهيكل الأكاديمي' });
+        prefixForNew = `${String(year ?? '').slice(-2)}${collegeCode}`;
+        sequenceDigits = 3;
+      }
+      if (uniMode === 'generate' || uniMode === 'byCollege') {
+        const taken = await this.prisma.student.findMany({ where: { universityId: { startsWith: prefixForNew } }, select: { universityId: true } });
         for (const item of taken) {
-          const suffix = Number(item.universityId.slice(prefix.length));
+          if (uniMode === 'byCollege' && item.universityId.length !== prefixForNew.length + sequenceDigits) continue;
+          const suffix = Number(item.universityId.slice(prefixForNew.length));
           if (Number.isInteger(suffix) && suffix > counter) counter = suffix;
         }
       }
@@ -240,7 +260,14 @@ export class StudentImportsService {
         const owner = nationalKey ? existing.find((item) => item.nationalId && normalizeDigits(item.nationalId) === nationalKey) : undefined;
         // الطالب الموجود (بنفس الرقم الوطني) يحتفظ برقمه الجامعي حتى لا يتكرر عند إعادة الاستيراد
         if (owner) row.cells[0] = owner.universityId;
-        else if (uniMode === 'generate') row.cells[0] = `${prefix}${String(++counter).padStart(Math.min(Math.max(Math.trunc(options.universityIdSource?.digits ?? 4), 1), 10), '0')}`;
+        else if (uniMode === 'generate' || uniMode === 'byCollege') {
+          counter += 1;
+          if (uniMode === 'byCollege' && counter > 999) {
+            fileErrors.push({ rowNumber: row.rowNumber, universityId: '', column: 'الرقم الجامعي', message: 'تجاوز التسلسل 999 لهذه الكلية والسنة' });
+            continue;
+          }
+          row.cells[0] = `${prefixForNew}${String(counter).padStart(sequenceDigits, '0')}`;
+        }
       }
     }
     const seen = new Set<string>();

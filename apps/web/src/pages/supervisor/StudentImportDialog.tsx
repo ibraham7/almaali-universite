@@ -92,6 +92,9 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
   const [defaults, setDefaults] = useState<ImportDefaults>({});
   const [idSource, setIdSource] = useState<UniversityIdSource>({ mode: 'column', prefix: String(new Date().getFullYear()), digits: 4 });
   const [preview, setPreview] = useState<StudentImportPreview | null>(null);
+  // الدفعة: سنة القبول والكلية تُختاران قبل رفع الملف فيُركَّب منهما الرقم الجامعي (السنة + رمز الكلية + التسلسل)
+  const [batchYear, setBatchYear] = useState('');
+  const [batchCollegeId, setBatchCollegeId] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [busy, setBusy] = useState(false);
@@ -107,13 +110,17 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
   }, [open, catalog]);
 
   function reset() {
-    setStep(0); setFile(null); setInfo(null); setMapping({}); setDefaults({}); setIdSource({ mode: 'column', prefix: String(new Date().getFullYear()), digits: 4 }); setPreview(null); setError(''); setSuccess('');
+    setBatchYear(''); setBatchCollegeId(''); setStep(0); setFile(null); setInfo(null); setMapping({}); setDefaults({}); setIdSource({ mode: 'column', prefix: String(new Date().getFullYear()), digits: 4 }); setPreview(null); setError(''); setSuccess('');
   }
 
   async function inspect(nextFile: File, options?: { sheet?: string; headerRow?: number }) {
     setBusy(true); setError('');
     try {
       const result = await inspectStudentImport(nextFile, options);
+      if (info === null && /^\d{4}$/.test(batchYear) && batchCollegeId) {
+        setIdSource((current) => ({ ...current, mode: 'byCollege', year: Number(batchYear) }));
+        setDefaults((current) => ({ ...current, collegeId: batchCollegeId }));
+      }
       setInfo(result);
       setMapping(mergeMapping(result, loadSavedMapping(result)));
       setPreview(null);
@@ -193,6 +200,27 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
               ]).map((rule) => <li key={rule}><Typography variant="body2">{rule}</Typography></li>)}
             </Box>
           </Alert>
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>الدفعة (اختياري، قبل رفع الملف)</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              اختر سنة القبول والكلية، فيُولَّد الرقم الجامعي لكل طلاب الملف: السنة (خانتان) + رمز الكلية + تسلسل، ويُربط الطلاب بالكلية.
+            </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField size="small" label="سنة القبول" placeholder="2027" value={batchYear} sx={{ width: 160 }}
+                slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 4 } }}
+                onChange={(event) => setBatchYear(event.target.value.replace(/\D/g, '').slice(0, 4))} />
+              <TextField select size="small" label="الكلية" value={batchCollegeId} sx={{ minWidth: 260 }}
+                onChange={(event) => setBatchCollegeId(event.target.value)}>
+                <MenuItem value="">— بدون —</MenuItem>
+                {catalog?.colleges.map((college) => <MenuItem key={college.id} value={college.id}>{college.nameAr}{college.code ? ` (رمز ${college.code})` : ' (بلا رمز)'}</MenuItem>)}
+              </TextField>
+              {/^\d{4}$/.test(batchYear) && catalog?.colleges.find((college) => college.id === batchCollegeId)?.code && (
+                <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
+                  مثال أول رقم: {batchYear.slice(-2)}{catalog.colleges.find((college) => college.id === batchCollegeId)?.code}001
+                </Typography>
+              )}
+            </Stack>
+          </Box>
           <Button component="a" href="/templates/students-temp.xlsx" download="قالب-استيراد-الطلاب-مؤقت.xlsx" variant="outlined">تنزيل قالب جاهز (اختياري)</Button>
           <Button component="label" variant="contained" disabled={busy}>
             {busy ? <CircularProgress size={20} color="inherit" /> : 'اختيار ملف Excel'}
@@ -229,8 +257,15 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
                 onChange={(event) => setIdSource((current) => ({ ...current, mode: event.target.value as UniversityIdSource['mode'] }))}>
                 <MenuItem value="column">عمود في الملف (يُربط بالأسفل)</MenuItem>
                 <MenuItem value="applicationNumber">استخدام رقم الاكتتاب كرقم جامعي</MenuItem>
+                <MenuItem value="byCollege">توليد: السنة + رمز الكلية + تسلسل (مثل 2701001)</MenuItem>
                 <MenuItem value="generate">توليد تلقائي: بادئة + رقم تسلسلي</MenuItem>
               </TextField>
+              {idSource.mode === 'byCollege' && <>
+                <TextField size="small" label="سنة القبول" value={idSource.year ?? ''} sx={{ width: 150 }}
+                  slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 4 } }}
+                  onChange={(event) => setIdSource((current) => ({ ...current, year: Number(event.target.value.replace(/\D/g, '').slice(0, 4)) || undefined }))} />
+                {selectField('الكلية', 'collegeId', (catalog?.colleges ?? []).map((item) => ({ id: item.id, label: item.nameAr })), false, ['departmentId', 'programId', 'studyPlanId', 'academicYearId', 'semesterId'])}
+              </>}
               {idSource.mode === 'generate' && <>
                 <TextField size="small" label="بادئة الرقم الجامعي" value={idSource.prefix ?? ''} sx={{ width: 200 }}
                   onChange={(event) => setIdSource((current) => ({ ...current, prefix: event.target.value }))} />
