@@ -26,6 +26,7 @@ export interface StudentListItem {
   firstName: string;
   middleName?: string | null;
   familyName: string;
+  meritNumber?: string | null;
   motherName?: string | null;
   nationalId?: string | null;
   applicationNumber?: string | null;
@@ -180,7 +181,8 @@ export async function getStudent(
 export interface StudentInput {
   universityId: string;
   firstName: string;
-  familyName: string;
+  familyName?: string;
+  meritNumber?: string | null;
   middleName?: string | null;
   motherName?: string | null;
   nationalId?: string | null;
@@ -216,5 +218,20 @@ export async function updateStudent(id: string, data: StudentInput) {
 
 export async function getStudentAdvisors() {
   const response = await apiClient.get<Array<{ id: string; email: string }>>('/students/advisors');
+  return response.data;
+}
+
+export interface ApproveRegistrationInput {
+  studentIds: string[];
+  collegeId: string;
+  departmentId: string;
+  programId: string;
+  studyPlanId: string;
+  academicYearId: string;
+  semesterId: string;
+}
+
+export async function approveStudentRegistration(data: ApproveRegistrationInput) {
+  const response = await apiClient.post<{ approved: number; skipped: Array<{ studentId: string; universityId: string; reason: string }> }>('/students/approve-registration', data);
   return response.data;
 }

@@ -281,7 +281,9 @@ model Student {
   firstName       String
   fullName        String?
   middleName      String?
-  familyName      String
+  familyName      String    @default("")
+  // رقم المفاضلة: الرقم الذي تولّده الوزارة للطالب (يختلف عن الرقم الجامعي الخاص بالجامعة)
+  meritNumber     String?
   motherName      String?
   nationalId      String?
   applicationNumber String?
