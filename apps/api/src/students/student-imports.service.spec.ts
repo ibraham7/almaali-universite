@@ -249,6 +249,12 @@ describe('Student Excel import', () => {
     expect(() => new StudentImportsService(prisma).inspect({ buffer: Buffer.from('a,b'), originalname: 'x.csv' })).toThrow(/xlsx/);
   });
 
+  it('accepts a real .xlsx whose file name does not end with .xlsx (WhatsApp-style names)', () => {
+    const { prisma } = database();
+    const upload = { ...ministryFile(['رقم الجامعي', 'الاسم'], [['2026900', 'هند']]), originalname: 'التربية الخاصة xlsx.1794656071505' };
+    expect(new StudentImportsService(prisma).inspect(upload).dataRowCount).toBe(1);
+  });
+
   const noUniversityId = ['رقم الاكتتاب', 'الاسم', 'الأب', 'الكنية', 'الأم', 'الرقم الوطني', 'مكان الولادة'];
   const noIdRows = [['7001', 'هند', 'عمر', 'خالد', 'منى', '12345678901', 'حلب'], ['7002', 'سارة', 'علي', 'أحمد', 'ليلى', '12345678902', 'دمشق']];
   const allPlacement = { collegeId: 'college-1', programId: 'program-1', studyPlanId: 'plan-1', academicYearId: 'year-1', semesterId: 'semester-1' };
@@ -322,5 +328,12 @@ describe('Student Excel import', () => {
     const result = await service.preview(upload, { mapping: service.inspect(upload).suggestedMapping });
     expect(result).toMatchObject({ validCount: 2, errorCount: 0 });
     expect(result.notes.join(' ')).toContain('تم تجاهل «المستوى الأكاديمي» في 2 صف');
+  });
+
+  it('recognizes the headers of the ministry report: «رقم الجامعي» and «رقم الاتصال»', () => {
+    const { prisma } = database();
+    const headers = ['رقم الجامعي', 'تم التسجيل؟', 'رقم الاتصال', 'البريد الالكتروني', 'رقم الاكتتاب', 'الاسم', 'اسم الأب', 'الكنية', 'الجنس', 'تاريخ الميلاد', 'اسم الأم'];
+    const info = new StudentImportsService(prisma).inspect(ministryFile(headers, [Array(headers.length).fill('x')], 'تقرير'));
+    expect(info.suggestedMapping).toMatchObject({ universityId: 0, phone: 2, universityEmail: 3, applicationNumber: 4, firstName: 5, middleName: 6, familyName: 7, gender: 8, dateOfBirth: 9, motherName: 10 });
   });
 });

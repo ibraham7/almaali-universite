@@ -20,8 +20,14 @@ const GROUP_LABELS = { identity: 'بيانات الطالب', contact: 'التو
 
 function errorText(error: unknown) {
   if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
     const message: unknown = error.response?.data?.message;
-    return Array.isArray(message) ? message.join('، ') : typeof message === 'string' ? message : 'تعذر قراءة الملف.';
+    if (Array.isArray(message)) return message.join('، ');
+    if (typeof message === 'string') return message;
+    if (!error.response) return 'تعذر الاتصال بالخادم أثناء رفع الملف. تحقق من الاتصال وحجم الملف ثم أعد المحاولة.';
+    if (status === 413) return 'حجم الملف أكبر من الحد المسموح على الخادم. قسّم الملف إلى أجزاء أصغر أو اطلب رفع الحد.';
+    if (status === 502 || status === 504) return 'الخادم تأخر أو توقف أثناء قراءة الملف (خطأ ' + status + '). أعد المحاولة بملف أصغر.';
+    return `تعذر قراءة الملف (خطأ ${status ?? 'غير معروف'} من الخادم).`;
   }
   return 'تعذر قراءة الملف.';
 }
@@ -158,7 +164,7 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
             <Typography sx={{ fontWeight: 700, mb: 0.5 }}>شروط الاستيراد</Typography>
             <Box component="ul" sx={{ m: 0, pr: 2.5 }}>
               {(info?.rules ?? [
-                'صيغة الملف: Excel بامتداد .xlsx، وحجمه حتى 10 ميغابايت، وحتى 5000 طالب في المرة الواحدة.',
+                'صيغة الملف: مصنف Excel (.xlsx)، وحجمه حتى 10 ميغابايت، وحتى 5000 طالب في المرة الواحدة. لا يهم اسم الملف.',
                 'لا يشترط تعديل أسماء الأعمدة أو ترتيبها ولا اسم ورقة العمل: تربط الأعمدة بحقول المنظومة في الخطوة التالية.',
                 'الحقول المطلوبة لإنشاء طالب جديد: الرقم الجامعي، الاسم الأول، اسم الأب، اسم العائلة، اسم الأم، الرقم الوطني، رقم الاكتتاب، مكان الولادة.',
                 'الرقم الوطني 11 رقماً، والهاتف السوري 10 أرقام يبدأ بـ 09، والجنس ذكر أو أنثى، والتواريخ بصيغة YYYY-MM-DD أو DD/MM/YYYY.',
@@ -171,7 +177,7 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
           <Button component="a" href="/templates/students-temp.xlsx" download="قالب-استيراد-الطلاب-مؤقت.xlsx" variant="outlined">تنزيل قالب جاهز (اختياري)</Button>
           <Button component="label" variant="contained" disabled={busy}>
             {busy ? <CircularProgress size={20} color="inherit" /> : 'اختيار ملف Excel'}
-            <input type="file" hidden accept=".xlsx" onChange={(event) => {
+            <input type="file" hidden onChange={(event) => {
               const chosen = event.target.files?.[0] ?? null;
               event.target.value = '';
               setSuccess('');

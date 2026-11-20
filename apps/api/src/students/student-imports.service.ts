@@ -67,8 +67,9 @@ export class StudentImportsService {
 
   private openWorkbook(file?: ImportFile) {
     if (!file?.buffer?.length) throw new BadRequestException('لم يتم رفع ملف، اختر ملف Excel بامتداد .xlsx');
-    if (!/\.xlsx$/i.test(file.originalname) || file.buffer.subarray(0, 2).toString() !== 'PK') {
-      throw new BadRequestException('الملف يجب أن يكون Excel بامتداد .xlsx (ليس .xls ولا .csv)');
+    // يُفحص محتوى الملف لا اسمه: ملفات الواتساب والتنزيلات قد يكون اسمها غير منتهٍ بـ .xlsx
+    if (file.buffer.subarray(0, 2).toString() !== 'PK') {
+      throw new BadRequestException('الملف ليس ملف Excel بصيغة .xlsx (قد يكون .xls قديماً أو .csv). احفظه من Excel بصيغة «مصنف Excel (.xlsx)» ثم أعد المحاولة');
     }
     try { return XLSX.read(file.buffer, { type: 'buffer', cellDates: true }); }
     catch { throw new BadRequestException('تعذر قراءة ملف Excel، تأكد أنه غير تالف ولا محمي بكلمة سر'); }
