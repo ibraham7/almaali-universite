@@ -249,6 +249,12 @@ describe('Student Excel import', () => {
     expect(() => new StudentImportsService(prisma).inspect({ buffer: Buffer.from('a,b'), originalname: 'x.csv' })).toThrow(/xlsx/);
   });
 
+  it('accepts a real .xlsx whose file name does not end with .xlsx (WhatsApp-style names)', () => {
+    const { prisma } = database();
+    const upload = { ...ministryFile(['رقم الجامعي', 'الاسم'], [['2026900', 'هند']]), originalname: 'التربية الخاصة xlsx.1794656071505' };
+    expect(new StudentImportsService(prisma).inspect(upload).dataRowCount).toBe(1);
+  });
+
   const noUniversityId = ['رقم الاكتتاب', 'الاسم', 'الأب', 'الكنية', 'الأم', 'الرقم الوطني', 'مكان الولادة'];
   const noIdRows = [['7001', 'هند', 'عمر', 'خالد', 'منى', '12345678901', 'حلب'], ['7002', 'سارة', 'علي', 'أحمد', 'ليلى', '12345678902', 'دمشق']];
   const allPlacement = { collegeId: 'college-1', programId: 'program-1', studyPlanId: 'plan-1', academicYearId: 'year-1', semesterId: 'semester-1' };
