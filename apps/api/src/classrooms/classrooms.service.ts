@@ -179,41 +179,4 @@ export class ClassroomsService {
     };
   }
 
-  async remove(id: string) {
-    const classroom =
-      await this.prisma.classroom.findUnique({
-        where: { id },
-        select: {
-          id: true,
-          name: true,
-          _count: {
-            select: {
-              sections: true,
-            },
-          },
-        },
-      });
-
-    if (!classroom) {
-      throw new NotFoundException('القاعة غير موجودة.');
-    }
-
-    if (classroom._count.sections > 0) {
-      throw new BadRequestException(
-        'لا يمكن حذف قاعة مرتبطة بشعب دراسية. أزل ارتباطها بالشعب أولًا.',
-      );
-    }
-
-    await this.prisma.classroom.delete({
-      where: { id },
-    });
-
-    return {
-      success: true,
-      removedClassroom: {
-        id: classroom.id,
-        name: classroom.name,
-      },
-    };
-  }
 }

@@ -163,7 +163,6 @@ export class AuthService {
     const now = new Date();
     const cutoff = new Date(now.getTime() - SIGNUP_WINDOW_MS);
     const ipHash = this.hashIp(ip || 'unknown');
-    await this.prisma.signupAttempt.deleteMany({ where: { createdAt: { lt: new Date(now.getTime() - 24 * 60 * 60 * 1000) } } });
     const recentAttempts = await this.prisma.signupAttempt.count({
       where: { ipHash, createdAt: { gte: cutoff } },
     });

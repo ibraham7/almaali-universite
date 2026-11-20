@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Param,
   Patch,
@@ -76,13 +75,4 @@ export class ClassroomsController {
     );
   }
 
-  @Delete(':id')
-  remove(
-    @Param('id')
-    id: string,
-  ) {
-    return this.classroomsService.remove(
-      id,
-    );
-  }
 }

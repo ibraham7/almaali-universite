@@ -20,7 +20,6 @@ import {
 
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import ViewListOutlinedIcon from '@mui/icons-material/ViewListOutlined';
-import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import ArrowUpwardRoundedIcon from '@mui/icons-material/ArrowUpwardRounded';
 import ArrowDownwardRoundedIcon from '@mui/icons-material/ArrowDownwardRounded';
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
@@ -43,8 +42,6 @@ import {
   getSemesters,
   getStudyPlans,
   studyPlanLabel,
-  removeCourseFromPlan,
-  removeCoursePrerequisite,
   reorderPlanCourses,
   type AcademicLevel,
   type Course,
@@ -444,46 +441,6 @@ export default function StudyPlanPage() {
     }
   };
 
-  const handleDelete = async (
-    item: PlanCourse,
-  ) => {
-    const confirmed =
-      window.confirm(
-        `هل تريد حذف ${item.course.code} - ${item.course.nameAr} من هذا الفصل؟`,
-      );
-
-    if (!confirmed) return;
-
-    setActionLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      const response =
-        await removeCourseFromPlan(
-          item.id,
-        );
-
-      if (!response.success) {
-        setError(
-          response.errors?.join('، ') ??
-            'تعذر حذف المقرر.',
-        );
-        return;
-      }
-
-      setSuccess(
-        'تم حذف المقرر من الخطة.',
-      );
-
-      await loadPlanCourses();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   const openPrerequisiteDialog = (
     item: PlanCourse,
   ) => {
@@ -530,53 +487,6 @@ export default function StudyPlanPage() {
 
       setSuccess(
         `تمت إضافة ${selectedPrerequisiteIds.length} من المتطلبات السابقة.`,
-      );
-
-      const [coursesData] =
-        await Promise.all([
-          getCourses(),
-          loadPlanCourses(),
-        ]);
-
-      setCourses(coursesData);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleRemovePrerequisite = async (
-    item: PlanCourse,
-    prerequisiteId: string,
-  ) => {
-    const confirmed = window.confirm(
-      'هل تريد حذف هذا المتطلب السابق؟',
-    );
-
-    if (!confirmed) return;
-
-    setActionLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      const response =
-        await removeCoursePrerequisite(
-          item.courseId,
-          prerequisiteId,
-        );
-
-      if (!response.success) {
-        setError(
-          response.errors?.join('، ') ??
-            'تعذر حذف المتطلب السابق.',
-        );
-        return;
-      }
-
-      setSuccess(
-        'تم حذف المتطلب السابق.',
       );
 
       const [coursesData] =
@@ -1230,15 +1140,6 @@ export default function StudyPlanPage() {
                                   size="small"
                                   variant="outlined"
                                   label={`${entry.prerequisite.code} — ${entry.prerequisite.nameAr}`}
-                                  onDelete={
-                                    actionLoading
-                                      ? undefined
-                                      : () =>
-                                          void handleRemovePrerequisite(
-                                            item,
-                                            entry.prerequisiteId,
-                                          )
-                                  }
                                 />
                               ),
                             )
@@ -1312,24 +1213,6 @@ export default function StudyPlanPage() {
                         المتطلبات السابقة
                       </Button>
 
-                      <Button
-                        size="small"
-                        color="error"
-                        variant="outlined"
-                        disabled={
-                          actionLoading
-                        }
-                        onClick={() =>
-                          void handleDelete(
-                            item,
-                          )
-                        }
-                        startIcon={
-                          <DeleteOutlineRoundedIcon />
-                        }
-                      >
-                        حذف
-                      </Button>
                     </Stack>
                   </Box>
                 ),

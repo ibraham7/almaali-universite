@@ -136,11 +136,6 @@ export async function updateCollege(
     return response.data;
 }
 
-export async function deleteCollege(id: string) {
-    const response = await apiClient.delete<{ message: string }>(`/colleges/${id}`);
-    return response.data;
-}
-
 export async function getDepartments() {
     const response =
         await apiClient.get<

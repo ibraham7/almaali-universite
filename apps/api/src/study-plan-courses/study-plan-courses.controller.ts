@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Param,
   Post,
@@ -91,15 +90,4 @@ export class StudyPlanCoursesController {
     );
   }
 
-  @Delete(':id')
-  remove(
-    @Param('id')
-    id: string,
-    @Req() request: Request & { user: { id: string; role: string } },
-  ) {
-    return this.studyPlanCoursesService.remove(
-      id,
-      request.user,
-    );
-  }
 }

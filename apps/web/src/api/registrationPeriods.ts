@@ -57,12 +57,3 @@ export async function updateRegistrationPeriod(
 
   return data;
 }
-
-export async function removeRegistrationPeriod(id: string) {
-  const { data } = await apiClient.delete<{
-    success: boolean;
-    message: string;
-  }>(`/registration-periods/${id}`);
-
-  return data;
-}

@@ -458,6 +458,7 @@ export class RegistrationValidationService {
     const previouslyRegisteredItems =
       await this.prisma.enrollmentItem.findMany({
         where: {
+          status: 'ACTIVE',
           enrollment: {
             id: {
               not: enrollmentId,
@@ -521,6 +522,7 @@ export class RegistrationValidationService {
         include: {
           student: true,
           items: {
+            where: { status: 'ACTIVE' },
             select: {
               courseId: true,
             },
@@ -666,6 +668,7 @@ export class RegistrationValidationService {
       await this.prisma.enrollmentItem.findMany({
         where: {
           enrollmentId,
+          status: 'ACTIVE',
         },
         include: {
           section: {
@@ -815,6 +818,7 @@ export class RegistrationValidationService {
       await this.prisma.enrollmentItem.findMany({
         where: {
           enrollmentId,
+          status: 'ACTIVE',
         },
         include: {
           course: true,
@@ -875,6 +879,7 @@ export class RegistrationValidationService {
       await this.prisma.enrollmentItem.findMany({
         where: {
           enrollmentId,
+          status: 'ACTIVE',
         },
         include: {
           course: true,

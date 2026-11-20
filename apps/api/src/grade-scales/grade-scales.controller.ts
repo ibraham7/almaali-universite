@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Param,
   Patch,
@@ -113,18 +112,4 @@ export class GradeScalesController {
     );
   }
 
-  @Delete(':id')
-  @Roles('SYSTEM_ADMIN')
-  remove(
-    @Req()
-    request: AuthenticatedRequest,
-
-    @Param('id')
-    id: string,
-  ) {
-    return this.gradeScalesService.remove(
-      id,
-      request.user.id,
-    );
-  }
 }

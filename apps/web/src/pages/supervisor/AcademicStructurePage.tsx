@@ -18,7 +18,6 @@ import {
 } from '@mui/material';
 
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import AccountBalanceRoundedIcon from '@mui/icons-material/AccountBalanceRounded';
 import ApartmentRoundedIcon from '@mui/icons-material/ApartmentRounded';
@@ -39,7 +38,6 @@ import { getMyAdvisorPrograms } from '../../api/advisors';
 import {
     createAcademicLevel,
     createCollege,
-    deleteCollege,
     createDepartment,
     createProgram,
     createSemester,
@@ -143,7 +141,6 @@ function getErrorMessage(
 export default function AcademicStructurePage() {
     const { user } = useAuth();
     const isAdvisor = user?.role === 'ADVISOR';
-    const canDeleteCollege = user?.role === 'REGISTRAR' || user?.role === 'SYSTEM_ADMIN';
     const [colleges, setColleges] =
         useState<College[]>([]);
 
@@ -199,7 +196,6 @@ export default function AcademicStructurePage() {
     const [saving, setSaving] =
         useState(false);
 
-    const [deleteTarget, setDeleteTarget] = useState<College | null>(null);
 
     const [error, setError] =
         useState('');
@@ -841,29 +837,6 @@ export default function AcademicStructurePage() {
         }
     }
 
-    async function handleDeleteCollege() {
-        if (!deleteTarget) return;
-        try {
-            setSaving(true);
-            setError('');
-            await deleteCollege(deleteTarget.id);
-            if (selectedCollegeId === deleteTarget.id) {
-                const nextCollege = colleges.find((item) => item.id !== deleteTarget.id);
-                setSelectedCollegeId(nextCollege?.id ?? '');
-                setSelectedDepartmentId('');
-                setSelectedProgramId('');
-                setSelectedStudyPlanId('');
-                setSelectedLevelId('');
-            }
-            setDeleteTarget(null);
-            setSuccess('تم حذف الكلية وبنيتها الأكاديمية المرتبطة بها.');
-            await loadData();
-        } catch (requestError) {
-            setError(getErrorMessage(requestError));
-        } finally {
-            setSaving(false);
-        }
-    }
 
     if (loading) {
         return (
@@ -983,7 +956,6 @@ export default function AcademicStructurePage() {
                                     'college',
                                     college,
                                 ) : undefined}
-                            onDelete={canDeleteCollege ? () => setDeleteTarget(college) : undefined}
                         />
                     ),
                 )}
@@ -1393,21 +1365,6 @@ export default function AcademicStructurePage() {
                     </Button>
                 </DialogActions>
             </Dialog>
-            <Dialog open={Boolean(deleteTarget)} onClose={() => !saving && setDeleteTarget(null)} fullWidth maxWidth="sm">
-                <DialogTitle>تأكيد حذف الكلية</DialogTitle>
-                <DialogContent dividers>
-                    <Typography>هل تريد حذف «{deleteTarget?.nameAr}» وبنيتها الأكاديمية المرتبطة بها؟</Typography>
-                    <Typography color="text.secondary" sx={{ mt: 1 }}>
-                        سيُحذف ما يتبعها من أقسام وبرامج وخطط ومستويات وفصول. يمنع النظام الحذف إذا كانت مرتبطة بطلاب أو تسجيلات أو نتائج.
-                    </Typography>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setDeleteTarget(null)} disabled={saving}>إلغاء</Button>
-                    <Button color="error" variant="contained" onClick={() => void handleDeleteCollege()} disabled={saving}>
-                        {saving ? 'جارٍ الحذف...' : 'حذف الكلية'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
         </Box>
     );
 }
@@ -1519,7 +1476,6 @@ interface StructureCardProps {
     onClick?: () => void;
 
     onEdit?: () => void;
-    onDelete?: () => void;
 }
 
 function StructureCard({
@@ -1528,7 +1484,6 @@ function StructureCard({
     selected,
     onClick,
     onEdit,
-    onDelete,
 }: StructureCardProps) {
     return (
         <Box
@@ -1596,9 +1551,6 @@ function StructureCard({
                 <Stack direction="row" spacing={0.5}>
                     {onEdit && <Button size="small" startIcon={<EditOutlinedIcon />} onClick={(event) => { event.stopPropagation(); onEdit(); }}>
                         تعديل
-                    </Button>}
-                    {onDelete && <Button size="small" color="error" startIcon={<DeleteOutlineRoundedIcon />} onClick={(event) => { event.stopPropagation(); onDelete(); }}>
-                        حذف
                     </Button>}
                 </Stack>
             </Stack>

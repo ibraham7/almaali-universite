@@ -23,7 +23,6 @@ import {
 } from '@mui/material';
 
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 
 import {
@@ -37,7 +36,6 @@ import axios from 'axios';
 import {
   createRegistrationPeriod,
   getRegistrationPeriodsBySemester,
-  removeRegistrationPeriod,
   updateRegistrationPeriod,
   type RegistrationPeriod,
 } from '../../api/registrationPeriods';
@@ -409,34 +407,6 @@ export default function RegistrationPeriodsPage() {
     }
   };
 
-  const handleDelete = async (
-    period: RegistrationPeriod,
-  ) => {
-    const confirmed = window.confirm(
-      `هل تريد حذف فترة التسجيل التي تبدأ في ${formatDateTime(
-        period.startDateTime,
-      )}؟`,
-    );
-
-    if (!confirmed) return;
-
-    setActionLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      await removeRegistrationPeriod(period.id);
-      setSuccess(
-        'تم حذف فترة التسجيل بنجاح.',
-      );
-      await loadPeriods();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   if (loading) {
     return (
       <Box
@@ -772,15 +742,6 @@ export default function RegistrationPeriodsPage() {
                         <EditOutlinedIcon />
                       </IconButton>
 
-                      <IconButton
-                        color="error"
-                        disabled={actionLoading}
-                        onClick={() =>
-                          void handleDelete(period)
-                        }
-                      >
-                        <DeleteOutlineRoundedIcon />
-                      </IconButton>
                     </Stack>
                   </Box>
                 </Box>

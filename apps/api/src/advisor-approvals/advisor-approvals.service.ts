@@ -21,6 +21,7 @@ export class AdvisorApprovalsService {
       include: {
         student: true,
         items: {
+          where: { status: 'ACTIVE' },
           include: {
             course: true,
             section: {
@@ -270,7 +271,7 @@ export class AdvisorApprovalsService {
       academicYear.levelNumber + university.allowedFutureYears;
 
     const currentItems = await this.prisma.enrollmentItem.findMany({
-      where: { enrollmentId: approval.enrollmentId },
+      where: { enrollmentId: approval.enrollmentId, status: 'ACTIVE' },
       select: { courseId: true },
     });
 
@@ -424,6 +425,7 @@ export class AdvisorApprovalsService {
     const item = await this.prisma.enrollmentItem.findFirst({
       where: {
         id: enrollmentItemId,
+        status: 'ACTIVE',
         enrollmentId: approval.enrollmentId,
       },
     });
@@ -440,9 +442,11 @@ export class AdvisorApprovalsService {
     });
 
     try {
-      const result = await this.studentEnrollmentsService.dropItem({
-        enrollmentItemId,
-      });
+      const result = await this.studentEnrollmentsService.dropItem(
+        { enrollmentItemId },
+        undefined,
+        advisorId,
+      );
 
       if (
         typeof result === 'object' &&
@@ -492,7 +496,7 @@ export class AdvisorApprovalsService {
 
     await this.prisma.$transaction(async (tx) => {
       const items = await tx.enrollmentItem.findMany({
-        where: { enrollmentId: approval.enrollmentId },
+        where: { enrollmentId: approval.enrollmentId, status: 'ACTIVE' },
         select: {
           id: true,
           sectionId: true,
@@ -510,8 +514,14 @@ export class AdvisorApprovalsService {
         });
       }
 
-      await tx.enrollmentItem.deleteMany({
-        where: { enrollmentId: approval.enrollmentId },
+      await tx.enrollmentItem.updateMany({
+        where: { enrollmentId: approval.enrollmentId, status: 'ACTIVE' },
+        data: {
+          status: 'DROPPED',
+          droppedAt: new Date(),
+          droppedById: advisorId,
+          dropReason: note?.trim() || 'إلغاء التسجيل من المشرف الأكاديمي',
+        },
       });
 
       await tx.studentEnrollment.update({

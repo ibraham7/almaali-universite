@@ -151,34 +151,6 @@ export class CoursesService {
     };
   }
 
-  async removePrerequisite(courseId: string, prerequisiteId: string, actor: { id: string; role: string }) {
-    await this.assertCourseScope(courseId, actor);
-    const relation = await this.prisma.coursePrerequisite.findFirst({
-      where: { courseId, prerequisiteId },
-      include: { prerequisite: true },
-    });
-
-    if (!relation) {
-      return {
-        success: false,
-        errors: ['Course prerequisite relation not found'],
-      };
-    }
-
-    await this.prisma.coursePrerequisite.delete({
-      where: { id: relation.id },
-    });
-
-    return {
-      success: true,
-      message: 'Course prerequisite removed successfully',
-      removedPrerequisite: {
-        id: relation.prerequisite.id,
-        code: relation.prerequisite.code,
-        nameAr: relation.prerequisite.nameAr,
-      },
-    };
-  }
 
   async create(createCourseDto: CreateCourseDto, actor: { id: string; role: string }) {
     const existing = await this.prisma.course.findFirst({
@@ -356,47 +328,6 @@ export class CoursesService {
     });
   }
 
-  async remove(id: string, actor: { id: string; role: string }) {
-    await this.assertCourseScope(id, actor);
-    return this.prisma.$transaction(async (tx) => {
-      const course = await tx.course.findUnique({
-        where: { id },
-        select: { id: true, code: true, nameAr: true },
-      });
-      if (!course) throw new NotFoundException('المقرر المطلوب غير موجود.');
-
-      const [enrollmentCount, resultCount] = await Promise.all([
-        tx.enrollmentItem.count({ where: { courseId: id } }),
-        tx.courseResult.count({ where: { courseId: id } }),
-      ]);
-      if (enrollmentCount || resultCount) {
-        throw new ConflictException('لا يمكن حذف المقرر لوجود تسجيلات طلاب أو نتائج مرتبطة به. عطّل المقرر بدلًا من ذلك.');
-      }
-
-      const sectionIds = (await tx.courseSection.findMany({
-        where: { courseId: id },
-        select: { id: true },
-      })).map((section) => section.id);
-
-      await tx.coursePrerequisite.deleteMany({
-        where: { OR: [{ courseId: id }, { prerequisiteId: id }] },
-      });
-      await tx.studyPlanCourse.deleteMany({ where: { courseId: id } });
-      await tx.studyPlanCurriculumCourse.deleteMany({ where: { courseId: id } });
-      if (sectionIds.length) await tx.courseSection.deleteMany({ where: { id: { in: sectionIds } } });
-      await tx.course.delete({ where: { id } });
-      await tx.auditLog.create({
-        data: {
-          action: 'COURSE_DELETED',
-          entity: 'Course',
-          entityId: id,
-          userId: actor.id,
-          details: JSON.stringify({ code: course.code, nameAr: course.nameAr }),
-        },
-      });
-      return { success: true, message: 'تم حذف المقرر وارتباطاته الأكاديمية.' };
-    });
-  }
 
   async findOne(id: string, actor: { id: string; role: string }) {
     await this.assertCourseScope(id, actor);
@@ -539,6 +470,7 @@ export class CoursesService {
 
     const registrationHistory = await this.prisma.enrollmentItem.findMany({
       where: {
+        status: 'ACTIVE',
         enrollment: {
           studentId: student.id,
           status: {

@@ -91,45 +91,8 @@ describe('Student management', () => {
     expect(create).toHaveBeenCalledWith({ data: expect.objectContaining({ phone: '0944123456' }) });
   });
 
-  it('deletes a student without an account or academic history and records the action', async () => {
-    const remove = vi.fn().mockResolvedValue({});
-    const audit = vi.fn().mockResolvedValue({});
-    const prisma = {
-      student: { findUnique: vi.fn().mockResolvedValue({
-        id: 'student-1', universityId: 'TEST-1001', userId: null,
-        _count: { enrollments: 0, results: 0 },
-      }) },
-      $transaction: (fn: (tx: unknown) => Promise<unknown>) => fn({ student: { delete: remove }, auditLog: { create: audit } }),
-    } as unknown as PrismaService;
-
-    await expect(new StudentsService(prisma).remove('student-1', 'admin-1')).resolves.toEqual({ message: 'تم حذف الطالب.' });
-    expect(remove).toHaveBeenCalledWith({ where: { id: 'student-1' } });
-    expect(audit).toHaveBeenCalledWith({ data: expect.objectContaining({
-      action: 'STUDENT_DELETED', entityId: 'student-1', userId: 'admin-1',
-    }) });
-  });
-
-  it('protects students with accounts or academic records from deletion', async () => {
-    const prisma = {
-      student: { findUnique: vi.fn().mockResolvedValue({
-        id: 'student-1', universityId: '2026001', userId: 'user-1',
-        _count: { enrollments: 1, results: 1 },
-      }) },
-      $transaction: vi.fn(),
-    } as unknown as PrismaService;
-
-    await expect(new StudentsService(prisma).remove('student-1', 'admin-1'))
-      .rejects.toBeInstanceOf(ConflictException);
-    expect(prisma.$transaction).not.toHaveBeenCalled();
-  });
-
-  it('returns not found when deleting a missing student', async () => {
-    const prisma = {
-      student: { findUnique: vi.fn().mockResolvedValue(null) },
-      $transaction: vi.fn(),
-    } as unknown as PrismaService;
-    await expect(new StudentsService(prisma).remove('missing', 'admin-1'))
-      .rejects.toBeInstanceOf(NotFoundException);
+  it('has no way to delete a student', () => {
+    expect((StudentsService.prototype as unknown as Record<string, unknown>).remove).toBeUndefined();
   });
 
   it('requires the college, program, plan, level and semester so a student always has a study plan', async () => {

@@ -42,7 +42,6 @@ import {
   getClassrooms,
   getCourseSections,
   getTeachers,
-  removeCourseSection,
   updateCourseSection,
   type Classroom,
   type CourseSection,
@@ -526,35 +525,6 @@ export default function SectionsPage() {
     }
   };
 
-  const handleDelete = async (
-    section: CourseSection,
-  ) => {
-    const confirmed = window.confirm(
-      `هل تريد حذف الشعبة ${section.sectionNumber} من مقرر ${section.course.code}؟`,
-    );
-
-    if (!confirmed) return;
-
-    setActionLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      await removeCourseSection(
-        section.id,
-      );
-
-      setSuccess(
-        'تم حذف الشعبة بنجاح.',
-      );
-
-      await loadSections();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -978,19 +948,6 @@ export default function SectionsPage() {
                         <EditOutlinedIcon />
                       </IconButton>
 
-                      <IconButton
-                        color="error"
-                        disabled={
-                          actionLoading
-                        }
-                        onClick={() =>
-                          void handleDelete(
-                            section,
-                          )
-                        }
-                      >
-                        <DeleteOutlineRoundedIcon />
-                      </IconButton>
                     </Stack>
                   </Box>
                 </Box>

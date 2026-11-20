@@ -22,7 +22,6 @@ import {
 } from '@mui/material';
 
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
@@ -38,9 +37,7 @@ import axios from 'axios';
 import {
   addCoursePrerequisites,
   createCourse,
-  deleteCourse,
   getCourses,
-  removeCoursePrerequisite,
   updateCourse,
   type Course,
   type CoursePayload,
@@ -150,7 +147,6 @@ export default function CoursesPage() {
   const [prerequisiteDialogOpen, setPrerequisiteDialogOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [prerequisiteCourse, setPrerequisiteCourse] = useState<Course | null>(null);
-  const [deletingCourse, setDeletingCourse] = useState<Course | null>(null);
   const [selectedPrerequisiteIds, setSelectedPrerequisiteIds] = useState<string[]>([]);
   const [form, setForm] = useState<CourseForm>(emptyForm);
 
@@ -402,25 +398,6 @@ export default function CoursesPage() {
     }
   }
 
-  async function handleDeleteCourse() {
-    if (!deletingCourse) return;
-    try {
-      setActionLoading(true);
-      setError('');
-      await deleteCourse(deletingCourse.id);
-      if (prerequisiteCourse?.id === deletingCourse.id) {
-        setPrerequisiteCourse(null);
-        setPrerequisiteDialogOpen(false);
-      }
-      setDeletingCourse(null);
-      setSuccess('تم حذف المقرر وارتباطاته الأكاديمية.');
-      await loadData();
-    } catch (requestError) {
-      setError(getErrorMessage(requestError));
-    } finally {
-      setActionLoading(false);
-    }
-  }
 
   async function handleAddPrerequisite() {
     if (!prerequisiteCourse || !selectedPrerequisiteIds.length) return;
@@ -456,38 +433,6 @@ export default function CoursesPage() {
     }
   }
 
-  async function handleRemovePrerequisite(prerequisiteId: string) {
-    if (!prerequisiteCourse) return;
-
-    try {
-      setActionLoading(true);
-      setError('');
-
-      const response = await removeCoursePrerequisite(
-        prerequisiteCourse.id,
-        prerequisiteId,
-      );
-
-      if (response.success === false) {
-        setError(response.errors?.join('، ') ?? 'تعذر حذف المتطلب السابق.');
-        return;
-      }
-
-      setSuccess('تم حذف المتطلب السابق.');
-
-      const responseCourses = await getCourses();
-      setCourses(responseCourses.courses);
-
-      const refreshed = responseCourses.courses.find(
-        (course) => course.id === prerequisiteCourse.id,
-      );
-      if (refreshed) setPrerequisiteCourse(refreshed);
-    } catch (requestError) {
-      setError(getErrorMessage(requestError));
-    } finally {
-      setActionLoading(false);
-    }
-  }
 
   if (loading) {
     return (
@@ -626,14 +571,6 @@ export default function CoursesPage() {
                     <Stack direction="row" spacing={0.5}>
                       <Button size="small" startIcon={<EditOutlinedIcon />} onClick={() => openEdit(course)}>
                         تعديل
-                      </Button>
-                      <Button
-                        size="small"
-                        color="error"
-                        startIcon={<DeleteOutlineRoundedIcon />}
-                        onClick={() => setDeletingCourse(course)}
-                      >
-                        حذف
                       </Button>
                     </Stack>
                   </Stack>
@@ -1038,15 +975,6 @@ export default function CoursesPage() {
                           </Typography>
                         </Box>
 
-                        <Button
-                          size="small"
-                          color="error"
-                          startIcon={<DeleteOutlineRoundedIcon />}
-                          disabled={actionLoading}
-                          onClick={() => void handleRemovePrerequisite(relation.prerequisiteId)}
-                        >
-                          حذف
-                        </Button>
                       </Box>
                     ))}
                   </Stack>
@@ -1058,31 +986,6 @@ export default function CoursesPage() {
 
         <DialogActions>
           <Button onClick={() => { setPrerequisiteDialogOpen(false); setSelectedPrerequisiteIds([]); }}>إغلاق</Button>
-        </DialogActions>
-      </Dialog>
-      <Dialog
-        open={Boolean(deletingCourse)}
-        onClose={() => !actionLoading && setDeletingCourse(null)}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle>تأكيد حذف المقرر</DialogTitle>
-        <DialogContent dividers>
-          <Typography>
-            هل تريد حذف «{deletingCourse?.code} — {deletingCourse?.nameAr}» نهائيًا من قاعدة البيانات؟
-            إذا كان مرتبطًا بتسجيلات طلاب أو نتائج، سيرفض النظام الحذف.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeletingCourse(null)} disabled={actionLoading}>إلغاء</Button>
-          <Button
-            color="error"
-            variant="contained"
-            onClick={() => void handleDeleteCourse()}
-            disabled={actionLoading}
-          >
-            {actionLoading ? 'جارٍ الحذف...' : 'حذف نهائيًا'}
-          </Button>
         </DialogActions>
       </Dialog>
     </Box>
