@@ -55,6 +55,8 @@ function database(ids: string[] = [], existingHasPlan = false) {
   return { prisma, transaction, create, update, audit };
 }
 
+const problems = (result: { errors: Array<{ column?: string; message: string }> }) => result.errors.map((item) => `${item.column ?? ''}: ${item.message}`).join(' | ');
+
 describe('Student Excel import', () => {
   it('ships a template with the exact headers accepted by the importer', () => {
     const bytes = readFileSync('../web/public/templates/students-temp.xlsx');
@@ -117,7 +119,9 @@ describe('Student Excel import', () => {
     incomplete[20] = '';
     const result = await new StudentImportsService(prisma).preview(file([incomplete]));
     expect(result).toMatchObject({ validCount: 0, errorCount: 1 });
-    expect(result.errors[0].message).toContain('اسم الأم');
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatchObject({ rowNumber: 2, column: 'اسم الأم' });
+    expect(result.errors[0].message).toContain('مطلوب');
     expect(transaction).not.toHaveBeenCalled();
   });
 
@@ -128,9 +132,9 @@ describe('Student Excel import', () => {
     invalid[21] = '12A34';
     const result = await new StudentImportsService(prisma).preview(file([invalid]));
     expect(result.errorCount).toBe(1);
-    expect(result.errors[0].message).toContain('الاسم الأول');
-    expect(result.errors[0].message).toContain('الرقم الوطني: أرقام فقط');
-    expect(result.errors[0].message).toContain('الجنس: استخدم ذكر أو أنثى');
+    expect(problems(result)).toContain('الاسم الأول: استخدم الحروف');
+    expect(problems(result)).toContain('الرقم الوطني: أرقام فقط');
+    expect(problems(result)).toContain('الجنس: استخدم ذكر أو أنثى');
     expect(transaction).not.toHaveBeenCalled();
   });
 
@@ -141,8 +145,8 @@ describe('Student Excel import', () => {
     invalid[10] = '+963 944 123 456';
     const result = await new StudentImportsService(prisma).preview(file([invalid]));
     expect(result.errorCount).toBe(1);
-    expect(result.errors[0].message).toContain('الرقم الوطني: أدخل 11 رقمًا');
-    expect(result.errors[0].message).toContain('رقمًا سوريًا محليًا من 10 أرقام');
+    expect(problems(result)).toContain('الرقم الوطني: أدخل 11 رقمًا');
+    expect(problems(result)).toContain('رقمًا سوريًا محليًا من 10 أرقام');
     expect(transaction).not.toHaveBeenCalled();
   });
 
@@ -159,7 +163,8 @@ describe('Student Excel import', () => {
     const { prisma, transaction } = database();
     const result = await new StudentImportsService(prisma).preview(file([withoutPlacement(row('2026011', 'هند', 'خالد'))]));
     expect(result).toMatchObject({ validCount: 0, errorCount: 1 });
-    expect(result.errors[0].message).toContain('يجب تحديد الكلية والبرنامج والخطة والمستوى والفصل');
+    expect(result.errors.map((item) => item.column)).toEqual(['الكلية', 'البرنامج', 'الخطة الدراسية', 'المستوى الأكاديمي', 'الفصل الدراسي']);
+    expect(result.errors[0].message).toContain('مطلوب لربط الطالب بخطته الدراسية');
     expect(transaction).not.toHaveBeenCalled();
   });
 
@@ -167,12 +172,122 @@ describe('Student Excel import', () => {
     const { prisma } = database(['2026001']);
     const result = await new StudentImportsService(prisma).preview(file([withoutPlacement(row('2026001', 'سارة', 'علي'))]));
     expect(result).toMatchObject({ validCount: 0, errorCount: 1 });
-    expect(result.errors[0].message).toContain('يجب تحديد الكلية والبرنامج والخطة والمستوى والفصل');
+    expect(result.errors.map((item) => item.column)).toEqual(['الكلية', 'البرنامج', 'الخطة الدراسية', 'المستوى الأكاديمي', 'الفصل الدراسي']);
+    expect(result.errors[0].message).toContain('مطلوب لربط الطالب بخطته الدراسية');
   });
 
   it('keeps the plan of an existing student when the placement columns are left blank', async () => {
     const { prisma } = database(['2026001'], true);
     const result = await new StudentImportsService(prisma).preview(file([withoutPlacement(row('2026001', 'سارة', 'علي'))]));
     expect(result).toMatchObject({ validCount: 1, errorCount: 0, updateCount: 1 });
+  });
+
+  // ===== استيراد مرن: أي ورقة، أي صف بداية، أي ترتيب وأسماء أعمدة =====
+  const ministryFile = (headers: string[], rows: string[][], sheet = 'Sheet1', blankRows = 0) => {
+    const workbook = XLSX.utils.book_new();
+    const aoa: string[][] = [...Array.from({ length: blankRows }, () => ['بيانات وزارة التعليم العالي']), headers, ...rows];
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(aoa), sheet);
+    return { buffer: Buffer.from(XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' })), originalname: 'ministry.xlsx' };
+  };
+  const ministryHeaders = ['م', 'رقم الاكتتاب', 'الاسم', 'الأب', 'الكنية', 'الأم', 'الرقم الوطني', 'مكان الولادة', 'الرقم الجامعي', 'الجنس', 'ملاحظات'];
+
+  it('reads any sheet name, a header row that is not row 1, and suggests the column mapping by name', () => {
+    const { prisma } = database();
+    const info = new StudentImportsService(prisma).inspect(ministryFile(ministryHeaders, [['1', '999', 'هند', 'عمر', 'خالد', 'منى', '12345678901', 'حلب', '2026500', 'أنثى', '']], 'القبول', 2));
+    expect(info.sheet).toBe('القبول');
+    expect(info.headerRow).toBe(3);
+    expect(info.dataRowCount).toBe(1);
+    expect(info.suggestedMapping).toMatchObject({ applicationNumber: 1, firstName: 2, middleName: 3, familyName: 4, motherName: 5, nationalId: 6, birthPlace: 7, universityId: 8, gender: 9 });
+    expect(info.suggestedMapping.college).toBeNull();
+  });
+
+  it('previews a ministry-shaped file using the chosen mapping and the default placement', async () => {
+    const { prisma } = database();
+    const service = new StudentImportsService(prisma);
+    const upload = ministryFile(ministryHeaders, [['1', '999', 'هند', 'عمر', 'خالد', 'منى', '12345678901', 'حلب', '2026500', 'أنثى', '']]);
+    const info = service.inspect(upload);
+    const result = await service.preview(upload, { mapping: info.suggestedMapping, defaults: { collegeId: 'college-1', programId: 'program-1', studyPlanId: 'plan-1', academicYearId: 'year-1', semesterId: 'semester-1' } });
+    expect(result).toMatchObject({ total: 1, validCount: 1, errorCount: 0 });
+  });
+
+  it('reports every problem at once with the row, the file column and the reason', async () => {
+    const { prisma } = database();
+    const service = new StudentImportsService(prisma);
+    const upload = ministryFile(ministryHeaders, [
+      ['1', '999', 'هند1', 'عمر', 'خالد', 'منى', '123', 'حلب', '2026501', 'غير محدد', ''],
+      ['2', '998', 'سارة', 'علي', 'أحمد', '', '12345678902', 'دمشق', '2026502', 'أنثى', ''],
+    ]);
+    const result = await service.preview(upload, { mapping: service.inspect(upload).suggestedMapping, defaults: { collegeId: 'college-1', programId: 'program-1', studyPlanId: 'plan-1', academicYearId: 'year-1', semesterId: 'semester-1' } });
+    expect(result.errorCount).toBe(2);
+    const found = result.errors.map((item) => `${item.rowNumber}|${item.column}`);
+    expect(found).toEqual(expect.arrayContaining(['2|الاسم', '2|الرقم الوطني', '2|الجنس', '3|الأم']));
+  });
+
+  it('reports a required field that is not mapped once, not once per row', async () => {
+    const { prisma } = database();
+    const service = new StudentImportsService(prisma);
+    const upload = ministryFile(['الرقم الجامعي', 'الاسم', 'الأب', 'الكنية'], [['2026600', 'هند', 'عمر', 'خالد'], ['2026601', 'سارة', 'علي', 'أحمد']]);
+    const result = await service.preview(upload, { mapping: service.inspect(upload).suggestedMapping });
+    const unmapped = result.errors.filter((item) => item.rowNumber === 0).map((item) => item.column);
+    expect(unmapped).toEqual(expect.arrayContaining(['اسم الأم', 'الرقم الوطني', 'رقم الاكتتاب', 'مكان الولادة']));
+    expect(result.errors.filter((item) => item.message.includes('مطلوب لإنشاء حساب الطالب'))).toHaveLength(0);
+  });
+
+  it('accepts DD/MM/YYYY dates and restores the leading zero of a phone stored as a number', async () => {
+    const { prisma } = database();
+    const service = new StudentImportsService(prisma);
+    const headers = [...ministryHeaders.slice(1, 9), 'تاريخ الميلاد', 'رقم الهاتف'];
+    const upload = ministryFile(headers, [['999', 'هند', 'عمر', 'خالد', 'منى', '12345678901', 'حلب', '2026700', '25/03/2004', '944123456']]);
+    const result = await service.preview(upload, { mapping: service.inspect(upload).suggestedMapping, defaults: { collegeId: 'college-1', programId: 'program-1', studyPlanId: 'plan-1', academicYearId: 'year-1', semesterId: 'semester-1' } });
+    expect(result).toMatchObject({ validCount: 1, errorCount: 0 });
+  });
+
+  it('explains clearly when the file is not an .xlsx', () => {
+    const { prisma } = database();
+    expect(() => new StudentImportsService(prisma).inspect({ buffer: Buffer.from('a,b'), originalname: 'x.csv' })).toThrow(/xlsx/);
+  });
+
+  const noUniversityId = ['رقم الاكتتاب', 'الاسم', 'الأب', 'الكنية', 'الأم', 'الرقم الوطني', 'مكان الولادة'];
+  const noIdRows = [['7001', 'هند', 'عمر', 'خالد', 'منى', '12345678901', 'حلب'], ['7002', 'سارة', 'علي', 'أحمد', 'ليلى', '12345678902', 'دمشق']];
+  const allPlacement = { collegeId: 'college-1', programId: 'program-1', studyPlanId: 'plan-1', academicYearId: 'year-1', semesterId: 'semester-1' };
+
+  it('uses the application number as the university number when the file has no such column', async () => {
+    const { prisma, create } = database();
+    const service = new StudentImportsService(prisma);
+    const upload = ministryFile(noUniversityId, noIdRows);
+    const options = { mapping: service.inspect(upload).suggestedMapping, defaults: allPlacement, universityIdSource: { mode: 'applicationNumber' as const } };
+    expect(await service.preview(upload, options)).toMatchObject({ validCount: 2, errorCount: 0 });
+    await service.confirm(upload, 'registrar-1', options);
+    expect(create.mock.calls.map((call) => call[0].data.universityId)).toEqual(['7001', '7002']);
+  });
+
+  it('generates sequential university numbers with a prefix, continuing after the highest existing one', async () => {
+    const { prisma, create } = database();
+    (prisma.student as unknown as { findMany: ReturnType<typeof vi.fn> }).findMany = vi.fn().mockImplementation(({ where }: { where: { universityId?: { startsWith?: string } } }) =>
+      Promise.resolve(where.universityId?.startsWith ? [{ universityId: '20260007' }] : []));
+    const service = new StudentImportsService(prisma);
+    const upload = ministryFile(noUniversityId, noIdRows);
+    const options = { mapping: service.inspect(upload).suggestedMapping, defaults: allPlacement, universityIdSource: { mode: 'generate' as const, prefix: '2026' } };
+    await service.confirm(upload, 'registrar-1', options);
+    expect(create.mock.calls.map((call) => call[0].data.universityId)).toEqual(['20260008', '20260009']);
+  });
+
+  it('asks for a prefix when generating university numbers', async () => {
+    const { prisma } = database();
+    const service = new StudentImportsService(prisma);
+    const upload = ministryFile(noUniversityId, noIdRows);
+    const result = await service.preview(upload, { mapping: service.inspect(upload).suggestedMapping, defaults: allPlacement, universityIdSource: { mode: 'generate' } });
+    expect(result.errors.some((item) => item.rowNumber === 0 && item.column === 'الرقم الجامعي' && item.message.includes('بادئة'))).toBe(true);
+  });
+
+  it('reports a missing placement once, not once per row', async () => {
+    const { prisma } = database();
+    const service = new StudentImportsService(prisma);
+    const upload = ministryFile(noUniversityId, noIdRows);
+    const result = await service.preview(upload, { mapping: service.inspect(upload).suggestedMapping, universityIdSource: { mode: 'applicationNumber' } });
+    const placement = result.errors.filter((item) => item.column === 'الكلية');
+    expect(placement).toHaveLength(1);
+    expect(placement[0]).toMatchObject({ rowNumber: 0 });
+    expect(placement[0].message).toContain('2 صف');
   });
 });
