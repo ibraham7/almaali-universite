@@ -35,6 +35,20 @@ export class StudentImportsService {
       .replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
   }
 
+  // رقم الترتيب من نص مثل «السنة الأولى» أو «الفصل الثاني» أو «1» أو «٣»
+  private static ordinalOf(text: string): number | null {
+    const value = StudentImportsService.normalizeHeader(normalizeDigits(String(text ?? '')));
+    const digit = /(?:^|\s)(\d{1,2})(?:\s|$)/.exec(value);
+    if (digit) return Number(digit[1]);
+    const stems: Array<[string, number]> = [['اول', 1], ['ثان', 2], ['ثالث', 3], ['رابع', 4], ['خامس', 5], ['سادس', 6], ['سابع', 7], ['ثامن', 8]];
+    for (const word of value.split(' ')) {
+      const clean = word.replace(/^ال/, '');
+      const hit = stems.find(([stem]) => clean.startsWith(stem));
+      if (hit) return hit[1];
+    }
+    return null;
+  }
+
   private static columnLetter(index: number) {
     let n = index; let out = '';
     do { out = String.fromCharCode(65 + (n % 26)) + out; n = Math.floor(n / 26) - 1; } while (n >= 0);
@@ -323,7 +337,7 @@ export class StudentImportsService {
       const dateOfBirth = birth ? this.parseDate(birth, 'تاريخ الميلاد', problems) : existingStudent?.dateOfBirth ?? null;
       const admissionDate = admitted ? this.parseDate(admitted, 'تاريخ القبول', problems) : existingStudent?.admissionDate ?? null;
 
-      const resolve = <T extends { id: string; nameAr: string }>(name: string, entries: T[], parentId: string | null, parentKey: keyof T | undefined, label: string, fallbackId?: string | null) => {
+      const resolve = <T extends { id: string; nameAr: string }>(name: string, entries: T[], parentId: string | null, parentKey: keyof T | undefined, label: string, fallbackId?: string | null, ordinal = false) => {
         if (!name) {
           if (!fallbackId) return null;
           const previous = entries.find((entry) => entry.id === fallbackId);
@@ -334,7 +348,17 @@ export class StudentImportsService {
           return fallbackId;
         }
         if (parentKey && !parentId) { problems.push(`${label}: اختر المستوى الأكاديمي السابق`); return null; }
-        const matches = entries.filter((entry) => entry.nameAr === name && (!parentKey || entry[parentKey] === parentId));
+        const scoped = entries.filter((entry) => !parentKey || entry[parentKey] === parentId);
+        // مطابقة متدرجة: اسم مطابق تماماً، ثم بعد توحيد الحروف والمسافات، ثم الترتيب (الأولى = 1)، ثم احتواء فريد
+        const norm = StudentImportsService.normalizeHeader;
+        const attempts: Array<(entry: T) => boolean> = [
+          (entry) => entry.nameAr === name,
+          (entry) => norm(entry.nameAr) === norm(name),
+          ...(ordinal ? [(entry: T) => { const a = StudentImportsService.ordinalOf(name); return a !== null && a === StudentImportsService.ordinalOf(entry.nameAr); }] : []),
+          (entry) => norm(name).length >= 3 && (norm(entry.nameAr).includes(norm(name)) || norm(name).includes(norm(entry.nameAr))),
+        ];
+        let matches: T[] = [];
+        for (const attempt of attempts) { matches = scoped.filter(attempt); if (matches.length === 1) break; if (matches.length > 1) break; }
         if (matches.length !== 1) problems.push(`${label}: القيمة «${name}» غير موجودة بالنظام أو غير محددة بشكل فريد`);
         return matches.length === 1 ? matches[0].id : null;
       };
@@ -344,8 +368,8 @@ export class StudentImportsService {
         ? resolve(programName, programs, departmentId, 'departmentId', 'البرنامج', existingStudent?.programId)
         : resolve(programName, programs.filter((program) => !program.departmentId), collegeId, 'collegeId', 'البرنامج', existingStudent?.programId);
       const studyPlanId = resolve(planName, plans, programId, 'programId', 'الخطة الدراسية', existingStudent?.studyPlanId);
-      const academicYearId = resolve(yearName, years, studyPlanId, 'studyPlanId', 'المستوى الأكاديمي', existingStudent?.academicYearId);
-      const semesterId = resolve(semesterName, semesters, academicYearId, 'academicYearId', 'الفصل الدراسي', existingStudent?.semesterId);
+      const academicYearId = resolve(yearName, years, studyPlanId, 'studyPlanId', 'المستوى الأكاديمي', existingStudent?.academicYearId, true);
+      const semesterId = resolve(semesterName, semesters, academicYearId, 'academicYearId', 'الفصل الدراسي', existingStudent?.semesterId, true);
       for (const [label, id, fieldKey, defaultKey] of [['الكلية', collegeId, 'college', 'collegeId'], ['البرنامج', programId, 'program', 'programId'], ['الخطة الدراسية', studyPlanId, 'plan', 'studyPlanId'], ['المستوى الأكاديمي', academicYearId, 'year', 'academicYearId'], ['الفصل الدراسي', semesterId, 'semester', 'semesterId']] as const) {
         const noSource = (mapping[fieldKey] === null || mapping[fieldKey] === undefined) && !defaults[defaultKey];
         if (!id && noSource) { placementGaps.set(label, (placementGaps.get(label) ?? 0) + 1); continue; }

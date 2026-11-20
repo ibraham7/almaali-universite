@@ -290,4 +290,36 @@ describe('Student Excel import', () => {
     expect(placement[0]).toMatchObject({ rowNumber: 0 });
     expect(placement[0].message).toContain('2 صف');
   });
+
+  it('matches the level and semester by their order, so «الأولى» or «1» match «السنة الأولى»', async () => {
+    const { prisma } = database();
+    const service = new StudentImportsService(prisma);
+    for (const [year, semester] of [['الأولى', 'الأول'], ['1', '١'], ['السنة الأولى', 'الفصل الأول']]) {
+      const cells = row('2026800', 'هند', 'خالد');
+      cells[15] = year; cells[16] = semester;
+      expect(await service.preview(file([cells]))).toMatchObject({ validCount: 1, errorCount: 0 });
+    }
+  });
+
+  it('still reports a value that matches nothing, with the file value in the message', async () => {
+    const { prisma } = database();
+    const cells = row('2026801', 'هند', 'خالد');
+    cells[15] = 'السنة الخامسة عشرة';
+    const result = await new StudentImportsService(prisma).preview(file([cells]));
+    expect(result.errors.find((item) => item.column === 'المستوى الأكاديمي')?.message).toContain('السنة الخامسة عشرة');
+  });
+
+  it('suggests the right mapping for the headers of the ministry file', () => {
+    const { prisma } = database();
+    const headers = ['#', 'الرقم الجامعي', 'الرقم الجامعي المولد على نظام الوزارة', 'اسم الطالب', 'الأب', 'الأم', 'الرقم الوطني', 'مكان الولادة', 'تاريخ الولادة',
+      'الجنسية', 'الجنس', 'رقم الاكتتاب', 'مصدر الشهادة (سورية - غير سورية)', 'مصدر الشهادة (المحافظة)', 'نوع الشهادة(علمي - أدبي- شرعي- مهني)', 'عام الحصول على الثانوية',
+      'معدل التفاضل', 'نوع القبول (ثانوية - إجازة معهد)', 'عام القبول', 'الكلية المسجل فيها', 'الاختصاص', 'ملاحظات وضع الطالب( مستمر- مؤجل...', 'السنة الدراسية', 'ملاحظات  أخرى'];
+    const info = new StudentImportsService(prisma).inspect(ministryFile(headers, [Array(headers.length).fill('x')], 'ورقة1'));
+    const letter = (key: string) => { const index = info.suggestedMapping[key]; return index === null ? null : info.columns.find((column) => column.index === index)?.letter; };
+    expect(['universityId', 'firstName', 'middleName', 'motherName', 'nationalId', 'birthPlace', 'dateOfBirth', 'nationality', 'gender', 'applicationNumber', 'college', 'department', 'year'].map(letter))
+      .toEqual(['B', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'T', 'U', 'W']);
+    // the file has no family-name column, and the generated ministry number is a second, separate column
+    expect(info.suggestedMapping.familyName).toBeNull();
+    expect(info.suggestedMapping.universityId).not.toBe(2);
+  });
 });
