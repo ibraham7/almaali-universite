@@ -8,6 +8,7 @@ export interface College {
 
     nameAr: string;
     nameEn?: string | null;
+    code?: string | null;
 
     createdAt?: string;
     updatedAt?: string;
@@ -109,6 +110,8 @@ export async function createCollege(
         nameAr: string;
 
         nameEn?: string;
+
+        code?: string;
     },
 ) {
     const response =
@@ -125,6 +128,7 @@ export async function updateCollege(
     data: {
         nameAr?: string;
         nameEn?: string;
+        code?: string;
     },
 ) {
     const response =

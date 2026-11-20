@@ -52,6 +52,7 @@ export class CollegesController {
       universityId: string;
       nameAr: string;
       nameEn?: string;
+      code?: string;
     },
   ) {
     return this.collegesService.create(
@@ -72,6 +73,7 @@ export class CollegesController {
     body: {
       nameAr?: string;
       nameEn?: string;
+      code?: string | null;
     },
   ) {
     return this.collegesService.update(

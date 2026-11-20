@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -12,13 +13,30 @@ export class CollegesService {
     private readonly prisma: PrismaService,
   ) { }
 
+  // رمز الكلية: رقمان بالضبط (جزء من الرقم الجامعي)
+  private async validCode(code: string | null | undefined, universityId: string, excludeId?: string) {
+    const value = code?.trim();
+    if (!value) return null;
+    if (!/^\d{2}$/.test(value)) throw new BadRequestException('رمز الكلية: أدخل رقمين بالضبط (مثل 01).');
+    const taken = await this.prisma.college.findFirst({
+      where: { universityId, code: value, ...(excludeId ? { id: { not: excludeId } } : {}) },
+      select: { nameAr: true },
+    });
+    if (taken) throw new ConflictException(`رمز الكلية ${value} مستخدم لكلية «${taken.nameAr}».`);
+    return value;
+  }
+
   async create(data: {
     universityId: string;
     nameAr: string;
     nameEn?: string;
+    code?: string;
   }) {
+    if (!data.code?.trim()) throw new BadRequestException('رمز الكلية: مطلوب (رقمان، مثل 01). يدخل في الرقم الجامعي.');
+    const code = await this.validCode(data.code, data.universityId);
     return this.prisma.college.create({
       data: {
+        code,
         universityId:
           data.universityId,
 
@@ -36,6 +54,7 @@ export class CollegesService {
     data: {
       nameAr?: string;
       nameEn?: string;
+      code?: string | null;
     },
   ) {
     const college =
@@ -49,10 +68,13 @@ export class CollegesService {
       );
     }
 
+    const code = data.code !== undefined ? await this.validCode(data.code, college.universityId, id) : undefined;
+
     return this.prisma.college.update({
       where: { id },
 
       data: {
+        ...(code !== undefined ? { code } : {}),
         ...(data.nameAr !== undefined
           ? {
             nameAr:

@@ -97,6 +97,8 @@ model College {
   universityId String
   nameAr       String
   nameEn       String?
+  // رمز الكلية (رقمان): جزء من الرقم الجامعي = السنة + رمز الكلية + التسلسل
+  code         String?
 
   university  University   @relation(fields: [universityId], references: [id])
   departments Department[]
@@ -107,6 +109,7 @@ model College {
   updatedAt DateTime @updatedAt
 
   @@unique([universityId, nameAr])
+  @@unique([universityId, code])
 }
 
 model Department {

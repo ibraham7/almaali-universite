@@ -73,6 +73,8 @@ type EntityType =
     | 'semester';
 
 interface DialogForm {
+    code: string;
+
     level: ProgramLevel;
 
     nameAr: string;
@@ -87,6 +89,8 @@ interface DialogForm {
 }
 
 const emptyForm: DialogForm = {
+    code: '',
+
     level: 'BACHELOR',
 
     nameAr: '',
@@ -477,6 +481,11 @@ export default function AcademicStructurePage() {
         setEditingId(item.id);
 
         setForm({
+            code:
+                'code' in item && typeof item.code === 'string'
+                    ? item.code
+                    : '',
+
             level:
                 'level' in item && typeof item.level === 'string'
                     ? (item.level as ProgramLevel)
@@ -582,6 +591,12 @@ export default function AcademicStructurePage() {
                 dialogType ===
                 'college'
             ) {
+                if (!/^\d{2}$/.test(form.code.trim())) {
+                    setError('رمز الكلية: أدخل رقمين بالضبط (مثل 01). يدخل في الرقم الجامعي.');
+
+                    return;
+                }
+
                 if (editingId) {
                     await updateCollege(
                         editingId,
@@ -591,6 +606,9 @@ export default function AcademicStructurePage() {
 
                             nameEn:
                                 form.nameEn.trim(),
+
+                            code:
+                                form.code.trim(),
                         },
                     );
                 } else {
@@ -616,6 +634,9 @@ export default function AcademicStructurePage() {
                         nameEn:
                             form.nameEn.trim() ||
                             undefined,
+
+                        code:
+                            form.code.trim(),
                     });
                 }
             }
@@ -940,7 +961,7 @@ export default function AcademicStructurePage() {
                                 college.nameAr
                             }
                             subtitle={
-                                college.nameEn
+                                [college.nameEn, college.code ? `رمز الكلية: ${college.code}` : 'بلا رمز'].filter(Boolean).join(' • ')
                             }
                             selected={
                                 college.id ===
@@ -1244,6 +1265,23 @@ export default function AcademicStructurePage() {
                             fullWidth
                         />
                         </>)}
+
+                        {dialogType === 'college' && (
+                            <TextField
+                                label="رمز الكلية (رقمان)"
+                                value={form.code}
+                                onChange={(event) =>
+                                    setForm((current) => ({
+                                        ...current,
+                                        code: event.target.value.replace(/\D/g, '').slice(0, 2),
+                                    }))
+                                }
+                                required
+                                fullWidth
+                                helperText="يدخل في الرقم الجامعي: السنة + رمز الكلية + التسلسل (مثل 27 و01 و001 ← 2701001)."
+                                slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 2 } }}
+                            />
+                        )}
 
                         {(dialogType ===
                             'level' ||
