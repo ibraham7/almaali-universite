@@ -150,10 +150,13 @@ export class AuthService {
     if (!isPersonName(input.fullName)) inputErrors.push('اسم الطالب');
     if (!isPersonName(input.fatherName)) inputErrors.push('اسم الأب');
     if (!isPersonName(input.motherName)) inputErrors.push('اسم الأم');
-    if (!isDigitsOnly(input.nationalId)) inputErrors.push('الرقم الوطني: أرقام فقط');
-    else if (!isSyrianNationalId(input.nationalId)) inputErrors.push('الرقم الوطني: أدخل 11 رقمًا');
+    if (input.nationalId?.trim()) {
+      if (!isDigitsOnly(input.nationalId)) inputErrors.push('الرقم الوطني: أرقام فقط');
+      else if (!isSyrianNationalId(input.nationalId)) inputErrors.push('الرقم الوطني: أدخل 11 رقمًا');
+    }
     if (!isDigitsOnly(input.applicationNumber)) inputErrors.push('رقم الاكتتاب: أرقام فقط');
-    if (!isPlaceName(input.birthPlace)) inputErrors.push('مكان الولادة');
+    if (input.birthPlace?.trim() && !isPlaceName(input.birthPlace)) inputErrors.push('مكان الولادة');
+    if (input.dateOfBirth?.trim() && !/^\d{4}-\d{2}-\d{2}$/.test(input.dateOfBirth.trim())) inputErrors.push('تاريخ الميلاد: استخدم الصيغة YYYY-MM-DD');
     if (inputErrors.length) {
       throw new BadRequestException({
         message: 'صحح الحقول التالية ثم أعد المحاولة.',
@@ -177,9 +180,12 @@ export class AuthService {
       if (normalize(student.fullName ?? `${student.firstName} ${student.familyName}`) !== normalize(input.fullName)) mismatchedFields.push('اسم الطالب');
       if (normalize(student.middleName) !== normalize(input.fatherName)) mismatchedFields.push('اسم الأب');
       if (!student.motherName || normalize(student.motherName) !== normalize(input.motherName)) mismatchedFields.push('اسم الأم');
-      if (!student.nationalId || normalize(student.nationalId) !== normalize(input.nationalId)) mismatchedFields.push('الرقم الوطني');
       if (!student.applicationNumber || normalize(student.applicationNumber) !== normalize(input.applicationNumber)) mismatchedFields.push('رقم الاكتتاب');
-      if (!student.birthPlace || normalize(student.birthPlace) !== normalize(input.birthPlace)) mismatchedFields.push('مكان الولادة');
+      // الرقم الوطني ومكان الولادة وتاريخ الميلاد: تُقارَن فقط إذا كانت مسجلة في سجل الطالب
+      // (ملف الوزارة لا يتضمن الرقم الوطني ومكان الولادة، وتُستكمل لاحقاً)
+      if (student.nationalId?.trim() && normalize(student.nationalId) !== normalize(input.nationalId ?? '')) mismatchedFields.push('الرقم الوطني');
+      if (student.birthPlace?.trim() && normalize(student.birthPlace) !== normalize(input.birthPlace ?? '')) mismatchedFields.push('مكان الولادة');
+      if (student.dateOfBirth && student.dateOfBirth.toISOString().slice(0, 10) !== (input.dateOfBirth ?? '').trim()) mismatchedFields.push('تاريخ الميلاد');
     }
     const identityMatches = matched && mismatchedFields.length === 0;
     await this.prisma.signupAttempt.create({ data: { ipHash, succeeded: identityMatches } });

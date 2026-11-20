@@ -690,6 +690,14 @@ export default function StudentsPage() {
                                                         )}
                                                     />
 
+                                                    {(!student.nationalId || !student.birthPlace) && (
+                                                        <Chip
+                                                            size="small"
+                                                            variant="outlined"
+                                                            label="بيانات الهوية غير مكتملة"
+                                                        />
+                                                    )}
+
                                                     {!student.studyPlanId && (
                                                         <Chip
                                                             size="small"

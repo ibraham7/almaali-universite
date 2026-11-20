@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { completeStudentSignupRequest, studentSignupRequest } from '../../api/auth';
 import { STUDENT_BIRTH_PLACES, STUDENT_OTHER_OPTION } from '../../constants/student-options';
 
-const initialData = { universityId: '', fullName: '', fatherName: '', motherName: '', nationalId: '', applicationNumber: '', birthPlace: '' };
+const initialData = { universityId: '', fullName: '', fatherName: '', motherName: '', nationalId: '', applicationNumber: '', birthPlace: '', dateOfBirth: '' };
 
 export default function StudentSignupPage() {
   const [data, setData] = useState(initialData);
@@ -30,7 +30,7 @@ export default function StudentSignupPage() {
         await completeStudentSignupRequest({ verificationToken, password });
         setSubmitted(true);
       } else {
-        const response = await studentSignupRequest(data);
+        const response = await studentSignupRequest({ ...data, birthPlace: data.birthPlace.trim() });
         setVerificationToken(response.verificationToken);
       }
     } catch (requestError) {
@@ -62,13 +62,15 @@ export default function StudentSignupPage() {
           <TextField label="اسم الطالب كما في السجل" value={data.fullName} onChange={set('fullName')} required helperText="أدخل الاسم بالحروف كما ورد في ملف الجامعة." />
           <TextField label="اسم الأب" value={data.fatherName} onChange={set('fatherName')} required helperText="حروف ومسافات وشرطة أو فاصلة عليا فقط." />
           <TextField label="اسم الأم" value={data.motherName} onChange={set('motherName')} required helperText="حروف ومسافات وشرطة أو فاصلة عليا فقط." />
-          <TextField label="الرقم الوطني" value={data.nationalId} onChange={set('nationalId')} required helperText="11 رقمًا؛ تُقبل الأرقام العربية أو الإنجليزية." slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9٠-٩۰-۹]{11}', maxLength: 11 } }} />
+          <TextField label="تاريخ الميلاد" type="date" value={data.dateOfBirth} onChange={set('dateOfBirth')} required helperText="كما ورد في سجل الجامعة." slotProps={{ inputLabel: { shrink: true } }} />
+          <TextField label="الرقم الوطني (إن كان مسجلاً في سجلك)" value={data.nationalId} onChange={set('nationalId')} helperText="اتركه فارغاً إذا لم يُسجَّل في ملفك بعد. 11 رقمًا؛ تُقبل الأرقام العربية أو الإنجليزية." slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9٠-٩۰-۹]{11}', maxLength: 11 } }} />
           <TextField label="رقم الاكتتاب" value={data.applicationNumber} onChange={set('applicationNumber')} required helperText="أرقام فقط؛ تُقبل الأرقام العربية أو الإنجليزية." slotProps={{ htmlInput: { inputMode: 'numeric', pattern: '[0-9٠-٩۰-۹]+' } }} />
-          <TextField select label="مكان الولادة" value={knownBirthPlace ? data.birthPlace : STUDENT_OTHER_OPTION} required onChange={(event) => setData((current) => ({ ...current, birthPlace: event.target.value === STUDENT_OTHER_OPTION ? '' : event.target.value }))}>
+          <TextField select label="مكان الولادة (إن كان مسجلاً في سجلك)" value={data.birthPlace === '' ? '' : knownBirthPlace ? data.birthPlace : STUDENT_OTHER_OPTION} helperText="اتركه فارغاً إذا لم يُسجَّل في ملفك بعد." onChange={(event) => setData((current) => ({ ...current, birthPlace: event.target.value === STUDENT_OTHER_OPTION ? ' ' : event.target.value }))}>
+            <MenuItem value="">غير مسجل / لا أعرف</MenuItem>
             {STUDENT_BIRTH_PLACES.slice(0, -1).map((place) => <MenuItem key={place} value={place}>{place}</MenuItem>)}
             <MenuItem value={STUDENT_OTHER_OPTION}>خارج سوريا / مكان آخر</MenuItem>
           </TextField>
-          {!knownBirthPlace && <TextField label="مكان الولادة كما في السجل" value={data.birthPlace} onChange={set('birthPlace')} required helperText="أدخله كما ورد في سجل الجامعة." />}
+          {data.birthPlace !== '' && !knownBirthPlace && <TextField label="مكان الولادة كما في السجل" value={data.birthPlace} onChange={set('birthPlace')} helperText="أدخله كما ورد في سجل الجامعة." />}
         </Box>}
         <Button type="submit" fullWidth variant="contained" disabled={loading} sx={{ mt: 3, minHeight: 48 }}>{loading ? <CircularProgress size={22} color="inherit" /> : verificationToken ? 'إنشاء الحساب' : 'التحقق من بياناتي'}</Button>
       </>}
