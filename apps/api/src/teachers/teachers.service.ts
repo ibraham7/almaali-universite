@@ -183,40 +183,4 @@ export class TeachersService {
     };
   }
 
-  async remove(id: string) {
-    const teacher = await this.prisma.teacher.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        name: true,
-        _count: {
-          select: {
-            sections: true,
-          },
-        },
-      },
-    });
-
-    if (!teacher) {
-      throw new NotFoundException('المدرس غير موجود.');
-    }
-
-    if (teacher._count.sections > 0) {
-      throw new BadRequestException(
-        'لا يمكن حذف مدرس مرتبط بشعب دراسية. أزل ارتباطه بالشعب أولًا.',
-      );
-    }
-
-    await this.prisma.teacher.delete({
-      where: { id },
-    });
-
-    return {
-      success: true,
-      removedTeacher: {
-        id: teacher.id,
-        name: teacher.name,
-      },
-    };
-  }
 }

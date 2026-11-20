@@ -135,14 +135,6 @@ export async function updateCourseSection(
   return data;
 }
 
-export async function removeCourseSection(id: string) {
-  const { data } = await apiClient.delete<{
-    success: boolean;
-  }>(`/course-sections/${id}`);
-
-  return data;
-}
-
 export async function getTeachers() {
   const { data } =
     await apiClient.get<TeachersResponse>(

@@ -449,7 +449,7 @@ export default function UsersPage() {
 
     async function resetPendingSignup() {
         if (!selectedUser || selectedUser.status !== 'PENDING_VERIFICATION') return;
-        if (!window.confirm('سيُفصل الحساب المعلّق عن سجل الطالب وحذفه، ويمكن للطالب إرسال طلب جديد. هل تريد المتابعة؟')) return;
+        if (!window.confirm('سيُفصل الحساب المعلّق عن سجل الطالب ويُعطَّل، ويمكن للطالب إرسال طلب جديد. هل تريد المتابعة؟')) return;
         try {
             setSaving(true);
             await resetStudentSignup(selectedUser.id);

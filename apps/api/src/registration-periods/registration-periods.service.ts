@@ -291,16 +291,4 @@ export class RegistrationPeriodsService {
     return updated;
   }
 
-  async remove(id: string, actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
-    await this.findOne(id, actor);
-
-    await this.prisma.registrationPeriod.delete({
-      where: { id },
-    });
-
-    return {
-      success: true,
-      message: 'تم حذف فترة التسجيل بنجاح',
-    };
-  }
 }

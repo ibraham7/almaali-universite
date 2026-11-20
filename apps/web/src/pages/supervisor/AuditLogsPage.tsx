@@ -21,11 +21,11 @@ import {
 const actionLabels: Record<string, string> = {
   CREATE_REGISTRATION: 'إنشاء تسجيل',
   ADD_COURSE: 'إضافة مقرر',
-  DROP_COURSE: 'حذف مقرر',
+  DROP_COURSE: 'إسقاط مقرر',
   CONFIRM_REGISTRATION: 'تأكيد التسجيل',
   REOPEN_REGISTRATION: 'إعادة فتح التسجيل',
   ADVISOR_ADD_REGISTRATION_COURSE: 'إضافة مقرر من المرشد',
-  ADVISOR_REMOVE_REGISTRATION_COURSE: 'حذف مقرر من المرشد',
+  ADVISOR_REMOVE_REGISTRATION_COURSE: 'إسقاط مقرر من المرشد',
   ADVISOR_CANCEL_REGISTRATION: 'إلغاء التسجيل من المرشد',
   ADVISOR_APPROVE_REGISTRATION: 'موافقة المرشد',
   ADVISOR_REJECT_REGISTRATION: 'رفض المرشد',

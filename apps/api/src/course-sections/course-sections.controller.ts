@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Param,
   Patch,
@@ -137,13 +136,4 @@ export class CourseSectionsController {
     );
   }
 
-  @Delete(':id')
-  remove(
-    @Param('id')
-    id: string,
-  ) {
-    return this.courseSectionsService.remove(
-      id,
-    );
-  }
 }

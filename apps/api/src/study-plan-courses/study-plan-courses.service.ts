@@ -488,44 +488,4 @@ export class StudyPlanCoursesService {
     );
   }
 
-  async remove(id: string, actor: { id: string; role: string }) {
-    const planCourse =
-      await this.prisma.studyPlanCourse.findUnique({
-        where: {
-          id,
-        },
-
-        include: {
-          course: true,
-          semester: true,
-        },
-      });
-
-    if (!planCourse) {
-      return {
-        success: false,
-        errors: ['Study plan course not found'],
-      };
-    }
-    await this.assertPlanAccess(planCourse.studyPlanId, actor);
-
-    await this.prisma.studyPlanCourse.delete({
-      where: {
-        id,
-      },
-    });
-
-    return {
-      success: true,
-      message:
-        'Course removed from study plan successfully',
-
-      removedCourse: {
-        id: planCourse.course.id,
-        code: planCourse.course.code,
-        nameAr: planCourse.course.nameAr,
-        semesterId: planCourse.semesterId,
-      },
-    };
-  }
 }

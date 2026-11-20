@@ -482,7 +482,7 @@ export default function StudentRegistrationPage() {
         return;
       }
 
-      setSuccess('تم حذف المقرر من تسجيلك.');
+      setSuccess('تم إسقاط المقرر من تسجيلك.');
 
       await loadRegistration();
     } catch (requestError) {

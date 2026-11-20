@@ -223,6 +223,7 @@ export class CourseResultsService {
     const items =
       await this.prisma.enrollmentItem.findMany({
         where: {
+          status: 'ACTIVE',
           enrollment: {
             semesterId,
             status: {
@@ -483,6 +484,7 @@ export class CourseResultsService {
       const enrollmentItem =
         await this.prisma.enrollmentItem.findFirst({
           where: {
+            status: 'ACTIVE',
             courseId:
               course.id,
 

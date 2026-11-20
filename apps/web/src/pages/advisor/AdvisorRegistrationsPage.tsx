@@ -207,7 +207,7 @@ export default function AdvisorRegistrationsPage() {
 
     try {
       await advisorRemoveRegistrationCourse(approval.id, enrollmentItemId);
-      setSuccess('تم حذف المقرر من تسجيل الطالب.');
+      setSuccess('تم إسقاط المقرر من تسجيل الطالب.');
       await loadData();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -391,7 +391,7 @@ export default function AdvisorRegistrationsPage() {
                             startIcon={<DeleteOutlineRoundedIcon />}
                             onClick={() => void removeCourse(approval, item.id)}
                           >
-                            حذف
+                            إسقاط
                           </Button>
                         )}
                       </Box>
@@ -579,7 +579,7 @@ export default function AdvisorRegistrationsPage() {
         <DialogTitle>إلغاء تسجيل الطالب</DialogTitle>
         <DialogContent>
           <Alert severity="warning" sx={{ mb: 2 }}>
-            سيتم حذف جميع المقررات من التسجيل وإلغاء الطلب بالكامل.
+            سيتم إسقاط جميع المقررات من التسجيل وإلغاء الطلب بالكامل.
           </Alert>
           <TextField
             fullWidth

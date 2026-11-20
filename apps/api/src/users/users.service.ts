@@ -351,7 +351,11 @@ export class UsersService {
     }
     await this.prisma.$transaction(async (tx) => {
       await tx.student.update({ where: { id: user.student!.id }, data: { userId: null } });
-      await tx.user.delete({ where: { id } });
+      // The account is disabled and its login identifiers are freed (never deleted), so the student can sign up again.
+      await tx.user.update({
+        where: { id },
+        data: { status: 'DISABLED', email: `reset-${id}@reset.invalid`, username: null },
+      });
       await tx.auditLog.create({ data: {
         action: 'STUDENT_SIGNUP_RESET', entity: 'User', entityId: id,
         userId: actingUserId, details: JSON.stringify({ studentId: user.student!.id }),

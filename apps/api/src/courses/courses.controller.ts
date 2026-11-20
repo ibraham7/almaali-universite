@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Param,
   Patch,
@@ -44,14 +43,6 @@ export class CoursesController {
     return this.coursesService.update(id, dto, request.user);
   }
 
-  @Delete(':id')
-  @Roles('ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN')
-  remove(
-    @Param('id') id: string,
-    @Req() request: Request & { user: { id: string; role: string } },
-  ) {
-    return this.coursesService.remove(id, request.user);
-  }
 
   @Post('prerequisites')
   @Roles('ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN')
@@ -76,19 +67,6 @@ export class CoursesController {
     );
   }
 
-  @Delete(':courseId/prerequisites/:prerequisiteId')
-  @Roles('ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN')
-  removePrerequisite(
-    @Param('courseId') courseId: string,
-    @Param('prerequisiteId') prerequisiteId: string,
-    @Req() request: Request & { user: { id: string; role: string } },
-  ) {
-    return this.coursesService.removePrerequisite(
-      courseId,
-      prerequisiteId,
-      request.user,
-    );
-  }
 
   @Get()
   findAll(@Req() request: Request & { user: { id: string; role: string } }) {

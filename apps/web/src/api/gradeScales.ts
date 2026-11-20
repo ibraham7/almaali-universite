@@ -75,17 +75,3 @@ export async function updateGradeScale(
 
   return response.data;
 }
-
-export async function deleteGradeScale(
-  id: string,
-) {
-  const response =
-    await apiClient.delete<{
-      success: true;
-      message: string;
-    }>(
-      `/grade-scales/${id}`,
-    );
-
-  return response.data;
-}

@@ -104,7 +104,7 @@ export class StudentEnrollmentsService {
       }),
       this.prisma.studentEnrollment.findMany({
         where: { studentId: student.id, status: { notIn: ['CANCELLED', 'DROPPED'] } },
-        select: { semesterId: true, items: { select: { courseId: true, course: { select: { credits: true } } } } },
+        select: { semesterId: true, items: { where: { status: 'ACTIVE' }, select: { courseId: true, course: { select: { credits: true } } } } },
       }),
     ]);
     const semesterLimits = Object.fromEntries(semesterIds.map((semesterId) => {
@@ -122,6 +122,16 @@ export class StudentEnrollmentsService {
       semesterLimits,
       courses: courses.map((item) => ({ ...item, missingPrerequisites: missingFor(item.course.id, item.semesterId, item.course.prerequisites), course: { ...item.course, sections: item.course.sections.filter((section) => section.semesterId === item.semesterId) } })),
     };
+  }
+
+  // Items created by an operation that then failed are kept as VOID (never deleted) and the seat is released.
+  private async voidItems(itemIds: string[]) {
+    if (!itemIds.length) return;
+    const items = await this.prisma.enrollmentItem.findMany({ where: { id: { in: itemIds }, status: 'ACTIVE' }, select: { id: true, sectionId: true } });
+    await this.prisma.$transaction([
+      this.prisma.enrollmentItem.updateMany({ where: { id: { in: items.map((item) => item.id) } }, data: { status: 'VOID', droppedAt: new Date(), dropReason: 'تراجع تلقائي بسبب فشل العملية' } }),
+      ...items.map((item) => this.prisma.courseSection.update({ where: { id: item.sectionId }, data: { enrolledCount: { decrement: 1 } } })),
+    ]);
   }
 
   async registerDirectlyByAdvisor(universityId: string, advisorId: string, items: Array<{ courseId: string; sectionId: string }>, role = 'ADVISOR') {
@@ -148,12 +158,12 @@ export class StudentEnrollmentsService {
       try {
         const added = await this.addItem({ enrollmentId: enrollment.id, ...item }, undefined, advisorId);
         if (added && typeof added === 'object' && 'success' in added && added.success === false) {
-          if (createdItemIds.length) await this.prisma.enrollmentItem.deleteMany({ where: { id: { in: createdItemIds } } });
+          await this.voidItems(createdItemIds);
           return added;
         }
         if (added && typeof added === 'object' && 'id' in added && typeof added.id === 'string') createdItemIds.push(added.id);
       } catch (error) {
-        if (createdItemIds.length) await this.prisma.enrollmentItem.deleteMany({ where: { id: { in: createdItemIds } } });
+        await this.voidItems(createdItemIds);
         throw error;
       }
     }
@@ -265,6 +275,7 @@ export class StudentEnrollmentsService {
         },
         include: {
           items: {
+            where: { status: 'ACTIVE' },
             include: {
               course: true,
               section: {
@@ -463,6 +474,7 @@ export class StudentEnrollmentsService {
         },
         include: {
           items: {
+            where: { status: 'ACTIVE' },
             include: {
               course: true,
               section: {
@@ -513,6 +525,7 @@ export class StudentEnrollmentsService {
         },
         include: {
           items: {
+            where: { status: 'ACTIVE' },
             include: {
               course: true,
               section: {
@@ -672,6 +685,7 @@ export class StudentEnrollmentsService {
       await this.prisma.enrollmentItem.findFirst({
         where: {
           id: enrollmentItemId,
+          status: 'ACTIVE',
           enrollment: {
             student: {
               userId,
@@ -705,6 +719,7 @@ export class StudentEnrollmentsService {
       },
       include: {
         items: {
+          where: { status: 'ACTIVE' },
           include: {
             course: true,
             section: true,
@@ -852,7 +867,7 @@ export class StudentEnrollmentsService {
         },
       });
 
-    if (existingItem) {
+    if (existingItem?.status === 'ACTIVE') {
       return {
         success: false,
         errors: ['Course is already registered'],
@@ -936,8 +951,29 @@ export class StudentEnrollmentsService {
             throw new Error('Section is full');
           }
 
-          const createdItem =
-            await tx.enrollmentItem.create({
+          // The (enrollment, course) pair is unique: a course the student dropped earlier is brought
+          // back on its old row (the earlier drop stays in the audit log).
+          const include = {
+                course: true,
+                section: {
+                  include: {
+                    schedules: true,
+                  },
+                },
+              };
+          const createdItem = existingItem
+            ? await tx.enrollmentItem.update({
+              where: { id: existingItem.id },
+              data: {
+                status: 'ACTIVE',
+                sectionId: dto.sectionId,
+                droppedAt: null,
+                droppedById: null,
+                dropReason: null,
+              },
+              include,
+            })
+            : await tx.enrollmentItem.create({
               data: {
                 enrollmentId: dto.enrollmentId,
                 courseId: dto.courseId,
@@ -1015,6 +1051,7 @@ export class StudentEnrollmentsService {
         include: {
           student: true,
           items: {
+            where: { status: 'ACTIVE' },
             include: {
               course: true,
             },
@@ -1202,6 +1239,7 @@ export class StudentEnrollmentsService {
           },
           include: {
             items: {
+              where: { status: 'ACTIVE' },
               include: {
                 course: true,
                 section: {
@@ -1239,6 +1277,7 @@ export class StudentEnrollmentsService {
         },
         include: {
           items: {
+            where: { status: 'ACTIVE' },
             include: {
               course: true,
               section: {
@@ -1285,7 +1324,7 @@ export class StudentEnrollmentsService {
         },
       });
 
-    if (!item) {
+    if (!item || item.status !== 'ACTIVE') {
       return {
         success: false,
         errors: ['Enrollment item not found'],
@@ -1352,10 +1391,18 @@ export class StudentEnrollmentsService {
       };
     }
 
+    const reason = dto.reason?.trim() || null;
+
     await this.prisma.$transaction([
-      this.prisma.enrollmentItem.delete({
+      this.prisma.enrollmentItem.update({
         where: {
           id: dto.enrollmentItemId,
+        },
+        data: {
+          status: 'DROPPED',
+          droppedAt: new Date(),
+          droppedById: actorUserId ?? userId ?? null,
+          dropReason: reason,
         },
       }),
 
@@ -1380,6 +1427,7 @@ export class StudentEnrollmentsService {
         enrollmentId: item.enrollmentId,
         courseId: item.courseId,
         sectionId: item.sectionId,
+        reason,
       }),
     });
 
@@ -1394,6 +1442,7 @@ export class StudentEnrollmentsService {
       include: {
         student: true,
         items: {
+          where: { status: 'ACTIVE' },
           include: {
             course: true,
             section: true,
@@ -1414,6 +1463,7 @@ export class StudentEnrollmentsService {
       },
       include: {
         items: {
+          where: { status: 'ACTIVE' },
           include: {
             course: true,
             section: true,

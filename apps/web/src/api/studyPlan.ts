@@ -220,17 +220,6 @@ export async function addCourseToPlan(input: {
   return data;
 }
 
-export async function removeCourseFromPlan(
-  id: string,
-) {
-  const { data } =
-    await apiClient.delete<MutationResponse>(
-      `/study-plan-courses/${id}`,
-    );
-
-  return data;
-}
-
 export async function reorderPlanCourses(input: {
   studyPlanId: string;
   academicYearId: string;
@@ -269,17 +258,5 @@ export async function addCoursePrerequisites(input: {
     `/courses/${input.courseId}/prerequisites/bulk`,
     { prerequisiteIds: input.prerequisiteIds },
   );
-  return data;
-}
-
-export async function removeCoursePrerequisite(
-  courseId: string,
-  prerequisiteId: string,
-) {
-  const { data } =
-    await apiClient.delete<PrerequisiteMutationResponse>(
-      `/courses/${courseId}/prerequisites/${prerequisiteId}`,
-    );
-
   return data;
 }

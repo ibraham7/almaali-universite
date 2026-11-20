@@ -56,6 +56,13 @@ enum SectionStatus {
   CLOSED
 }
 
+// ACTIVE: مسجّل. DROPPED: مُسقَط (يبقى بسجل الطالب). VOID: عنصر أُلغي لأن العملية التي أنشأته فشلت.
+enum EnrollmentItemStatus {
+  ACTIVE
+  DROPPED
+  VOID
+}
+
 enum EnrollmentStatus {
   DRAFT
   PENDING
@@ -547,6 +554,11 @@ model EnrollmentItem {
   enrollmentId String
   courseId     String
   sectionId    String
+
+  status       EnrollmentItemStatus @default(ACTIVE)
+  droppedAt    DateTime?
+  droppedById  String?
+  dropReason   String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

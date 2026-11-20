@@ -23,7 +23,6 @@ import {
 import axios from 'axios';
 
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import GradingRoundedIcon from '@mui/icons-material/GradingRounded';
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded';
@@ -39,7 +38,6 @@ import {
 
 import {
   createGradeScale,
-  deleteGradeScale,
   getGradeScales,
   updateGradeScale,
   type GradeScale,
@@ -372,42 +370,6 @@ export default function GradeScalePage() {
     setSuccess('');
   }
 
-  async function handleDelete(
-    scale: GradeScale,
-  ) {
-    if (
-      !window.confirm(
-        `حذف التقدير ${scale.label}؟`,
-      )
-    ) {
-      return;
-    }
-
-    try {
-      setError('');
-      setSuccess('');
-
-      await deleteGradeScale(
-        scale.id,
-      );
-
-      setSuccess(
-        'تم حذف التقدير.',
-      );
-
-      await loadScales(
-        universityId,
-      );
-    } catch (
-      requestError
-    ) {
-      setError(
-        getErrorMessage(
-          requestError,
-        ),
-      );
-    }
-  }
 
   if (loading) {
     return (
@@ -878,21 +840,6 @@ export default function GradeScalePage() {
                       تعديل
                     </Button>
 
-                    <Button
-                      size="small"
-                      color="error"
-                      variant="outlined"
-                      startIcon={
-                        <DeleteOutlineRoundedIcon />
-                      }
-                      onClick={() =>
-                        void handleDelete(
-                          scale,
-                        )
-                      }
-                    >
-                      حذف
-                    </Button>
                   </Stack>
                 </Box>
               </CardContent>

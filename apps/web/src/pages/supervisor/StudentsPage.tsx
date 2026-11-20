@@ -7,7 +7,6 @@ import {
     Chip,
     CircularProgress,
     Dialog,
-    DialogActions,
     DialogContent,
     DialogTitle,
     Divider,
@@ -26,7 +25,6 @@ import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined';
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
-import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 
 import {
     useCallback,
@@ -41,7 +39,6 @@ import { useNavigate } from 'react-router-dom';
 import {
     getStudent,
     getStudents,
-    deleteStudent,
     type StudentDetails,
     type StudentListItem,
 } from '../../api/students';
@@ -206,10 +203,6 @@ export default function StudentsPage() {
     const [error, setError] =
         useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
-    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-    const [deleteConfirmation, setDeleteConfirmation] = useState('');
-    const [deleteBusy, setDeleteBusy] = useState(false);
-    const [deleteError, setDeleteError] = useState<string | null>(null);
 
     const [dialogOpen, setDialogOpen] =
         useState(false);
@@ -332,26 +325,6 @@ export default function StudentsPage() {
             );
         } finally {
             setDetailsLoading(false);
-        }
-    }
-
-    async function confirmDeleteStudent() {
-        if (!selectedStudent || deleteConfirmation.trim() !== selectedStudent.universityId) return;
-        try {
-            setDeleteBusy(true);
-            setDeleteError(null);
-            setError(null);
-            await deleteStudent(selectedStudent.id);
-            setDeleteDialogOpen(false);
-            setDialogOpen(false);
-            setSelectedStudent(null);
-            setDeleteConfirmation('');
-            setSuccess(`تم حذف الطالب ${selectedStudent.universityId}.`);
-            await loadStudents();
-        } catch (requestError) {
-            setDeleteError(getErrorMessage(requestError));
-        } finally {
-            setDeleteBusy(false);
         }
     }
 
@@ -827,7 +800,6 @@ export default function StudentsPage() {
                     {selectedStudent && <Stack direction="row" spacing={1}>
                         <Button variant="contained" startIcon={<MenuBookOutlinedIcon />} onClick={() => navigate(`/advisor/student-registration?universityId=${encodeURIComponent(selectedStudent.universityId)}`)}>تسجيل مقررات</Button>
                         {canManage && <>
-                            <Button color="error" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => { setDeleteError(null); setDeleteConfirmation(''); setDeleteDialogOpen(true); }}>حذف الطالب</Button>
                             <Button onClick={() => { setEditingStudent(selectedStudent); setDialogOpen(false); setFormOpen(true); }}>تعديل البيانات</Button>
                         </>}
                     </Stack>}
@@ -1173,26 +1145,6 @@ export default function StudentsPage() {
                         </Stack>
                     )}
                 </DialogContent>
-            </Dialog>
-            <Dialog open={deleteDialogOpen} onClose={() => !deleteBusy && setDeleteDialogOpen(false)} maxWidth="xs" fullWidth>
-                <DialogTitle>تأكيد حذف الطالب</DialogTitle>
-                <DialogContent>
-                    <Stack spacing={2} sx={{ pt: 1 }}>
-                        {deleteError && <Alert severity="error">{deleteError}</Alert>}
-                        <Alert severity="warning">سيُحذف سجل الطالب نهائيًا. لا يمكن حذف طالب لديه حساب أو تسجيلات أو نتائج أكاديمية.</Alert>
-                        <Typography>للتأكيد، اكتب الرقم الجامعي: <strong>{selectedStudent?.universityId}</strong></Typography>
-                        <TextField autoFocus fullWidth label="الرقم الجامعي للتأكيد" value={deleteConfirmation}
-                            onChange={(event) => setDeleteConfirmation(event.target.value)} />
-                    </Stack>
-                </DialogContent>
-                <DialogActions>
-                    <Button disabled={deleteBusy} onClick={() => setDeleteDialogOpen(false)}>إلغاء</Button>
-                    <Button color="error" variant="contained" disabled={deleteBusy || !selectedStudent || deleteConfirmation.trim() !== selectedStudent.universityId}
-                        startIcon={deleteBusy ? <CircularProgress size={16} color="inherit" /> : <DeleteOutlineRoundedIcon />}
-                        onClick={() => void confirmDeleteStudent()}>
-                        {deleteBusy ? 'جارٍ الحذف...' : 'حذف نهائي'}
-                    </Button>
-                </DialogActions>
             </Dialog>
             {canManage && <StudentFormDialog open={formOpen} student={editingStudent}
                 onClose={() => setFormOpen(false)}

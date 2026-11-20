@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Param,
   Patch,
@@ -93,15 +92,4 @@ export class RegistrationPeriodsController {
     );
   }
 
-  @Delete(':id')
-  remove(
-    @Param('id')
-    id: string,
-    @Req() request: Request & { user: { id: string; role: string } },
-  ) {
-    return this.registrationPeriodsService.remove(
-      id,
-      request.user,
-    );
-  }
 }

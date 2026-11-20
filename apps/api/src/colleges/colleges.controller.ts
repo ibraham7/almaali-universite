@@ -1,6 +1,5 @@
 import {
   Body,
-  Delete,
   Controller,
   Get,
   Param,
@@ -81,14 +80,6 @@ export class CollegesController {
     );
   }
 
-  @Delete(':id')
-  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
-  remove(
-    @Param('id') id: string,
-    @Req() request: Request & { user: { id: string } },
-  ) {
-    return this.collegesService.remove(id, request.user.id);
-  }
 
   @Get()
   findAll() {
