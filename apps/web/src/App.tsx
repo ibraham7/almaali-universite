@@ -20,6 +20,8 @@ const SupportTicketsPage = lazy(() => import('./pages/shared/SupportTicketsPage'
 const StudentRegistrationPage = lazy(() => import('./pages/student/StudentRegistrationPage'));
 const StudentSchedulePage = lazy(() => import('./pages/student/StudentSchedulePage'));
 const StudentAcademicStatusPage = lazy(() => import('./pages/student/StudentAcademicStatusPage'));
+const StudentRequestsPage = lazy(() => import('./pages/student/StudentRequestsPage'));
+const AffairsPage = lazy(() => import('./pages/affairs/AffairsPage'));
 const AdvisorRegistrationsPage = lazy(() => import('./pages/advisor/AdvisorRegistrationsPage'));
 const AdvisorStudentRegistrationPage = lazy(() => import('./pages/advisor/AdvisorStudentRegistrationPage'));
 const StudyPlanPage = lazy(() => import('./pages/supervisor/StudyPlanPage'));
@@ -69,6 +71,16 @@ function App() {
               path="/student/academic-status"
               element={<StudentAcademicStatusPage />}
             />
+            <Route
+              path="/student/requests"
+              element={<StudentRequestsPage />}
+            />
+          </Route>
+        </Route>
+
+        <Route element={<ProtectedRoute allowedRoles={['REGISTRAR', 'SYSTEM_ADMIN']} />}>
+          <Route element={<DashboardLayout />}>
+            <Route path="/affairs" element={<AffairsPage />} />
           </Route>
         </Route>
 

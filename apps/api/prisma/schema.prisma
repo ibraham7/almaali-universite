@@ -240,6 +240,7 @@ model User {
   student Student?
   advisorProgramAssignments AdvisorProgramAssignment[]
   advisorCollegeAssignments AdvisorCollegeAssignment[]
+  affairsStaff AffairsStaff?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -319,6 +320,7 @@ model Student {
   enrollments StudentEnrollment[]
   results     CourseResult[]
   numberHistory StudentNumberHistory[]
+  affairsRequests StudentRequest[]
 }
 
 model SupportTicket {
@@ -683,4 +685,109 @@ model StudentNumberHistory {
   student Student @relation(fields: [studentId], references: [id])
 
   @@index([studentId])
+}
+
+// ===== Student Affairs (phase 1): services, staff, requests. No hard delete: status fields instead. =====
+enum StudentRequestStatus {
+  NEW
+  ASSIGNED
+  IN_PROGRESS
+  WAITING_COMPLETION
+  REFERRED
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+model AffairsService {
+  id             String  @id @default(uuid())
+  code           String  @unique
+  nameAr         String
+  description    String?
+  isActive       Boolean @default(true)
+  expectedDays   Int     @default(5)
+  specialization String?
+
+  staff    AffairsStaffService[]
+  requests StudentRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AffairsStaff {
+  id             String  @id @default(uuid())
+  userId         String  @unique
+  specialization String?
+  isActive       Boolean @default(true)
+
+  user     User                  @relation(fields: [userId], references: [id])
+  services AffairsStaffService[]
+  requests StudentRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AffairsStaffService {
+  staffId   String
+  serviceId String
+  // Removing a service from a staff member switches this off (rows are never deleted).
+  isActive  Boolean @default(true)
+
+  staff   AffairsStaff   @relation(fields: [staffId], references: [id])
+  service AffairsService @relation(fields: [serviceId], references: [id])
+
+  @@id([staffId, serviceId])
+}
+
+// Per-year counter for request numbers (SR-YY-NNNN); a number is never reused.
+model AffairsRequestCounter {
+  year Int @id
+  last Int @default(0)
+}
+
+model StudentRequest {
+  id              String               @id @default(uuid())
+  number          String               @unique
+  studentId       String
+  serviceId       String
+  status          StudentRequestStatus @default(NEW)
+  assignedStaffId String?
+  subject         String?
+  details         String?
+  createdByUserId String?
+  dueAt           DateTime?
+  closedAt        DateTime?
+  decisionReason  String?
+
+  student       Student               @relation(fields: [studentId], references: [id])
+  service       AffairsService        @relation(fields: [serviceId], references: [id])
+  assignedStaff AffairsStaff?         @relation(fields: [assignedStaffId], references: [id])
+  events        StudentRequestEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([assignedStaffId])
+  @@index([studentId])
+  @@index([createdAt])
+}
+
+model StudentRequestEvent {
+  id               String                @id @default(uuid())
+  requestId        String
+  type             String // CREATED | ASSIGNED | REASSIGNED | STATUS_CHANGED | COMMENT
+  fromStatus       StudentRequestStatus?
+  toStatus         StudentRequestStatus?
+  note             String?
+  visibleToStudent Boolean               @default(false)
+  actorUserId      String?
+  staffId          String?
+  createdAt        DateTime              @default(now())
+
+  request StudentRequest @relation(fields: [requestId], references: [id])
+
+  @@index([requestId, createdAt])
 }

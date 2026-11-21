@@ -44,6 +44,8 @@ import AssignmentTurnedInRoundedIcon from '@mui/icons-material/AssignmentTurnedI
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 import ForumRoundedIcon from '@mui/icons-material/ForumRounded';
+import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
+import SupportAgentRoundedIcon from '@mui/icons-material/SupportAgentRounded';
 
 import {
   useAuth,
@@ -94,6 +96,20 @@ const navigationItems: NavigationItem[] = [
     path: '/student/academic-status',
     icon: <SchoolRoundedIcon />,
     roles: ['STUDENT'],
+  },
+
+  {
+    label: 'طلباتي',
+    path: '/student/requests',
+    icon: <AssignmentRoundedIcon />,
+    roles: ['STUDENT'],
+  },
+
+  {
+    label: 'شؤون الطلاب',
+    path: '/affairs',
+    icon: <SupportAgentRoundedIcon />,
+    roles: ['REGISTRAR', 'SYSTEM_ADMIN'],
   },
 
   {
