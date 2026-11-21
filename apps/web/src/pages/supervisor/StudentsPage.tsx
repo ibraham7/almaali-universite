@@ -4,9 +4,11 @@ import {
     Button,
     Card,
     CardContent,
+    Checkbox,
     Chip,
     CircularProgress,
     Dialog,
+    DialogActions,
     DialogContent,
     DialogTitle,
     Divider,
@@ -47,6 +49,7 @@ import StudentFormDialog from './StudentFormDialog';
 import StudentImportDialog from './StudentImportDialog';
 import ApproveRegistrationDialog from './ApproveRegistrationDialog';
 import TransferCollegeDialog from './TransferCollegeDialog';
+import { bulkDeleteStudents, getStudentCapabilities } from '../../api/students';
 import { getColleges, getDepartments, getPrograms, type College, type Department, type Program } from '../../api/academicStructure';
 
 function getErrorMessage(
@@ -170,6 +173,14 @@ export default function StudentsPage() {
     const [formOpen, setFormOpen] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
     const [transferOpen, setTransferOpen] = useState(false);
+    // وضع التجريب: تحديد وحذف جماعي (مغلق افتراضياً، يُفعَّل من إعدادات السيرفر لمدير النظام فقط)
+    const [bulkDeleteAllowed, setBulkDeleteAllowed] = useState(false);
+    const [selectMode, setSelectMode] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+    const [bulkDeleteWord, setBulkDeleteWord] = useState('');
+    const [bulkDeleteBusy, setBulkDeleteBusy] = useState(false);
+    const [bulkDeleteError, setBulkDeleteError] = useState('');
     const [approveTargets, setApproveTargets] = useState<Array<{ id: string; universityId: string; name: string }> | null>(null);
     const [editingStudent, setEditingStudent] = useState<StudentListItem | null>(null);
     const [students, setStudents] =
@@ -308,6 +319,26 @@ export default function StudentsPage() {
             programId,
         ]);
 
+    useEffect(() => {
+        let active = true;
+        getStudentCapabilities().then((value) => { if (active) setBulkDeleteAllowed(value.bulkDelete); }).catch(() => undefined);
+        return () => { active = false; };
+    }, []);
+    const toggleSelected = (id: string) => setSelectedIds((current) => {
+        const next = new Set(current);
+        if (next.has(id)) next.delete(id); else next.add(id);
+        return next;
+    });
+    async function confirmBulkDelete() {
+        setBulkDeleteBusy(true); setBulkDeleteError('');
+        try {
+            const result = await bulkDeleteStudents([...selectedIds], bulkDeleteWord);
+            setSuccess(`تم حذف ${result.deleted} طالب (وضع التجريب).`);
+            setBulkDeleteOpen(false); setBulkDeleteWord(''); setSelectedIds(new Set()); setSelectMode(false);
+            await loadStudents();
+        } catch (requestError) { setBulkDeleteError(getErrorMessage(requestError)); }
+        finally { setBulkDeleteBusy(false); }
+    }
     const pendingStudents = filteredStudents.filter((student) => !student.studyPlanId);
     const studentsWithoutPlan = pendingStudents.length;
     const toTarget = (student: StudentListItem) => ({ id: student.id, universityId: student.universityId, name: [student.firstName, student.middleName, student.familyName].filter(Boolean).join(' ') });
@@ -536,6 +567,28 @@ export default function StudentsPage() {
                 </Alert>
             )}
 
+            {bulkDeleteAllowed && (
+                <Alert severity="warning" sx={{ mb: 2 }}
+                    action={!selectMode ? (
+                        <Button color="inherit" size="small" onClick={() => setSelectMode(true)}>تحديد وحذف</Button>
+                    ) : undefined}>
+                    وضع التجريب: الحذف الجماعي للطلاب مفعَّل (مدير النظام فقط). يُحذف الطالب مع تسجيلاته ونتائجه وحسابه، ولا يمكن التراجع.
+                    {selectMode && (
+                        <Stack direction="row" spacing={1} sx={{ mt: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                            <Button size="small" variant="outlined" onClick={() => setSelectedIds(new Set(filteredStudents.map((student) => student.id)))}>
+                                {`تحديد الكل (${filteredStudents.length})`}
+                            </Button>
+                            <Button size="small" variant="outlined" onClick={() => setSelectedIds(new Set())}>إلغاء التحديد</Button>
+                            <Button size="small" color="error" variant="contained" disabled={selectedIds.size === 0}
+                                onClick={() => { setBulkDeleteError(''); setBulkDeleteWord(''); setBulkDeleteOpen(true); }}>
+                                {`حذف المحدد (${selectedIds.size})`}
+                            </Button>
+                            <Button size="small" onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }}>خروج من وضع التحديد</Button>
+                        </Stack>
+                    )}
+                </Alert>
+            )}
+
             {filteredStudents.length ===
                 0 ? (
                 <Card>
@@ -599,9 +652,11 @@ export default function StudentsPage() {
                                 <Card
                                     key={student.id}
                                     onClick={() =>
-                                        void openStudent(
-                                            student,
-                                        )
+                                        selectMode
+                                            ? toggleSelected(student.id)
+                                            : void openStudent(
+                                                student,
+                                            )
                                     }
                                     sx={{
                                         cursor: 'pointer',
@@ -630,6 +685,14 @@ export default function StudentsPage() {
                                                     'flex-start',
                                             }}
                                         >
+                                            {selectMode && (
+                                                <Checkbox
+                                                    checked={selectedIds.has(student.id)}
+                                                    onClick={(event) => event.stopPropagation()}
+                                                    onChange={() => toggleSelected(student.id)}
+                                                    sx={{ mt: 0.5 }}
+                                                />
+                                            )}
                                             <Box
                                                 sx={{
                                                     width: 48,
@@ -1174,6 +1237,25 @@ export default function StudentsPage() {
             {canManage && <StudentFormDialog open={formOpen} student={editingStudent}
                 onClose={() => setFormOpen(false)}
                 onSaved={() => { void loadStudents(); }} />}
+            <Dialog open={bulkDeleteOpen} onClose={() => !bulkDeleteBusy && setBulkDeleteOpen(false)} maxWidth="xs" fullWidth>
+                <DialogTitle>تأكيد حذف الطلاب المحددين</DialogTitle>
+                <DialogContent>
+                    <Stack spacing={2} sx={{ pt: 1 }}>
+                        {bulkDeleteError && <Alert severity="error">{bulkDeleteError}</Alert>}
+                        <Alert severity="warning">
+                            {`سيُحذف ${selectedIds.size} طالب نهائياً مع تسجيلاتهم ونتائجهم وحساباتهم وتذاكر دعمهم. هذا للتجربة فقط ولا يمكن التراجع.`}
+                        </Alert>
+                        <TextField autoFocus fullWidth label="اكتب كلمة «حذف» للتأكيد" value={bulkDeleteWord}
+                            onChange={(event) => setBulkDeleteWord(event.target.value)} />
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button disabled={bulkDeleteBusy} onClick={() => setBulkDeleteOpen(false)}>إلغاء</Button>
+                    <Button color="error" variant="contained" disabled={bulkDeleteBusy || bulkDeleteWord.trim() !== 'حذف'} onClick={() => void confirmBulkDelete()}>
+                        {bulkDeleteBusy ? 'جارٍ الحذف...' : 'حذف نهائي'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
             {canManage && <TransferCollegeDialog open={transferOpen}
                 student={selectedStudent ? { id: selectedStudent.id, universityId: selectedStudent.universityId, name: fullName(selectedStudent), collegeId: selectedStudent.collegeId } : null}
                 onClose={() => setTransferOpen(false)}

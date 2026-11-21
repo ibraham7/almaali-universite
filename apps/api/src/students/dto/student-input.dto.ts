@@ -116,3 +116,12 @@ export class TransferCollegeDto {
   @IsOptional() @IsInt() @Min(2000) @Max(2099)
   admissionYear?: number;
 }
+
+// حذف جماعي للطلاب: مرحلة التجريب فقط، ويتطلب كتابة كلمة التأكيد.
+export class BulkDeleteStudentsDto {
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(5000) @IsString({ each: true })
+  studentIds!: string[];
+
+  @IsString() @IsNotEmpty()
+  confirm!: string;
+}

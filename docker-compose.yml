@@ -13,6 +13,8 @@ services:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in GitHub Actions secrets}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in GitHub Actions secrets}
       ADMIN_BOOTSTRAP_TOKEN: ${ADMIN_BOOTSTRAP_TOKEN:-}
+      # Test phase only: enables bulk deletion of students for the system administrator. Leave empty in production use.
+      ALLOW_TEST_DELETE: ${ALLOW_TEST_DELETE:-}
       CORS_ORIGINS: https://uni.novanoai.online,https://almaali-web.onrender.com
     ports:
       - "127.0.0.1:13000:3000"
