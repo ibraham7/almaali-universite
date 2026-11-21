@@ -15,7 +15,7 @@ import type {
 } from 'express';
 
 import { StudentsService } from './students.service.js';
-import { ApproveRegistrationDto, StudentInputDto, TransferCollegeDto, UpdateStudentDto } from './dto/student-input.dto.js';
+import { ApproveRegistrationDto, BulkDeleteStudentsDto, StudentInputDto, TransferCollegeDto, UpdateStudentDto } from './dto/student-input.dto.js';
 
 import { JwtGuard } from '../auth/guards/jwt/jwt.guard.js';
 
@@ -54,6 +54,19 @@ export class StudentsController {
   @Roles('REGISTRAR', 'SYSTEM_ADMIN')
   approveRegistration(@Body() body: ApproveRegistrationDto, @Req() request: AuthenticatedRequest) {
     return this.studentsService.approveRegistration(body, request.user.id);
+  }
+
+  // هل الحذف الجماعي (مرحلة التجريب) مفعَّل لهذا المستخدم؟
+  @Get('capabilities')
+  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  capabilities(@Req() request: AuthenticatedRequest) {
+    return { bulkDelete: StudentsService.bulkDeleteEnabled() && request.user.role === 'SYSTEM_ADMIN' };
+  }
+
+  @Post('bulk-delete')
+  @Roles('SYSTEM_ADMIN')
+  bulkDelete(@Body() body: BulkDeleteStudentsDto, @Req() request: AuthenticatedRequest) {
+    return this.studentsService.bulkDelete(body, request.user.id);
   }
 
   @Post(':id/transfer-college')

@@ -1,12 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service.js';
-import { ApproveRegistrationDto, StudentInputDto, TransferCollegeDto } from './dto/student-input.dto.js';
+import { ApproveRegistrationDto, BulkDeleteStudentsDto, StudentInputDto, TransferCollegeDto } from './dto/student-input.dto.js';
 import { digitVariants, isDigitsOnly, isPersonName, isPlaceName, isSyrianMobile, isSyrianNationalId, normalizeDigits, normalizeGender, normalizeText } from './student-data-validation.js';
 
 interface FindStudentsOptions {
@@ -233,6 +234,47 @@ export class StudentsService {
       });
     } catch (error) { return this.rethrowDuplicate(error); }
     return { universityId: newNumber, previousUniversityId: student.universityId, college: college.nameAr };
+  }
+
+  // مرحلة التجريب فقط: يُفعَّل بالإعداد ALLOW_TEST_DELETE=true على السيرفر، ويُغلَق بإزالته.
+  static bulkDeleteEnabled() {
+    return process.env.ALLOW_TEST_DELETE === 'true';
+  }
+
+  // حذف جماعي لطلاب التجربة مع كل بياناتهم (تسجيلات، نتائج، موافقات، رسائل، حساب الطالب وتذاكره).
+  // الحذف النهائي ممنوع عادةً بقاعدة البيانات؛ هنا يُسمح به داخل هذه العملية فقط، وتُسجَّل بسجل العمليات.
+  async bulkDelete(dto: BulkDeleteStudentsDto, actingUserId: string) {
+    if (!StudentsService.bulkDeleteEnabled()) {
+      throw new ForbiddenException('الحذف الجماعي مغلق. يُفعَّل لمرحلة التجريب فقط من إعدادات السيرفر.');
+    }
+    if (dto.confirm.trim() !== 'حذف') throw new BadRequestException('اكتب كلمة «حذف» للتأكيد.');
+    const ids = [...new Set(dto.studentIds)];
+    const students = await this.prisma.student.findMany({ where: { id: { in: ids } }, select: { id: true, universityId: true, userId: true } });
+    if (!students.length) throw new NotFoundException('لم يُعثر على أي من الطلاب المحددين.');
+    const foundIds = students.map((student) => student.id);
+    const userIds = students.map((student) => student.userId).filter((value): value is string => Boolean(value));
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.allow_hard_delete', 'on', true)`;
+      // المقاعد المحجوزة تعود للشعب
+      const seats = await tx.enrollmentItem.groupBy({
+        by: ['sectionId'], where: { status: 'ACTIVE', enrollment: { studentId: { in: foundIds } } }, _count: { _all: true },
+      });
+      for (const seat of seats) {
+        await tx.courseSection.update({ where: { id: seat.sectionId }, data: { enrolledCount: { decrement: seat._count._all } } });
+      }
+      if (userIds.length) await tx.supportTicket.deleteMany({ where: { authorId: { in: userIds } } });
+      await tx.courseResult.deleteMany({ where: { studentId: { in: foundIds } } });
+      await tx.studentEnrollment.deleteMany({ where: { studentId: { in: foundIds } } });
+      await tx.studentNumberHistory.deleteMany({ where: { studentId: { in: foundIds } } });
+      await tx.student.deleteMany({ where: { id: { in: foundIds } } });
+      if (userIds.length) await tx.user.deleteMany({ where: { id: { in: userIds }, role: { code: 'STUDENT' } } });
+      await tx.auditLog.create({ data: {
+        action: 'TEST_PHASE_BULK_DELETE_STUDENTS', entity: 'Student', userId: actingUserId,
+        details: JSON.stringify({ count: foundIds.length, universityIds: students.map((student) => student.universityId).slice(0, 200) }),
+      } });
+    });
+    return { deleted: foundIds.length };
   }
 
   private rethrowDuplicate(error: unknown): never {

@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { StudentsService } from './students.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 
@@ -179,6 +179,62 @@ describe('Student management', () => {
       const { prisma, studentUpdate } = transferSetup(odd);
       await new StudentsService(prisma).transferCollege('s1', { collegeId: 'c-new', admissionYear: 2027 }, 'r');
       expect(studentUpdate).toHaveBeenCalledWith({ where: { id: 's1' }, data: expect.objectContaining({ universityId: '2702004' }) });
+    });
+  });
+
+  describe('test-phase bulk delete', () => {
+    const withFlag = async (value: string | undefined, fn: () => Promise<void>) => {
+      const previous = process.env.ALLOW_TEST_DELETE;
+      if (value === undefined) delete process.env.ALLOW_TEST_DELETE; else process.env.ALLOW_TEST_DELETE = value;
+      try { await fn(); } finally { if (previous === undefined) delete process.env.ALLOW_TEST_DELETE; else process.env.ALLOW_TEST_DELETE = previous; }
+    };
+    const setup = () => {
+      const calls: string[] = [];
+      const tx = {
+        $executeRaw: vi.fn(async () => { calls.push('allow'); }),
+        enrollmentItem: { groupBy: vi.fn().mockResolvedValue([{ sectionId: 'sec-1', _count: { _all: 2 } }]) },
+        courseSection: { update: vi.fn(async () => { calls.push('seats'); }) },
+        supportTicket: { deleteMany: vi.fn(async () => { calls.push('tickets'); }) },
+        courseResult: { deleteMany: vi.fn(async () => { calls.push('results'); }) },
+        studentEnrollment: { deleteMany: vi.fn(async () => { calls.push('enrollments'); }) },
+        studentNumberHistory: { deleteMany: vi.fn(async () => { calls.push('history'); }) },
+        student: { deleteMany: vi.fn(async () => { calls.push('students'); }) },
+        user: { deleteMany: vi.fn(async () => { calls.push('users'); }) },
+        auditLog: { create: vi.fn(async () => { calls.push('audit'); }) },
+      };
+      const prisma = {
+        student: { findMany: vi.fn().mockResolvedValue([{ id: 's1', universityId: '2702001', userId: 'u1' }, { id: 's2', universityId: '2702002', userId: null }]) },
+        $transaction: (fn: (t: unknown) => Promise<unknown>) => fn(tx),
+      } as unknown as PrismaService;
+      return { prisma, tx, calls };
+    };
+
+    it('is closed unless the server flag is on', async () => {
+      await withFlag(undefined, async () => {
+        const { prisma } = setup();
+        await expect(new StudentsService(prisma).bulkDelete({ studentIds: ['s1'], confirm: 'حذف' }, 'admin-1')).rejects.toBeInstanceOf(ForbiddenException);
+        expect(StudentsService.bulkDeleteEnabled()).toBe(false);
+      });
+    });
+
+    it('needs the confirmation word', async () => {
+      await withFlag('true', async () => {
+        const { prisma, tx } = setup();
+        await expect(new StudentsService(prisma).bulkDelete({ studentIds: ['s1'], confirm: 'نعم' }, 'admin-1')).rejects.toBeInstanceOf(BadRequestException);
+        expect(tx.student.deleteMany).not.toHaveBeenCalled();
+      });
+    });
+
+    it('deletes the students with their data, gives the seats back, allows the delete only inside the operation and audits it', async () => {
+      await withFlag('true', async () => {
+        const { prisma, tx, calls } = setup();
+        const result = await new StudentsService(prisma).bulkDelete({ studentIds: ['s1', 's2', 's1'], confirm: 'حذف' }, 'admin-1');
+        expect(result).toEqual({ deleted: 2 });
+        expect(calls).toEqual(['allow', 'seats', 'tickets', 'results', 'enrollments', 'history', 'students', 'users', 'audit']);
+        expect(tx.courseSection.update).toHaveBeenCalledWith({ where: { id: 'sec-1' }, data: { enrolledCount: { decrement: 2 } } });
+        expect(tx.user.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['u1'] }, role: { code: 'STUDENT' } } });
+        expect(tx.auditLog.create).toHaveBeenCalledWith({ data: expect.objectContaining({ action: 'TEST_PHASE_BULK_DELETE_STUDENTS', userId: 'admin-1' }) });
+      });
     });
   });
 });

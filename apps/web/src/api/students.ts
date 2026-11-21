@@ -250,3 +250,14 @@ export async function transferStudentCollege(id: string, data: { collegeId: stri
   const response = await apiClient.post<{ universityId: string; previousUniversityId: string; college: string }>(`/students/${id}/transfer-college`, data);
   return response.data;
 }
+
+// وضع التجريب: الحذف الجماعي مغلق افتراضياً ويُفعَّل من إعدادات السيرفر (ALLOW_TEST_DELETE).
+export async function getStudentCapabilities() {
+  const response = await apiClient.get<{ bulkDelete: boolean }>('/students/capabilities');
+  return response.data;
+}
+
+export async function bulkDeleteStudents(studentIds: string[], confirm: string) {
+  const response = await apiClient.post<{ deleted: number }>('/students/bulk-delete', { studentIds, confirm });
+  return response.data;
+}
