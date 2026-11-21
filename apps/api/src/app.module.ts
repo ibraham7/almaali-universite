@@ -30,6 +30,7 @@ import { GradeScalesModule } from './grade-scales/grade-scales.module.js';
 import { CourseResultsModule } from './course-results/course-results.module.js';
 import { EnrollmentMessagesModule } from './enrollment-messages/enrollment-messages.module.js';
 import { SupportTicketsModule } from './support-tickets/support-tickets.module.js';
+import { AffairsModule } from './affairs/affairs.module.js';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { SupportTicketsModule } from './support-tickets/support-tickets.module.j
     CourseResultsModule,
     EnrollmentMessagesModule,
     SupportTicketsModule,
+    AffairsModule,
   ],
 
   controllers: [AppController],
