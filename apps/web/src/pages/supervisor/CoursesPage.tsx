@@ -337,7 +337,7 @@ export default function CoursesPage() {
         !form.academicYearId ||
         !form.semesterId)
     ) {
-      setError('حدد الكلية والتخصص والخطة والسنة والفصل قبل إنشاء المقرر.');
+      setError('حدد الكلية والقسم والبرنامج والخطة والسنة والفصل قبل إنشاء المقرر.');
       return;
     }
 
@@ -462,7 +462,7 @@ export default function CoursesPage() {
             المقررات الدراسية
           </Typography>
           <Typography color="text.secondary" sx={{ fontSize: 14 }}>
-            إدارة المقررات وربطها بالكلية والتخصص والسنة والفصل والمتطلبات السابقة.
+            إدارة المقررات وربطها بالكلية والقسم والبرنامج والسنة والفصل والمتطلبات السابقة.
           </Typography>
         </Box>
 
@@ -696,9 +696,9 @@ export default function CoursesPage() {
                   </FormControl>
 
                   <FormControl fullWidth disabled={!form.collegeId}>
-                    <InputLabel>القسم (إن وجد)</InputLabel>
+                    <InputLabel>القسم / التخصص</InputLabel>
                     <Select
-                      label="القسم (إن وجد)"
+                      label="القسم / التخصص"
                       value={form.departmentId}
                       onChange={(event) =>
                         setForm((current) => ({
@@ -719,9 +719,9 @@ export default function CoursesPage() {
                   </FormControl>
 
                   <FormControl fullWidth required disabled={!form.collegeId}>
-                    <InputLabel>التخصص</InputLabel>
+                    <InputLabel>البرنامج (بكالوريوس، دبلوم...)</InputLabel>
                     <Select
-                      label="التخصص"
+                      label="البرنامج (بكالوريوس، دبلوم...)"
                       value={form.programId}
                       onChange={(event) =>
                         setForm((current) => ({

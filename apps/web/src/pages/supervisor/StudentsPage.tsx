@@ -494,12 +494,12 @@ export default function StudentsPage() {
                             <MenuItem value="">جميع الكليات</MenuItem>
                             {colleges.map((item) => <MenuItem key={item.id} value={item.id}>{item.nameAr}</MenuItem>)}
                         </TextField>
-                        <TextField select label="القسم" value={departmentId} disabled={!collegeId}
+                        <TextField select label="القسم / التخصص" value={departmentId} disabled={!collegeId}
                             onChange={(event) => { setDepartmentId(event.target.value); setProgramId(''); }}>
                             <MenuItem value="">جميع الأقسام</MenuItem>
                             {departments.filter((item) => item.collegeId === collegeId).map((item) => <MenuItem key={item.id} value={item.id}>{item.nameAr}</MenuItem>)}
                         </TextField>
-                        <TextField select label="البرنامج / التخصص" value={programId} disabled={!departmentId}
+                        <TextField select label="البرنامج (بكالوريوس، دبلوم...)" value={programId} disabled={!departmentId}
                             onChange={(event) => setProgramId(event.target.value)}>
                             <MenuItem value="">جميع البرامج</MenuItem>
                             {programs.filter((item) => item.departmentId === departmentId).map((item) => <MenuItem key={item.id} value={item.id}>{item.nameAr}</MenuItem>)}
