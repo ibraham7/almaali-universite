@@ -232,7 +232,9 @@ export class StudentImportsService {
       this.prisma.student.findMany({ where: { OR: [
         { universityId: { in: parsed.map((row) => row.cells[0]).filter(Boolean) } },
         { nationalId: { in: parsed.flatMap((row) => row.cells[21] ? digitVariants(row.cells[21]) : []) } },
-      ] } }),
+        // رقم الاكتتاب رقم وزاري فريد لكل طالب: يعرّفنا بالطالب الموجود حين لا يتضمن الملف الرقم الوطني
+        { applicationNumber: { in: parsed.map((row) => normalizeDigits(row.cells[22].trim())).filter(Boolean) } },
+      ] }, orderBy: { createdAt: 'asc' } }),
     ]);
     if (uniMode !== 'column') {
       const prefix = normalizeText(options.universityIdSource?.prefix ?? '');
@@ -262,8 +264,10 @@ export class StudentImportsService {
       }
       for (const row of parsed) {
         const nationalKey = normalizeDigits(row.cells[21].trim());
-        const owner = nationalKey ? existing.find((item) => item.nationalId && normalizeDigits(item.nationalId) === nationalKey) : undefined;
-        // الطالب الموجود (بنفس الرقم الوطني) يحتفظ برقمه الجامعي حتى لا يتكرر عند إعادة الاستيراد
+        const applicationKey = normalizeDigits(row.cells[22].trim());
+        const owner = (nationalKey ? existing.find((item) => item.nationalId && normalizeDigits(item.nationalId) === nationalKey) : undefined)
+          ?? (applicationKey ? existing.find((item) => item.applicationNumber && normalizeDigits(item.applicationNumber) === applicationKey) : undefined);
+        // الطالب الموجود (بنفس الرقم الوطني أو رقم الاكتتاب) يحتفظ برقمه الجامعي حتى لا يتكرر عند إعادة الاستيراد
         if (owner) row.cells[0] = owner.universityId;
         else if (uniMode === 'generate' || uniMode === 'byCollege') {
           counter += 1;
@@ -277,6 +281,12 @@ export class StudentImportsService {
     }
     const seen = new Set<string>();
     const existingById = new Map(existing.map((item) => [item.universityId, item]));
+    const existingByApplication = new Map<string, (typeof existing)[number]>();
+    for (const item of existing) {
+      const key = item.applicationNumber ? normalizeDigits(item.applicationNumber) : '';
+      if (key && !existingByApplication.has(key)) existingByApplication.set(key, item);
+    }
+    const seenApplicationNumbers = new Set<string>();
     const existingByNationalId = new Map(existing.filter((item) => item.nationalId).map((item) => [normalizeDigits(item.nationalId!), item]));
     const errors: ImportError[] = [...fileErrors];
     let rowsWithErrors = 0;
@@ -382,6 +392,11 @@ export class StudentImportsService {
       if (repeatedInFile || repeatedNationalInFile) duplicateCount++;
       if (values.nationalId) seenNationalIds.add(values.nationalId);
       const existingStudent = existingById.get(normalizedUniversityId);
+      const repeatedApplicationInFile = Boolean(values.applicationNumber && seenApplicationNumbers.has(values.applicationNumber));
+      if (repeatedApplicationInFile) { problems.push('رقم الاكتتاب: مكرر داخل الملف'); if (!repeatedInFile && !repeatedNationalInFile) duplicateCount++; }
+      if (values.applicationNumber) seenApplicationNumbers.add(values.applicationNumber);
+      const applicationOwner = values.applicationNumber ? existingByApplication.get(values.applicationNumber) : undefined;
+      if (applicationOwner && applicationOwner.universityId !== normalizedUniversityId) problems.push('رقم الاكتتاب: مسجل لطالب آخر بالنظام');
       const nationalOwner = existingByNationalId.get(values.nationalId);
       if (nationalOwner && nationalOwner.universityId !== normalizedUniversityId) problems.push('الرقم الوطني: مسجل لطالب آخر بالنظام');
       if (universityEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(universityEmail)) problems.push('البريد الجامعي: غير صالح');
