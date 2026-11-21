@@ -988,6 +988,7 @@ export default function AcademicStructurePage() {
                     <ApartmentRoundedIcon />
                 }
                 addLabel="إضافة قسم"
+                disabledHint="اختر كلية أولاً: اضغط على بطاقة الكلية من قسم «الكليات»."
                 showAdd={!isAdvisor}
                 disabled={
                     !selectedCollegeId
@@ -1035,6 +1036,7 @@ export default function AcademicStructurePage() {
                     <SchoolRoundedIcon />
                 }
                 addLabel="إضافة برنامج"
+                disabledHint="اختر القسم / التخصص أولاً: اضغط على بطاقة القسم من قسم «الأقسام» فوق (وإن لم يكن موجوداً أضفه بزر «إضافة قسم»). البرنامج (بكالوريوس، دبلوم...) يُضاف تحت قسم."
                 showAdd={!isAdvisor}
                 disabled={
                     !selectedDepartmentId
@@ -1078,6 +1080,7 @@ export default function AcademicStructurePage() {
                     <MenuBookRoundedIcon />
                 }
                 addLabel="إضافة خطة"
+                disabledHint="اختر البرنامج أولاً: اضغط على بطاقة البرنامج من قسم «البرامج»."
                 disabled={
                     !selectedProgramId
                 }
@@ -1118,6 +1121,7 @@ export default function AcademicStructurePage() {
             <StructureSection
                 title="المستويات"
                 addLabel="إضافة مستوى"
+                disabledHint="اختر الخطة الدراسية أولاً: اضغط على بطاقة الخطة من قسم «الخطط الدراسية»."
                 disabled={
                     !selectedStudyPlanId
                 }
@@ -1156,6 +1160,7 @@ export default function AcademicStructurePage() {
             <StructureSection
                 title="الفصول"
                 addLabel="إضافة فصل"
+                disabledHint="اختر المستوى أولاً: اضغط على بطاقة المستوى من قسم «المستويات»."
                 disabled={
                     !selectedLevelId
                 }
@@ -1416,6 +1421,9 @@ interface StructureSectionProps {
 
     disabled?: boolean;
 
+    // يظهر تحت العنوان عندما يكون زر الإضافة معطّلاً ليشرح السبب
+    disabledHint?: string;
+
     showAdd?: boolean;
 
     onAdd: () => void;
@@ -1428,6 +1436,7 @@ function StructureSection({
     icon,
     addLabel,
     disabled,
+    disabledHint,
     showAdd = true,
     onAdd,
     children,
@@ -1481,6 +1490,12 @@ function StructureSection({
                         {addLabel}
                     </Button>}
                 </Stack>
+
+                {showAdd && disabled && disabledHint && (
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                        {disabledHint}
+                    </Alert>
+                )}
 
                 <Box
                     sx={{
