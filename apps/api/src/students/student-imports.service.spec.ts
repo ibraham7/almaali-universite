@@ -399,4 +399,32 @@ describe('Student Excel import', () => {
     expect(await messages({ mapping, universityIdSource: { mode: 'byCollege', year: 2027 } })).toContain('اختر الكلية');
     expect(await messages({ mapping, defaults: { collegeId: 'college-2' }, universityIdSource: { mode: 'byCollege', year: 2027 } })).toContain('ليس لها رمز');
   });
+
+  it('recognizes an already imported student by the application number, so importing the same file twice does not create duplicates', async () => {
+    const { prisma, create, update } = database();
+    // the first import generated 2701001; the file has no national ID, only the application number
+    (prisma.student as unknown as { findMany: ReturnType<typeof vi.fn> }).findMany = vi.fn().mockImplementation(({ where }: { where: { OR?: unknown[]; universityId?: { startsWith?: string } } }) =>
+      Promise.resolve(where.OR ? [{ id: 's1', universityId: '2701001', firstName: 'هند', middleName: 'عمر', familyName: 'خالد', fullName: 'هند عمر خالد', motherName: 'منى', nationalId: null, applicationNumber: '8101',
+        birthPlace: null, englishName: null, gender: null, dateOfBirth: null, nationality: null, idOrPassport: null, universityEmail: null, phone: null,
+        collegeId: 'college-1', departmentId: null, programId: null, studyPlanId: null, academicYearId: null, semesterId: null, status: 'ACTIVE', advisorId: null, admissionDate: null, meritNumber: null }]
+        : where.universityId?.startsWith ? [{ universityId: '2701001' }] : []));
+    const service = new StudentImportsService(prisma);
+    const upload = ministryFile(['رقم الاكتتاب', 'الاسم', 'الأب', 'الأم'], [['8101', 'هند', 'عمر', 'منى'], ['8102', 'سارة', 'علي', 'ليلى']]);
+    const options = { mapping: service.inspect(upload).suggestedMapping, defaults: { collegeId: 'college-1' }, universityIdSource: { mode: 'byCollege' as const, year: 2027 } };
+    expect(await service.preview(upload, options)).toMatchObject({ validCount: 2, updateCount: 1, errorCount: 0 });
+    await service.confirm(upload, 'registrar-1', options);
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update.mock.calls[0][0].where).toEqual({ universityId: '2701001' });
+    // only the new student gets a number, and the sequence continues after the existing one
+    expect(create.mock.calls.map((call) => call[0].data.universityId)).toEqual(['2701002']);
+  });
+
+  it('rejects the same application number twice inside the file', async () => {
+    const { prisma } = database();
+    const service = new StudentImportsService(prisma);
+    const upload = ministryFile(['رقم الاكتتاب', 'الاسم', 'الأب', 'الأم'], [['8101', 'هند', 'عمر', 'منى'], ['8101', 'سارة', 'علي', 'ليلى']]);
+    const result = await service.preview(upload, { mapping: service.inspect(upload).suggestedMapping, defaults: { collegeId: 'college-1' }, universityIdSource: { mode: 'byCollege', year: 2027 } });
+    expect(result.errors.some((item) => item.column === 'رقم الاكتتاب' && item.message.includes('مكرر داخل الملف'))).toBe(true);
+    expect(result.duplicateCount).toBe(1);
+  });
 });
