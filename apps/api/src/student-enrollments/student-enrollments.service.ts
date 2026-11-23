@@ -89,7 +89,7 @@ export class StudentEnrollmentsService {
     if (!planCollege) throw new ForbiddenException('الكلية المرتبطة بالخطة غير موجودة.');
     const maxLevel = level.levelNumber + (planCollege.university.allowedFutureYears ?? 0);
     const courses = await this.prisma.studyPlanCourse.findMany({
-      where: { studyPlanId: plan.id, academicYear: { levelNumber: { gte: level.levelNumber, lte: maxLevel } }, course: { status: 'ACTIVE' } },
+      where: { studyPlanId: plan.id, status: 'ACTIVE', academicYear: { levelNumber: { gte: level.levelNumber, lte: maxLevel } }, course: { status: 'ACTIVE' } },
       include: { academicYear: true, semester: true, course: { include: { prerequisites: { include: { prerequisite: true } }, sections: { include: { teacher: true, classroom: true, schedules: true } } } } },
       orderBy: [{ academicYear: { levelNumber: 'asc' } }, { semester: { semesterNumber: 'asc' } }, { priority: 'asc' }],
     });
@@ -326,6 +326,7 @@ export class StudentEnrollmentsService {
     const rawPlanCourses =
       await this.prisma.studyPlanCourse.findMany({
         where: {
+          status: 'ACTIVE',
           studyPlanId: student.studyPlanId,
           academicYear: {
             levelNumber: {

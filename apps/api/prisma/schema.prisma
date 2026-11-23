@@ -40,6 +40,11 @@ enum CourseRequirement {
   ELECTIVE
 }
 
+enum StudyPlanCourseStatus {
+  ACTIVE
+  REMOVED
+}
+
 enum CurriculumCategory {
   UNIVERSITY
   COLLEGE
@@ -411,6 +416,12 @@ model StudyPlanCourse {
   priority    Int
   requirement CourseRequirement
 
+  // إزالة المقرر من الخطة لا تحذفه (سياسة منع الحذف النهائي): تصبح حالته REMOVED مع من وكم وسبب.
+  status       StudyPlanCourseStatus @default(ACTIVE)
+  removedAt    DateTime?
+  removedById  String?
+  removeReason String?
+
   studyPlan    StudyPlan    @relation(fields: [studyPlanId], references: [id])
   academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
   semester     Semester     @relation(fields: [semesterId], references: [id])
@@ -419,6 +430,8 @@ model StudyPlanCourse {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // المقرر المُزال يبقى بصفّه، فلا يتعارض مع التفرّد: أولويته تُنقل لقيمة سالبة بعيدة عند الإزالة،
+  // وإعادة إضافة نفس المقرر "تستعيد" صفّه بدل إنشاء صف جديد.
   @@unique([studyPlanId, academicYearId, semesterId, courseId])
   @@unique([studyPlanId, academicYearId, semesterId, priority])
 }

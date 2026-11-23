@@ -16,6 +16,8 @@ import { CreateStudyPlanCourseDto } from './dto/create-study-plan-course.dto.js'
 
 import { ReorderStudyPlanCoursesDto } from './dto/reorder-study-plan-courses.dto.js';
 
+import { RemoveStudyPlanCourseDto } from './dto/remove-study-plan-course.dto.js';
+
 import { JwtGuard } from '../auth/guards/jwt/jwt.guard.js';
 
 import { RolesGuard } from '../auth/guards/roles/roles.guard.js';
@@ -76,6 +78,18 @@ export class StudyPlanCoursesController {
       academicYearId,
       request.user,
     );
+  }
+
+  // إزالة مقرر من الخطة بحالة REMOVED وسبب إلزامي (بدون حذف نهائي)
+  @Post(':id/remove')
+  remove(
+    @Param('id')
+    id: string,
+    @Body()
+    dto: RemoveStudyPlanCourseDto,
+    @Req() request: Request & { user: { id: string; role: string } },
+  ) {
+    return this.studyPlanCoursesService.remove(id, dto, request.user);
   }
 
   @Post('reorder')

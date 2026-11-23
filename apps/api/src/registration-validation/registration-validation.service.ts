@@ -311,6 +311,7 @@ export class RegistrationValidationService {
     const eligiblePlanCourses =
       await this.prisma.studyPlanCourse.findMany({
         where: {
+          status: 'ACTIVE',
           studyPlanId: student.studyPlanId,
           courseId,
           ...(selectedSection
@@ -339,6 +340,7 @@ export class RegistrationValidationService {
       const [pastPlanCourses, attempts] = await Promise.all([
         this.prisma.studyPlanCourse.findMany({
           where: {
+            status: 'ACTIVE',
             studyPlanId: student.studyPlanId,
             courseId,
             academicYear: { levelNumber: { lt: currentLevel.levelNumber } },
@@ -583,6 +585,7 @@ export class RegistrationValidationService {
     const mandatoryPlanCourses =
       await this.prisma.studyPlanCourse.findMany({
         where: {
+          status: 'ACTIVE',
           studyPlanId:
             enrollment.student.studyPlanId,
           academicYearId:

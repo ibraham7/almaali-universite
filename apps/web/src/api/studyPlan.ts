@@ -225,6 +225,16 @@ export async function addCourseToPlan(input: {
   return data;
 }
 
+// إزالة مقرر من الخطة (حالة REMOVED بسبب إلزامي، بدون حذف نهائي)
+export async function removePlanCourse(id: string, reason: string) {
+  const { data } = await apiClient.post<{ success: boolean; message: string }>(
+    `/study-plan-courses/${id}/remove`,
+    { reason },
+  );
+
+  return data;
+}
+
 export async function reorderPlanCourses(input: {
   studyPlanId: string;
   academicYearId: string;

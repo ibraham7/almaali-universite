@@ -15,6 +15,7 @@ import {
   MenuItem,
   Select,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material';
 
@@ -42,6 +43,7 @@ import {
   getSemesters,
   getStudyPlans,
   studyPlanProgramLabel,
+  removePlanCourse,
   reorderPlanCourses,
   type AcademicLevel,
   type Course,
@@ -142,6 +144,12 @@ export default function StudyPlanPage() {
 
   const [prerequisiteDialogCourse, setPrerequisiteDialogCourse] =
     useState<PlanCourse | null>(null);
+
+  const [removeTarget, setRemoveTarget] =
+    useState<PlanCourse | null>(null);
+
+  const [removeReason, setRemoveReason] =
+    useState('');
 
   const [selectedPrerequisiteIds, setSelectedPrerequisiteIds] =
     useState<string[]>([]);
@@ -456,6 +464,31 @@ export default function StudyPlanPage() {
         'تمت إضافة المقرر إلى الخطة.',
       );
 
+      await loadPlanCourses();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // إزالة المقرر من الخطة بسبب إلزامي (لا حذف نهائي: يبقى بالسجل بحالة «مُزال»)
+  const handleRemoveFromPlan = async () => {
+    if (!removeTarget || !removeReason.trim()) return;
+
+    setActionLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const response = await removePlanCourse(
+        removeTarget.id,
+        removeReason.trim(),
+      );
+
+      setRemoveTarget(null);
+      setRemoveReason('');
+      setSuccess(response.message);
       await loadPlanCourses();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -1270,6 +1303,21 @@ export default function StudyPlanPage() {
                         المتطلبات السابقة
                       </Button>
 
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="error"
+                        disabled={actionLoading}
+                        onClick={() => {
+                          setRemoveTarget(item);
+                          setRemoveReason('');
+                          setError('');
+                          setSuccess('');
+                        }}
+                      >
+                        إزالة من الخطة
+                      </Button>
+
                     </Stack>
                   </Box>
                 ),
@@ -1390,6 +1438,68 @@ export default function StudyPlanPage() {
             {actionLoading
               ? 'جارٍ الإضافة...'
               : 'إضافة المقرر'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(removeTarget)}
+        onClose={() => {
+          if (!actionLoading) {
+            setRemoveTarget(null);
+            setRemoveReason('');
+          }
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>إزالة مقرر من الخطة</DialogTitle>
+
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            {removeTarget && (
+              <Typography>
+                المقرر: {removeTarget.course.code} — {removeTarget.course.nameAr}
+              </Typography>
+            )}
+
+            <Alert severity="info">
+              لا يُحذف المقرر نهائياً: يُزال من هذه الخطة فقط ويبقى بالسجل مع السبب.
+              تسجيلات الطلاب السابقة ونتائجهم لا تتأثر، لكن المقرر لن يظهر بعد الآن
+              في خطة هذا الفصل ولن يُقبل بتسجيل الطلاب منها.
+            </Alert>
+
+            <TextField
+              label="سبب الإزالة (إلزامي)"
+              value={removeReason}
+              onChange={(event) => setRemoveReason(event.target.value)}
+              multiline
+              minRows={2}
+              fullWidth
+              required
+              slotProps={{ htmlInput: { maxLength: 500 } }}
+            />
+          </Stack>
+        </DialogContent>
+
+        <DialogActions>
+          <Button
+            disabled={actionLoading}
+            onClick={() => {
+              setRemoveTarget(null);
+              setRemoveReason('');
+            }}
+          >
+            إلغاء
+          </Button>
+
+          <Button
+            variant="contained"
+            color="error"
+            disabled={!removeReason.trim() || actionLoading}
+            onClick={() => void handleRemoveFromPlan()}
+          >
+            {actionLoading ? 'جارٍ الإزالة...' : 'إزالة من الخطة'}
           </Button>
         </DialogActions>
       </Dialog>
