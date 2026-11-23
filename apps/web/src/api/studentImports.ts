@@ -10,6 +10,7 @@ export interface StudentImportPreview {
   newCount: number;
   updateCount: number;
   unchangedCount: number;
+  invalidNationalIdCount: number;
   errorCount: number;
   problemCount: number;
   notes: string[];
@@ -40,6 +41,7 @@ export interface ImportDefaults {
 export interface UniversityIdSource { mode: 'column' | 'applicationNumber' | 'generate' | 'byCollege'; prefix?: string; digits?: number; year?: number }
 
 export interface ImportOptions {
+  ignoreInvalidNationalId?: boolean;
   universityIdSource?: UniversityIdSource;
   sheet?: string;
   headerRow?: number;

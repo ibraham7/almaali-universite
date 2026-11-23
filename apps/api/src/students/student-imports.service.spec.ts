@@ -179,6 +179,16 @@ describe('Student Excel import', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
+  it('splits a single «college - department» cell (e.g. the accepted preference column) into both', async () => {
+    const { prisma, create } = database();
+    const combined = row('2026020', 'هند', 'خالد');
+    combined[11] = '';
+    combined[12] = 'كلية التربية - قسم معلم صف';
+    const result = await new StudentImportsService(prisma).confirm(file([combined]), 'registrar-1');
+    expect(result).toMatchObject({ imported: 1, errors: 0 });
+    expect(create).toHaveBeenCalledWith({ data: expect.objectContaining({ collegeId: 'college-1', departmentId: 'dep-1' }) });
+  });
+
   it('accepts and normalizes Arabic-Indic digits in identity numbers', async () => {
     const { prisma } = database();
     const arabicDigits = row('2026009', 'هند', 'خالد');
