@@ -281,6 +281,7 @@ export class AdvisorApprovalsService {
 
     const planCourses = await this.prisma.studyPlanCourse.findMany({
       where: {
+        status: 'ACTIVE',
         studyPlanId: student.studyPlanId,
         academicYear: {
           levelNumber: {

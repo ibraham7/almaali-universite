@@ -309,7 +309,7 @@ export class CourseSectionsService {
     }
 
     const placements = await this.prisma.studyPlanCourse.findMany({
-      where: { semesterId, course: { status: 'ACTIVE' } },
+      where: { semesterId, status: 'ACTIVE', course: { status: 'ACTIVE' } },
       select: { courseId: true },
     });
     const courseIds = [...new Set(placements.map((item) => item.courseId))];

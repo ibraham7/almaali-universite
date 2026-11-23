@@ -1,9 +1,13 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service.js';
 import { isProgramAllowedForAdvisor } from '../advisors/advisor-scope.js';
 import { CreateStudyPlanCourseDto } from './dto/create-study-plan-course.dto.js';
 import { ReorderStudyPlanCoursesDto } from './dto/reorder-study-plan-courses.dto.js';
+import { RemoveStudyPlanCourseDto } from './dto/remove-study-plan-course.dto.js';
+
+// أولويات المقررات المُزالة تبدأ من هنا نزولاً (بعيدة عن الأولويات الحقيقية وعن السالب المؤقت لإعادة الترتيب)
+const REMOVED_PRIORITY_BASE = -1_000_000;
 
 @Injectable()
 export class StudyPlanCoursesService {
@@ -119,6 +123,7 @@ export class StudyPlanCoursesService {
           academicYearId: dto.academicYearId,
           semesterId: dto.semesterId,
           courseId: dto.courseId,
+          status: 'ACTIVE',
         },
       });
 
@@ -146,6 +151,7 @@ export class StudyPlanCoursesService {
           academicYearId: dto.academicYearId,
           semesterId: dto.semesterId,
           priority: dto.priority,
+          status: 'ACTIVE',
         },
       });
 
@@ -162,29 +168,102 @@ export class StudyPlanCoursesService {
     // 7. إنشاء مقرر الخطة
     // ============================================================
 
-    const planCourse =
-      await this.prisma.studyPlanCourse.create({
-        data: {
+    // لو كان المقرر نفسه أُزيل سابقاً من هذا الفصل نستعيد صفّه (التفرّد بالقاعدة على المقرر والفصل)
+    const removedBefore =
+      await this.prisma.studyPlanCourse.findFirst({
+        where: {
           studyPlanId: dto.studyPlanId,
           academicYearId: dto.academicYearId,
           semesterId: dto.semesterId,
           courseId: dto.courseId,
-          priority: dto.priority,
-          requirement: dto.requirement,
+          status: 'REMOVED',
         },
-
-        include: {
-          course: true,
-          academicYear: true,
-          semester: true,
-          studyPlan: true,
-        },
+        select: { id: true },
       });
+
+    const include = {
+      course: true,
+      academicYear: true,
+      semester: true,
+      studyPlan: true,
+    };
+
+    const planCourse = removedBefore
+      ? await this.prisma.studyPlanCourse.update({
+          where: { id: removedBefore.id },
+          data: {
+            status: 'ACTIVE',
+            priority: dto.priority,
+            requirement: dto.requirement,
+            removedAt: null,
+            removedById: null,
+            removeReason: null,
+          },
+          include,
+        })
+      : await this.prisma.studyPlanCourse.create({
+          data: {
+            studyPlanId: dto.studyPlanId,
+            academicYearId: dto.academicYearId,
+            semesterId: dto.semesterId,
+            courseId: dto.courseId,
+            priority: dto.priority,
+            requirement: dto.requirement,
+          },
+          include,
+        });
 
     return {
       success: true,
       planCourse,
     };
+  }
+
+  // ============================================================
+  // إزالة مقرر من الخطة (بدون حذف نهائي): الحالة REMOVED مع السبب ومن وكم.
+  // المقرر نفسه وتسجيلات الطلاب السابقة ونتائجهم لا تتأثر.
+  // ============================================================
+
+  async remove(id: string, dto: RemoveStudyPlanCourseDto, actor: { id: string; role: string }) {
+    const planCourse = await this.prisma.studyPlanCourse.findUnique({
+      where: { id },
+      select: { id: true, status: true, studyPlanId: true, academicYearId: true, semesterId: true, courseId: true, priority: true, course: { select: { code: true, nameAr: true } } },
+    });
+    if (!planCourse) throw new NotFoundException('مقرر الخطة غير موجود');
+    await this.assertPlanAccess(planCourse.studyPlanId, actor);
+    if (planCourse.status !== 'ACTIVE') {
+      throw new ConflictException('هذا المقرر أُزيل من الخطة سابقاً.');
+    }
+    const reason = dto.reason.trim();
+    if (!reason) throw new BadRequestException('سبب الإزالة مطلوب.');
+
+    await this.prisma.$transaction(async (tx) => {
+      // الأولوية فريدة داخل الفصل: ننقل أولوية المُزال لقيمة سالبة بعيدة (الأصلية محفوظة بسجل التدقيق)
+      // حتى تُستعمل أولويته لمقرر آخر. السالب القريب (-1..-n) محجوز لإعادة الترتيب المؤقتة.
+      const lowest = await tx.studyPlanCourse.aggregate({
+        where: { studyPlanId: planCourse.studyPlanId, academicYearId: planCourse.academicYearId, semesterId: planCourse.semesterId },
+        _min: { priority: true },
+      });
+      const removedPriority = Math.min(lowest._min.priority ?? 0, REMOVED_PRIORITY_BASE) - 1;
+      await tx.studyPlanCourse.update({
+        where: { id },
+        data: { status: 'REMOVED', priority: removedPriority, removedAt: new Date(), removedById: actor.id, removeReason: reason },
+      });
+      await tx.auditLog.create({
+        data: {
+          action: 'STUDY_PLAN_COURSE_REMOVED',
+          entity: 'StudyPlanCourse',
+          entityId: id,
+          userId: actor.id,
+          details: JSON.stringify({
+            studyPlanId: planCourse.studyPlanId, academicYearId: planCourse.academicYearId, semesterId: planCourse.semesterId,
+            courseId: planCourse.courseId, courseCode: planCourse.course.code, priority: planCourse.priority, reason,
+          }),
+        },
+      });
+    });
+
+    return { success: true, message: `أُزيل المقرر «${planCourse.course.nameAr}» من الخطة.` };
   }
 
   // ============================================================
@@ -205,6 +284,7 @@ export class StudyPlanCoursesService {
         where: {
           studyPlanId,
           academicYearId,
+          status: 'ACTIVE',
         },
 
         include: {
@@ -280,6 +360,7 @@ export class StudyPlanCoursesService {
           studyPlanId,
           academicYearId,
           semesterId,
+          status: 'ACTIVE',
         },
 
         include: {
@@ -394,6 +475,7 @@ export class StudyPlanCoursesService {
 
           studyPlanId: dto.studyPlanId,
           academicYearId: dto.academicYearId,
+          status: 'ACTIVE',
         },
 
         select: {

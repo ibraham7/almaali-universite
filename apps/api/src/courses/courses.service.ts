@@ -37,11 +37,11 @@ export class CoursesService {
     if (!allowed) return;
     if (!allowed.length) throw new ForbiddenException('لم يعيّن المدير أي اختصاص لهذا الحساب.');
     const links = await this.prisma.studyPlanCourse.findMany({
-      where: { courseId, studyPlan: { programId: { in: allowed } } },
+      where: { courseId, status: 'ACTIVE', studyPlan: { programId: { in: allowed } } },
       select: { studyPlan: { select: { programId: true } } },
     });
     const allPrograms = await this.prisma.studyPlanCourse.findMany({
-      where: { courseId },
+      where: { courseId, status: 'ACTIVE' },
       select: { studyPlan: { select: { programId: true } } },
     });
     const allProgramIds = new Set(allPrograms.map((link) => link.studyPlan.programId));
@@ -208,6 +208,7 @@ export class CoursesService {
         studyPlanId: studyPlan.id,
         academicYearId: academicYear.id,
         semesterId: semester.id,
+        status: 'ACTIVE',
       },
       orderBy: {
         priority: 'desc',
@@ -453,6 +454,7 @@ export class CoursesService {
       where: {
         studyPlanId: student.studyPlanId,
         academicYearId: student.academicYearId,
+        status: 'ACTIVE',
         course: { status: 'ACTIVE' },
       },
       include: {
