@@ -1265,7 +1265,7 @@ export default function StudentsPage() {
                 onDone={(message) => { setSuccess(message); void loadStudents(); }} />}
             {canManage && <StudentImportDialog open={importOpen}
                 onClose={() => setImportOpen(false)}
-                onImported={() => { void loadStudents(); }} />}
+                onImported={(message) => { setSuccess(message); void loadStudents(); }} />}
         </Box>
     );
 }
