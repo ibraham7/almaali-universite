@@ -83,7 +83,7 @@ function mergeMapping(info: ImportInspection, saved: Record<string, number | nul
 export default function StudentImportDialog({ open, onClose, onImported }: {
   open: boolean;
   onClose: () => void;
-  onImported: () => void;
+  onImported: (message: string) => void;
 }) {
   const [step, setStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
@@ -145,9 +145,11 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
     setBusy(true); setError('');
     try {
       const result = await confirmStudentImport(file, { sheet: info.sheet, headerRow: info.headerRow, mapping, defaults, universityIdSource: idSource });
-      setSuccess(`تمت العملية بنجاح: إضافة ${result.imported} وتحديث ${result.updated} طالب.`);
-      setPreview(null); setFile(null); setInfo(null); setStep(0);
-      onImported();
+      // بعد النجاح: نغلق النافذة ونرجع لصفحة الطلاب، والرسالة تظهر هناك.
+      const message = `تمت العملية بنجاح: إضافة ${result.imported} وتحديث ${result.updated} طالب${result.unchanged ? `، وتخطّي ${result.unchanged} مطابق` : ''}.`;
+      reset();
+      onClose();
+      onImported(message);
     } catch (cause) {
       setError(`${errorText(cause)} أعد معاينة الملف قبل المحاولة التالية.`);
       setPreview(null); setStep(1);
@@ -319,8 +321,9 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
 
         {step === 2 && preview && <>
           <Alert severity={preview.errorCount ? 'warning' : 'success'}>
-            إجمالي الصفوف: {preview.total} | الصالحة: {preview.validCount} (إضافة {preview.validCount - preview.updateCount}، تحديث {preview.updateCount}) | الصفوف التي فيها أخطاء: {preview.errorCount} | عدد الأخطاء: {preview.problemCount} | المكررة داخل الملف: {preview.duplicateCount}
+            إجمالي الصفوف: {preview.total} | الصالحة: {preview.validCount} (إضافة {preview.newCount}، تحديث {preview.updateCount}، مطابق {preview.unchangedCount}) | الصفوف التي فيها أخطاء: {preview.errorCount} | عدد الأخطاء: {preview.problemCount} | المكررة داخل الملف: {preview.duplicateCount}
           </Alert>
+          {preview.errorCount === 0 && preview.validCount > 0 && preview.newCount + preview.updateCount === 0 && <Alert severity="info">كل الطلاب مطابقون لما هو موجود بالمنظومة، فلا يوجد ما يُضاف أو يُحدَّث.</Alert>}
           {preview.notes?.map((note) => <Alert key={note} severity="info">{note}</Alert>)}
           {preview.errors.length > 0 && <>
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -339,8 +342,8 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
           </>}
           {preview.rows.length > 0 && <Box sx={{ maxHeight: 260, overflow: 'auto' }}>
             <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>معاينة الصفوف الصالحة</Typography>
-            <Table size="small"><TableHead><TableRow><TableCell>الصف</TableCell><TableCell>العملية</TableCell><TableCell>الرقم الجامعي</TableCell><TableCell>الاسم</TableCell><TableCell>الكلية</TableCell><TableCell>البرنامج</TableCell></TableRow></TableHead>
-              <TableBody>{preview.rows.slice(0, 30).map((item) => <TableRow key={item.rowNumber}><TableCell>{item.rowNumber}</TableCell><TableCell>{item.action}</TableCell><TableCell>{item.universityId}</TableCell><TableCell>{item.name}</TableCell><TableCell>{item.college || '—'}</TableCell><TableCell>{item.program || '—'}</TableCell></TableRow>)}</TableBody>
+            <Table size="small"><TableHead><TableRow><TableCell>الصف</TableCell><TableCell>العملية</TableCell><TableCell>الرقم الجامعي</TableCell><TableCell>الاسم</TableCell><TableCell>الكلية</TableCell><TableCell>البرنامج</TableCell><TableCell>التغييرات (قبل ← بعد)</TableCell></TableRow></TableHead>
+              <TableBody>{[...preview.rows].sort((a, b) => Number(a.action === 'مطابق') - Number(b.action === 'مطابق')).slice(0, 30).map((item) => <TableRow key={item.rowNumber}><TableCell>{item.rowNumber}</TableCell><TableCell>{item.action}</TableCell><TableCell>{item.universityId}</TableCell><TableCell>{item.name}</TableCell><TableCell>{item.college || '—'}</TableCell><TableCell>{item.program || '—'}</TableCell><TableCell>{item.changes.length ? item.changes.map((change) => <Typography key={change.field} variant="caption" sx={{ display: 'block' }}>{change.label}: {change.before} ← {change.after}</Typography>) : '—'}</TableCell></TableRow>)}</TableBody>
             </Table>
             {preview.rows.length > 30 && <Typography variant="caption">تُعرض أول 30 نتيجة من أصل {preview.rows.length}.</Typography>}
           </Box>}
@@ -353,8 +356,8 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
       {step === 1 && <Button variant="contained" disabled={busy || !info} onClick={() => void runPreview()}>
         {busy ? <CircularProgress size={20} color="inherit" /> : 'معاينة وفحص البيانات'}
       </Button>}
-      {step === 2 && preview && <Button variant="contained" color="success" disabled={busy || preview.errorCount > 0 || preview.validCount === 0} onClick={() => void importRows()}>
-        {busy ? <CircularProgress size={20} color="inherit" /> : `تأكيد إضافة وتحديث ${preview.validCount} طالب`}
+      {step === 2 && preview && <Button variant="contained" color="success" disabled={busy || preview.errorCount > 0 || preview.newCount + preview.updateCount === 0} onClick={() => void importRows()}>
+        {busy ? <CircularProgress size={20} color="inherit" /> : `تأكيد إضافة ${preview.newCount} وتحديث ${preview.updateCount} طالب`}
       </Button>}
       <Button disabled={busy} onClick={close}>إغلاق</Button>
     </DialogActions>

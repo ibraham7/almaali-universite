@@ -2,16 +2,20 @@ import { apiClient } from './client';
 
 export interface ImportError { rowNumber: number; universityId: string; column?: string; message: string }
 
+export interface ImportChange { field: string; label: string; before: string; after: string }
+
 export interface StudentImportPreview {
   total: number;
   validCount: number;
+  newCount: number;
   updateCount: number;
+  unchangedCount: number;
   errorCount: number;
   problemCount: number;
   notes: string[];
   duplicateCount: number;
   errors: ImportError[];
-  rows: Array<{ rowNumber: number; universityId: string; name: string; college: string; program: string; action: string }>;
+  rows: Array<{ rowNumber: number; universityId: string; name: string; college: string; program: string; action: string; changes: ImportChange[] }>;
 }
 
 export interface ImportField { key: string; label: string; required: boolean; group: 'identity' | 'contact' | 'academic' }
@@ -65,7 +69,7 @@ export async function previewStudentImport(file: File, options: ImportOptions) {
 }
 
 export async function confirmStudentImport(file: File, options: ImportOptions) {
-  const response = await apiClient.post<{ total: number; imported: number; updated: number; errors: number; duplicates: number }>(
+  const response = await apiClient.post<{ total: number; imported: number; updated: number; unchanged: number; errors: number; duplicates: number }>(
     '/students/import/confirm', form(file, options), multipart,
   );
   return response.data;

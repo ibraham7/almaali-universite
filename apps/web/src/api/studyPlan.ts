@@ -16,10 +16,15 @@ export interface StudyPlan {
   } | null;
 }
 
+// "الكلية ← القسم ← البرنامج" for a plan's program (used to pick a program in a drop-down).
+export function studyPlanProgramLabel(plan: StudyPlan) {
+  const college = plan.program?.college?.nameAr ?? plan.program?.department?.college?.nameAr;
+  return [college, plan.program?.department?.nameAr, plan.program?.nameAr].filter(Boolean).join(' ← ');
+}
+
 // Imported plans share the same name, so the program and college are needed to tell them apart.
 export function studyPlanLabel(plan: StudyPlan) {
-  const college = plan.program?.college?.nameAr ?? plan.program?.department?.college?.nameAr;
-  const where = [college, plan.program?.department?.nameAr, plan.program?.nameAr].filter(Boolean).join(' ← ');
+  const where = studyPlanProgramLabel(plan);
   return where ? `${where} — ${plan.nameAr}` : plan.nameAr;
 }
 

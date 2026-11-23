@@ -92,19 +92,47 @@ describe('Student Excel import', () => {
     expect(audit).toHaveBeenCalledWith({ data: expect.objectContaining({ action: 'STUDENTS_IMPORTED', userId: 'registrar-1' }) });
   });
 
-  it('updates an existing student using only non-empty columns', async () => {
+  it('updates an existing student writing only the fields that actually changed', async () => {
     const { prisma, update } = database(['2026001']);
     const result = await new StudentImportsService(prisma).confirm(file([row('2026001', 'مريم', 'علي')]), 'registrar-1');
-    expect(result).toMatchObject({ imported: 0, updated: 1 });
+    expect(result).toMatchObject({ imported: 0, updated: 1, unchanged: 0 });
+    // اسم الأب والعائلة والأم ومكان الولادة مطابقة لما بالمنظومة فلا تُكتب
     expect(update).toHaveBeenCalledWith({
       where: { universityId: '2026001' },
       data: {
-        firstName: 'مريم', fullName: 'مريم عمر علي', familyName: 'علي', middleName: 'عمر',
-        motherName: 'منى', nationalId: '12342026001', applicationNumber: '4562026001', birthPlace: 'حلب',
+        firstName: 'مريم', fullName: 'مريم عمر علي',
+        nationalId: '12342026001', applicationNumber: '4562026001',
         collegeId: 'college-1', departmentId: 'dep-1', programId: 'program-1', studyPlanId: 'plan-1',
         academicYearId: 'year-1', semesterId: 'semester-1',
       },
     });
+  });
+
+  it('skips a student whose data matches exactly and reports it as unchanged', async () => {
+    const { prisma, update, audit } = database(['2026001'], true);
+    const [base] = await prisma.student.findMany();
+    vi.mocked(prisma.student.findMany).mockResolvedValue([{ ...base, nationalId: '12342026001', applicationNumber: '4562026001' }] as never);
+    const service = new StudentImportsService(prisma);
+    const upload = file([row('2026001', 'سارة', 'علي')]);
+    expect(await service.preview(upload)).toMatchObject({ validCount: 1, newCount: 0, updateCount: 0, unchangedCount: 1 });
+    expect(await service.confirm(upload, 'registrar-1')).toMatchObject({ imported: 0, updated: 0, unchanged: 1 });
+    expect(update).not.toHaveBeenCalled();
+    expect(audit).toHaveBeenCalledWith({ data: expect.objectContaining({ action: 'STUDENTS_IMPORTED' }) });
+  });
+
+  it('shows what changed (before and after) in the preview and logs it in the audit', async () => {
+    const { prisma, update, audit } = database(['2026001'], true);
+    const [base] = await prisma.student.findMany();
+    vi.mocked(prisma.student.findMany).mockResolvedValue([{ ...base, nationalId: '12342026001', applicationNumber: '4562026001' }] as never);
+    const service = new StudentImportsService(prisma);
+    const upload = file([row('2026001', 'مريم', 'علي')]);
+    const preview = await service.preview(upload);
+    expect(preview).toMatchObject({ newCount: 0, updateCount: 1, unchangedCount: 0 });
+    expect(preview.rows[0]).toMatchObject({ action: 'تحديث', changes: [{ field: 'firstName', label: 'الاسم الأول', before: 'سارة', after: 'مريم' }] });
+    await service.confirm(upload, 'registrar-1');
+    expect(update).toHaveBeenCalledWith({ where: { universityId: '2026001' }, data: { firstName: 'مريم', fullName: 'مريم عمر علي' } });
+    const details = JSON.parse(audit.mock.calls[0][0].data.details);
+    expect(details).toMatchObject({ updated: 1, unchanged: 0, changes: [{ universityId: '2026001', changes: [{ field: 'firstName' }] }] });
   });
 
   it('does not import a file containing an invalid row', async () => {

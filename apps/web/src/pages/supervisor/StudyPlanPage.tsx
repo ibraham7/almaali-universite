@@ -41,7 +41,7 @@ import {
   getPlanCourses,
   getSemesters,
   getStudyPlans,
-  studyPlanLabel,
+  studyPlanProgramLabel,
   reorderPlanCourses,
   type AcademicLevel,
   type Course,
@@ -104,6 +104,9 @@ export default function StudyPlanPage() {
   const [planCourses, setPlanCourses] =
     useState<PlanCourse[]>([]);
 
+  const [programId, setProgramId] =
+    useState('');
+
   const [studyPlanId, setStudyPlanId] =
     useState('');
 
@@ -142,6 +145,22 @@ export default function StudyPlanPage() {
 
   const [selectedPrerequisiteIds, setSelectedPrerequisiteIds] =
     useState<string[]>([]);
+
+  // البرامج المتاحة (واحد لكل برنامج) وخطط البرنامج المختار.
+  const programOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const plan of studyPlans) {
+      if (!seen.has(plan.programId)) {
+        seen.set(plan.programId, studyPlanProgramLabel(plan) || plan.nameAr);
+      }
+    }
+    return [...seen.entries()].map(([id, label]) => ({ id, label }));
+  }, [studyPlans]);
+
+  const programPlans = useMemo(
+    () => studyPlans.filter((plan) => plan.programId === programId),
+    [studyPlans, programId],
+  );
 
   const selectedPlan = useMemo(
     () =>
@@ -212,6 +231,10 @@ export default function StudyPlanPage() {
           setStudyPlanId(
             (current) =>
               current || plansData[0].id,
+          );
+          setProgramId(
+            (current) =>
+              current || plansData[0].programId,
           );
         }
       } catch (err) {
@@ -695,12 +718,46 @@ export default function StudyPlanPage() {
               display: 'grid',
               gridTemplateColumns: {
                 xs: '1fr',
-                md: 'repeat(3, 1fr)',
+                md: 'repeat(4, 1fr)',
               },
               gap: 2,
             }}
           >
             <FormControl fullWidth>
+              <InputLabel>
+                البرنامج
+              </InputLabel>
+
+              <Select
+                value={programId}
+                label="البرنامج"
+                onChange={(event) => {
+                  const nextProgramId = event.target.value;
+                  setProgramId(nextProgramId);
+                  setStudyPlanId(
+                    studyPlans.find(
+                      (plan) => plan.programId === nextProgramId,
+                    )?.id ?? '',
+                  );
+                }}
+              >
+                {programOptions.map(
+                  (program) => (
+                    <MenuItem
+                      key={program.id}
+                      value={program.id}
+                    >
+                      {program.label}
+                    </MenuItem>
+                  ),
+                )}
+              </Select>
+            </FormControl>
+
+            <FormControl
+              fullWidth
+              disabled={!programId}
+            >
               <InputLabel>
                 الخطة الدراسية
               </InputLabel>
@@ -714,13 +771,13 @@ export default function StudyPlanPage() {
                   )
                 }
               >
-                {studyPlans.map(
+                {programPlans.map(
                   (plan) => (
                     <MenuItem
                       key={plan.id}
                       value={plan.id}
                     >
-                      {studyPlanLabel(plan)}
+                      {plan.nameAr}
                     </MenuItem>
                   ),
                 )}

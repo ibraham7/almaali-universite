@@ -23,6 +23,34 @@ export interface ImportOptions {
   defaults?: { collegeId?: string; departmentId?: string; programId?: string; studyPlanId?: string; academicYearId?: string; semesterId?: string };
 }
 interface ParsedRow { rowNumber: number; cells: string[] }
+export interface ImportChange { field: string; label: string; before: string; after: string }
+
+// عمود كل حقل بالسجل المحوَّل (نفس ترتيب الأعمدة بـ STUDENT_IMPORT_HEADERS) واسمه بالعربي للعرض
+const IMPORT_COLUMN: Record<string, number> = {
+  firstName: 1, middleName: 2, familyName: 3, englishName: 4, gender: 5,
+  dateOfBirth: 6, nationality: 7, idOrPassport: 8, universityEmail: 9,
+  phone: 10, collegeId: 11, departmentId: 12, programId: 13,
+  studyPlanId: 14, academicYearId: 15, semesterId: 16, status: 17,
+  advisorId: 18, admissionDate: 19, motherName: 20, nationalId: 21,
+  applicationNumber: 22, birthPlace: 23, meritNumber: 24,
+};
+const IMPORT_LABEL: Record<string, string> = {
+  firstName: 'الاسم الأول', middleName: 'اسم الأب', familyName: 'اسم العائلة', englishName: 'الاسم بالإنجليزية',
+  gender: 'الجنس', dateOfBirth: 'تاريخ الميلاد', nationality: 'الجنسية', idOrPassport: 'رقم الهوية أو جواز السفر',
+  universityEmail: 'البريد الجامعي', phone: 'رقم الهاتف', collegeId: 'الكلية', departmentId: 'القسم', programId: 'البرنامج',
+  studyPlanId: 'الخطة الدراسية', academicYearId: 'المستوى الأكاديمي', semesterId: 'الفصل الدراسي', status: 'حالة الطالب',
+  advisorId: 'المرشد', admissionDate: 'تاريخ القبول', motherName: 'اسم الأم', nationalId: 'الرقم الوطني',
+  applicationNumber: 'رقم الاكتتاب', birthPlace: 'مكان الولادة', meritNumber: 'رقم المفاضلة',
+};
+// أقصى عدد طلاب تُسجَّل تفاصيل تغييراتهم بسجل التدقيق (الباقي يُسجَّل عدده فقط)
+const AUDIT_CHANGE_LIMIT = 300;
+
+// قيمة قابلة للمقارنة: الفراغ = لا قيمة، والتاريخ = يوم فقط
+function comparable(value: unknown): unknown {
+  if (value === null || value === undefined || value === '') return null;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return typeof value === 'string' ? value.trim() : value;
+}
 
 @Injectable()
 export class StudentImportsService {
@@ -288,11 +316,23 @@ export class StudentImportsService {
     }
     const seenApplicationNumbers = new Set<string>();
     const existingByNationalId = new Map(existing.filter((item) => item.nationalId).map((item) => [normalizeDigits(item.nationalId!), item]));
+    const nameById = (list: Array<{ id: string; nameAr: string }>, id: unknown) => list.find((item) => item.id === id)?.nameAr;
+    // نص القيمة كما تظهر للمستخدم بالمعاينة (أسماء بدل المعرّفات)
+    const show = (key: string, value: unknown): string => {
+      const plain = comparable(value);
+      if (plain === null) return '—';
+      const lookups: Record<string, Array<{ id: string; nameAr: string }>> = {
+        collegeId: colleges, departmentId: departments, programId: programs, studyPlanId: plans, academicYearId: years, semesterId: semesters,
+      };
+      if (lookups[key]) return nameById(lookups[key], plain) ?? String(plain);
+      if (key === 'advisorId') return advisors.find((item) => item.id === plain)?.email ?? String(plain);
+      return String(plain);
+    };
     const errors: ImportError[] = [...fileErrors];
     let rowsWithErrors = 0;
     let duplicateCount = 0;
     const seenNationalIds = new Set<string>();
-    const valid: Array<{ rowNumber: number; isUpdate: boolean; providedColumns: boolean[]; data: {
+    const valid: Array<{ rowNumber: number; isUpdate: boolean; providedColumns: boolean[]; changes: ImportChange[]; data: {
       universityId: string; firstName: string; middleName: string | null; familyName: string;
       fullName: string; meritNumber: string | null; motherName: string; nationalId: string | null; applicationNumber: string; birthPlace: string | null;
       englishName: string | null; gender: string | null; dateOfBirth: Date | null;
@@ -453,8 +493,8 @@ export class StudentImportsService {
           errors.push({ rowNumber: row.rowNumber, universityId, column: label ? columnOf(label) : undefined, message: separator > 0 ? problem.slice(separator + 1).trim() : problem });
         }
       } else {
-        valid.push({ rowNumber: row.rowNumber, isUpdate: Boolean(existingStudent), providedColumns: row.cells.map(Boolean), college: collegeName, program: programName,
-          data: { universityId: normalizedUniversityId, firstName: normalizedFirstName, middleName: values.middleName, familyName: normalizedFamilyName || previous?.familyName || '',
+        const providedColumns = row.cells.map(Boolean);
+        const data = { universityId: normalizedUniversityId, firstName: normalizedFirstName, middleName: values.middleName, familyName: normalizedFamilyName || previous?.familyName || '',
             meritNumber: meritNumber?.trim() || existingStudent?.meritNumber || null,
             fullName: [normalizedFirstName, values.middleName, normalizedFamilyName || previous?.familyName].filter(Boolean).join(' '),
             motherName: values.motherName, nationalId: values.nationalId || null,
@@ -464,18 +504,33 @@ export class StudentImportsService {
             universityEmail: universityEmail || existingStudent?.universityEmail || null, phone: phone ? normalizeDigits(phone) : existingStudent?.phone || null,
             collegeId, departmentId, programId, studyPlanId, academicYearId,
             semesterId, status: status || existingStudent?.status || 'ACTIVE', advisorId: matchingAdvisors[0]?.id ?? existingStudent?.advisorId ?? null,
-            admissionDate },
-        });
+            admissionDate };
+        // مقارنة الطالب الموجود بالملف: فقط الأعمدة التي فيها قيمة بالملف، والفرق الفعلي بالقيمة
+        const changes: ImportChange[] = [];
+        if (existingStudent) {
+          for (const [field, column] of Object.entries(IMPORT_COLUMN)) {
+            if (!providedColumns[column]) continue;
+            const before = (existingStudent as Record<string, unknown>)[field];
+            const after = (data as Record<string, unknown>)[field];
+            if (comparable(before) !== comparable(after)) changes.push({ field, label: IMPORT_LABEL[field], before: show(field, before), after: show(field, after) });
+          }
+        }
+        valid.push({ rowNumber: row.rowNumber, isUpdate: Boolean(existingStudent), providedColumns, changes, college: collegeName, program: programName, data });
       }
     }
 
     const notes = [...ignored].map(([label, count]) => `تم تجاهل «${label}» في ${count} صف لأن الخطة الدراسية غير محددة. يُربط الطالب بالخطة والمستوى والفصل لاحقاً عند اعتماد التسجيل من صفحة الطلاب.`);
     const globalErrors = errors.filter((item) => item.rowNumber === 0).length;
+    const actionOf = (item: (typeof valid)[number]) => !item.isUpdate ? 'إضافة' : item.changes.length ? 'تحديث' : 'مطابق';
     return {
-      total: parsed.length, validCount: valid.length, updateCount: valid.filter((item) => item.isUpdate).length, errorCount: rowsWithErrors + globalErrors, notes, problemCount: errors.length, duplicateCount, errors,
+      total: parsed.length, validCount: valid.length,
+      newCount: valid.filter((item) => !item.isUpdate).length,
+      updateCount: valid.filter((item) => item.isUpdate && item.changes.length).length,
+      unchangedCount: valid.filter((item) => item.isUpdate && !item.changes.length).length,
+      errorCount: rowsWithErrors + globalErrors, notes, problemCount: errors.length, duplicateCount, errors,
       rows: valid.map((item) => ({ rowNumber: item.rowNumber, universityId: item.data.universityId,
         name: [item.data.firstName, item.data.middleName, item.data.familyName].filter(Boolean).join(' '),
-        college: item.college, program: item.program, action: item.isUpdate ? 'تحديث' : 'إضافة' })),
+        college: item.college, program: item.program, action: actionOf(item), changes: item.changes })),
       valid,
     };
   }
@@ -490,34 +545,34 @@ export class StudentImportsService {
     if (result.errors.length) throw new BadRequestException('يوجد أخطاء بالملف. صحّحها وأعد معاينة الملف قبل الاستيراد');
     let imported = 0;
     let updated = 0;
-    const fieldColumns: Record<string, number> = {
-      firstName: 1, middleName: 2, familyName: 3, englishName: 4, gender: 5,
-      dateOfBirth: 6, nationality: 7, idOrPassport: 8, universityEmail: 9,
-      phone: 10, collegeId: 11, departmentId: 12, programId: 13,
-      studyPlanId: 14, academicYearId: 15, semesterId: 16, status: 17,
-      advisorId: 18, admissionDate: 19, motherName: 20, nationalId: 21,
-      applicationNumber: 22, birthPlace: 23, meritNumber: 24,
-    };
+    let unchanged = 0;
+    const changeLog: Array<{ universityId: string; changes: ImportChange[] }> = [];
     try {
       await this.prisma.$transaction(async (tx) => {
         for (const row of result.valid) {
-          if (row.isUpdate) {
-            const nameProvided = row.providedColumns[1] || row.providedColumns[2] || row.providedColumns[3];
-            const updateData = Object.fromEntries(Object.entries(row.data).filter(([key]) => {
-              if (key === 'universityId') return false;
-              if (key === 'fullName') return nameProvided;
-              return row.providedColumns[fieldColumns[key] ?? -1];
-            }));
-            await tx.student.update({ where: { universityId: row.data.universityId }, data: updateData });
-            updated++;
-          } else {
+          if (!row.isUpdate) {
             await tx.student.create({ data: row.data });
             imported++;
+          } else if (!row.changes.length) {
+            // مطابق تماماً لما بالمنظومة: لا كتابة ولا تغيير بتاريخ التعديل
+            unchanged++;
+          } else {
+            // نحدّث الحقول التي تغيّرت فعلاً فقط
+            const updateData: Record<string, unknown> = {};
+            for (const change of row.changes) updateData[change.field] = (row.data as Record<string, unknown>)[change.field];
+            if (row.changes.some((change) => ['firstName', 'middleName', 'familyName'].includes(change.field))) updateData.fullName = row.data.fullName;
+            await tx.student.update({ where: { universityId: row.data.universityId }, data: updateData });
+            updated++;
+            changeLog.push({ universityId: row.data.universityId, changes: row.changes });
           }
         }
         await tx.auditLog.create({ data: {
           action: 'STUDENTS_IMPORTED', entity: 'Student', userId: actingUserId,
-          details: JSON.stringify({ imported, updated, count: result.total }),
+          details: JSON.stringify({
+            imported, updated, unchanged, count: result.total,
+            changes: changeLog.slice(0, AUDIT_CHANGE_LIMIT),
+            ...(changeLog.length > AUDIT_CHANGE_LIMIT ? { changesOmitted: changeLog.length - AUDIT_CHANGE_LIMIT } : {}),
+          }),
         } });
       });
     } catch (error) {
@@ -526,6 +581,6 @@ export class StudentImportsService {
       }
       throw error;
     }
-    return { total: result.total, imported, updated, errors: 0, duplicates: result.duplicateCount };
+    return { total: result.total, imported, updated, unchanged, errors: 0, duplicates: result.duplicateCount };
   }
 }
