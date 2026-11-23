@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Stack,
+  Alert, Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, MenuItem, Stack,
   Step, StepLabel, Stepper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import axios from 'axios';
@@ -86,6 +86,7 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
   onImported: (message: string) => void;
 }) {
   const [step, setStep] = useState(0);
+  const [ignoreBadNationalId, setIgnoreBadNationalId] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [info, setInfo] = useState<ImportInspection | null>(null);
   const [mapping, setMapping] = useState<Record<string, number | null>>({});
@@ -129,12 +130,12 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
     finally { setBusy(false); }
   }
 
-  async function runPreview() {
+  async function runPreview(ignoreNationalId = ignoreBadNationalId) {
     if (!file || !info) return;
     setBusy(true); setError('');
     try {
       saveMapping(info, mapping);
-      setPreview(await previewStudentImport(file, { sheet: info.sheet, headerRow: info.headerRow, mapping, defaults, universityIdSource: idSource }));
+      setPreview(await previewStudentImport(file, { sheet: info.sheet, headerRow: info.headerRow, mapping, defaults, universityIdSource: idSource, ignoreInvalidNationalId: ignoreNationalId }));
       setStep(2);
     } catch (cause) { setError(errorText(cause)); }
     finally { setBusy(false); }
@@ -144,7 +145,7 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
     if (!file || !info || !preview || preview.errorCount) return;
     setBusy(true); setError('');
     try {
-      const result = await confirmStudentImport(file, { sheet: info.sheet, headerRow: info.headerRow, mapping, defaults, universityIdSource: idSource });
+      const result = await confirmStudentImport(file, { sheet: info.sheet, headerRow: info.headerRow, mapping, defaults, universityIdSource: idSource, ignoreInvalidNationalId: ignoreBadNationalId });
       // بعد النجاح: نغلق النافذة ونرجع لصفحة الطلاب، والرسالة تظهر هناك.
       const message = `تمت العملية بنجاح: إضافة ${result.imported} وتحديث ${result.updated} طالب${result.unchanged ? `، وتخطّي ${result.unchanged} مطابق` : ''}.`;
       reset();
@@ -324,6 +325,12 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
             إجمالي الصفوف: {preview.total} | الصالحة: {preview.validCount} (إضافة {preview.newCount}، تحديث {preview.updateCount}، مطابق {preview.unchangedCount}) | الصفوف التي فيها أخطاء: {preview.errorCount} | عدد الأخطاء: {preview.problemCount} | المكررة داخل الملف: {preview.duplicateCount}
           </Alert>
           {preview.errorCount === 0 && preview.validCount > 0 && preview.newCount + preview.updateCount === 0 && <Alert severity="info">كل الطلاب مطابقون لما هو موجود بالمنظومة، فلا يوجد ما يُضاف أو يُحدَّث.</Alert>}
+          {preview.invalidNationalIdCount > 0 && <Alert severity="warning">
+            <FormControlLabel
+              control={<Checkbox checked={ignoreBadNationalId} disabled={busy}
+                onChange={(event) => { setIgnoreBadNationalId(event.target.checked); void runPreview(event.target.checked); }} />}
+              label={`في ${preview.invalidNationalIdCount} صف الرقم الوطني ليس 11 رقماً. استورد الطلاب وتجاهل الرقم الوطني غير الصالح (يُستكمل لاحقاً)`} />
+          </Alert>}
           {preview.notes?.map((note) => <Alert key={note} severity="info">{note}</Alert>)}
           {preview.errors.length > 0 && <>
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>

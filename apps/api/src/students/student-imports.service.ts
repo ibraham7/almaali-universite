@@ -21,6 +21,8 @@ export interface ImportOptions {
   // مصدر الرقم الجامعي: عمود بالملف (الأصل)، أو رقم الاكتتاب، أو توليد تلقائي ببادئة وتسلسل
   universityIdSource?: { mode: 'column' | 'applicationNumber' | 'generate' | 'byCollege'; prefix?: string; digits?: number; year?: number };
   defaults?: { collegeId?: string; departmentId?: string; programId?: string; studyPlanId?: string; academicYearId?: string; semesterId?: string };
+  // الرقم الوطني الذي ليس 11 رقماً لا يمنع استيراد الطالب: يُتجاهل ويُستكمل لاحقاً (باختيار المستخدم)
+  ignoreInvalidNationalId?: boolean;
 }
 interface ParsedRow { rowNumber: number; cells: string[] }
 export interface ImportChange { field: string; label: string; before: string; after: string }
@@ -331,6 +333,7 @@ export class StudentImportsService {
     const errors: ImportError[] = [...fileErrors];
     let rowsWithErrors = 0;
     let duplicateCount = 0;
+    let invalidNationalIdCount = 0;
     const seenNationalIds = new Set<string>();
     const valid: Array<{ rowNumber: number; isUpdate: boolean; providedColumns: boolean[]; changes: ImportChange[]; data: {
       universityId: string; firstName: string; middleName: string | null; familyName: string;
@@ -365,9 +368,21 @@ export class StudentImportsService {
     };
     for (const row of parsed) {
       const [universityId, firstName, middleName, familyName, englishName, gender, birth, nationality,
-        idOrPassport, universityEmail, phoneCell, collegeCell, departmentCell, programCell, planCell,
+        idOrPassport, universityEmail, phoneCell, collegeRaw, departmentRaw, programCell, planCell,
         yearCell, semesterCell, status, advisorEmail, admitted, motherName, nationalId,
         applicationNumber, birthPlace, meritNumber] = row.cells;
+      // خلية واحدة بصيغة «الكلية - القسم» (مثل عمود «الرغبة المقبولة»): نفصلها فنأخذ الكلية والقسم منها.
+      // تُطبَّق فقط حين يُربط عمود واحد من الاثنين، وبصيغة جزأين بينهما شرطة أو / أو |.
+      let collegeCell = collegeRaw;
+      let departmentCell = departmentRaw;
+      if (Boolean(collegeRaw) !== Boolean(departmentRaw)) {
+        const parts = (collegeRaw || departmentRaw).split(/\s+[-–—]\s+|\s*[/|]\s*/).map((part) => part.trim()).filter(Boolean);
+        if (parts.length === 2) {
+          [collegeCell, departmentCell] = parts;
+          row.cells[11] = collegeCell;
+          row.cells[12] = departmentCell;
+        }
+      }
       // رقم الهاتف المخزّن كرقم بـ Excel يفقد الصفر الأول (9 أرقام تبدأ بـ 9)
       const phone = /^9\d{8}$/.test(normalizeDigits(phoneCell)) ? `0${normalizeDigits(phoneCell)}` : phoneCell;
       const knownStudent = existingById.get(normalizeText(universityId));
@@ -408,6 +423,13 @@ export class StudentImportsService {
         }
         if (value.length > max) problems.push(`${label}: أطول من المسموح (${max} حرفاً)`);
       }
+      if (values.nationalId && !isSyrianNationalId(values.nationalId)) {
+        invalidNationalIdCount++;
+        if (options.ignoreInvalidNationalId) {
+          // نتجاهل القيمة غير الصالحة ونُبقي الرقم الموجود بالمنظومة (إن وُجد)
+          values.nationalId = previous?.nationalId && isSyrianNationalId(normalizeDigits(previous.nationalId)) ? normalizeDigits(previous.nationalId) : '';
+        }
+      }
       if (values.nationalId.length > 100) problems.push('الرقم الوطني: أطول من المسموح (100 حرف)');
       if (values.birthPlace.length > 100) problems.push('مكان الولادة: أطول من المسموح (100 حرف)');
       if (universityEmail.length > 200) problems.push('البريد الجامعي: أطول من المسموح (200 حرف)');
@@ -418,7 +440,7 @@ export class StudentImportsService {
       }
       if (englishName && !isPersonName(englishName)) problems.push('الاسم بالإنجليزية: يحتوي على محارف غير مسموحة');
       if (values.nationalId && !isDigitsOnly(values.nationalId)) problems.push('الرقم الوطني: أرقام فقط');
-      else if (values.nationalId && !isSyrianNationalId(values.nationalId)) problems.push('الرقم الوطني: أدخل 11 رقمًا');
+      else if (values.nationalId && !isSyrianNationalId(values.nationalId)) problems.push(`الرقم الوطني: أدخل 11 رقمًا (الموجود بالملف ${values.nationalId.length} ${values.nationalId.length >= 3 && values.nationalId.length <= 10 ? 'خانات' : 'خانة'})`);
       if (values.applicationNumber && !isDigitsOnly(values.applicationNumber)) problems.push('رقم الاكتتاب: أرقام فقط');
       if (phone && !isSyrianMobile(phone)) problems.push('رقم الهاتف: أدخل رقمًا سوريًا محليًا من 10 أرقام يبدأ بـ 09');
       if (gender && !normalizedGender) problems.push('الجنس: استخدم ذكر أو أنثى');
@@ -520,6 +542,9 @@ export class StudentImportsService {
     }
 
     const notes = [...ignored].map(([label, count]) => `تم تجاهل «${label}» في ${count} صف لأن الخطة الدراسية غير محددة. يُربط الطالب بالخطة والمستوى والفصل لاحقاً عند اعتماد التسجيل من صفحة الطلاب.`);
+    if (options.ignoreInvalidNationalId && invalidNationalIdCount) {
+      notes.push(`تم تجاهل الرقم الوطني في ${invalidNationalIdCount} صف لأنه ليس 11 رقماً، ويُستكمل لاحقاً. باقي بيانات الطلاب تُستورد كما هي.`);
+    }
     const globalErrors = errors.filter((item) => item.rowNumber === 0).length;
     const actionOf = (item: (typeof valid)[number]) => !item.isUpdate ? 'إضافة' : item.changes.length ? 'تحديث' : 'مطابق';
     return {
@@ -527,6 +552,7 @@ export class StudentImportsService {
       newCount: valid.filter((item) => !item.isUpdate).length,
       updateCount: valid.filter((item) => item.isUpdate && item.changes.length).length,
       unchangedCount: valid.filter((item) => item.isUpdate && !item.changes.length).length,
+      invalidNationalIdCount,
       errorCount: rowsWithErrors + globalErrors, notes, problemCount: errors.length, duplicateCount, errors,
       rows: valid.map((item) => ({ rowNumber: item.rowNumber, universityId: item.data.universityId,
         name: [item.data.firstName, item.data.middleName, item.data.familyName].filter(Boolean).join(' '),
