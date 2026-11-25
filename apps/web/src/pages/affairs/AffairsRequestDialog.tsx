@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import {
-  assignAffairsRequest, changeAffairsStatus, commentAffairsRequest, getAffairsRequest, getAffairsStaff,
+  archiveAttachment, assignAffairsRequest, changeAffairsStatus, commentAffairsRequest, downloadStaffAttachment, getAffairsRequest, getAffairsStaff, uploadStaffAttachment,
   type AffairsStaffItem, type RequestDetails, type RequestStatus,
 } from '../../api/affairs';
-import { REASON_REQUIRED, STATUS_LABEL, errorText, formatDate } from './affairsUi';
+import { CHANNEL_LABEL, REASON_REQUIRED, STATUS_LABEL, errorText, formatDate } from './affairsUi';
+import AttachmentsPanel from './AttachmentsPanel';
+import ReferralPanel from './ReferralPanel';
 import { StatusChip, Timeline } from './AffairsBits';
 
 // Mounted only while a request is open, so every opening starts clean.
-export default function AffairsRequestDialog({ requestId, role, onClose, onChanged }: {
-  requestId: string; role: string; onClose: () => void; onChanged: () => void;
+export default function AffairsRequestDialog({ requestId, role, onClose, onChanged, onOpenStudent }: {
+  requestId: string; role: string; onClose: () => void; onChanged: () => void; onOpenStudent?: (studentId: string) => void;
 }) {
   const [data, setData] = useState<RequestDetails | null>(null);
   const [staff, setStaff] = useState<AffairsStaffItem[]>([]);
@@ -51,8 +53,10 @@ export default function AffairsRequestDialog({ requestId, role, onClose, onChang
         {data && (
           <Stack spacing={2}>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1 }}>
-              <Typography variant="body2"><b>الطالب:</b> {data.student.name} ({data.student.universityId})</Typography>
+              <Typography variant="body2"><b>الطالب:</b> {data.student.name} ({data.student.universityId}){onOpenStudent && <Button size="small" onClick={() => onOpenStudent(data.student.id)}>ملف الطالب</Button>}</Typography>
               <Typography variant="body2"><b>الخدمة:</b> {data.service.nameAr}</Typography>
+              <Typography variant="body2"><b>مصدر الطلب:</b> {CHANNEL_LABEL[data.channel]}</Typography>
+              <Typography variant="body2"><b>آخر تحديث:</b> {formatDate(data.updatedAt, true)}</Typography>
               <Typography variant="body2"><b>الموظف المسند:</b> {data.assignedStaff?.name ?? 'غير مسند'}</Typography>
               <Typography variant="body2"><b>الموعد المتوقع:</b> {formatDate(data.dueAt)}</Typography>
               <Typography variant="body2"><b>هاتف الطالب:</b> {data.student.phone ?? '—'}</Typography>
@@ -65,10 +69,28 @@ export default function AffairsRequestDialog({ requestId, role, onClose, onChang
               </Box>
             )}
             {data.decisionReason && <Alert severity="info">السبب: {data.decisionReason}</Alert>}
+            {(data.service.attachmentsNote || data.service.feeNote || data.service.workflowNote) && (
+              <Alert severity="info" icon={false} sx={{ '& .MuiAlert-message': { fontSize: 13 } }}>
+                {data.service.attachmentsNote && <div><b>المرفقات المطلوبة:</b> {data.service.attachmentsNote}</div>}
+                {data.service.feeNote && <div><b>الرسوم:</b> {data.service.feeNote}</div>}
+                {data.service.workflowNote && <div><b>مسار المعالجة:</b> {data.service.workflowNote}</div>}
+              </Alert>
+            )}
 
             <Divider />
             <Typography sx={{ fontWeight: 700 }}>سجل الطلب</Typography>
             <Timeline events={data.events} showActor />
+
+            <Divider />
+            <AttachmentsPanel
+              attachments={data.attachments}
+              canUpload={data.canAct && !['COMPLETED', 'REJECTED', 'CANCELLED'].includes(data.status)}
+              onUpload={async (file) => { await uploadStaffAttachment(data.id, file); await load(); onChanged(); }}
+              onDownload={(a) => downloadStaffAttachment(data.id, a.id)}
+              onArchive={data.canAct ? async (a, reason) => { await archiveAttachment(data.id, a.id, reason); await load(); onChanged(); } : undefined}
+            />
+            <Divider />
+            <ReferralPanel data={data} onChanged={() => { void load(); onChanged(); }} />
 
             {(data.canTake || (role === 'SYSTEM_ADMIN' && data.status !== 'COMPLETED' && data.status !== 'REJECTED' && data.status !== 'CANCELLED')) && <Divider />}
 

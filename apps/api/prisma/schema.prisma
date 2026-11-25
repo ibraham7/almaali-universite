@@ -326,6 +326,7 @@ model Student {
   results     CourseResult[]
   numberHistory StudentNumberHistory[]
   affairsRequests StudentRequest[]
+  dataChanges     StudentDataChange[]
 }
 
 model SupportTicket {
@@ -710,6 +711,51 @@ enum StudentRequestStatus {
   COMPLETED
   REJECTED
   CANCELLED
+  ACCEPTED
+}
+
+enum RequestChannel {
+  ONLINE
+  IN_PERSON
+}
+
+enum ServiceChannel {
+  ONLINE
+  IN_PERSON
+  BOTH
+}
+
+enum ServiceOutcome {
+  NONE
+  DOCUMENT
+  ACTION
+  BOTH
+}
+
+enum ReferralTarget {
+  ACADEMIC_AFFAIRS
+  FINANCIAL_AFFAIRS
+  COLLEGE
+  OTHER
+}
+
+enum ReferralMode {
+  OPINION
+  EXECUTION
+}
+
+enum ReferralStatus {
+  PENDING
+  ANSWERED
+  CANCELLED
+}
+
+enum ReferralOutcome {
+  APPROVED
+  REJECTED
+  NOTES
+  DONE
+  NOT_DONE
 }
 
 model AffairsService {
@@ -720,6 +766,12 @@ model AffairsService {
   isActive       Boolean @default(true)
   expectedDays   Int     @default(5)
   specialization String?
+  // Service setup (phase 2): how it is submitted, what is required, fee, result and workflow (plain text, shown to staff and students).
+  channel        ServiceChannel @default(BOTH)
+  outcome        ServiceOutcome @default(NONE)
+  attachmentsNote String?
+  feeNote        String?
+  workflowNote   String?
 
   staff    AffairsStaffService[]
   requests StudentRequest[]
@@ -773,11 +825,14 @@ model StudentRequest {
   dueAt           DateTime?
   closedAt        DateTime?
   decisionReason  String?
+  channel         RequestChannel       @default(ONLINE)
 
   student       Student               @relation(fields: [studentId], references: [id])
   service       AffairsService        @relation(fields: [serviceId], references: [id])
   assignedStaff AffairsStaff?         @relation(fields: [assignedStaffId], references: [id])
   events        StudentRequestEvent[]
+  attachments   StudentRequestAttachment[]
+  referrals     RequestReferral[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -803,4 +858,66 @@ model StudentRequestEvent {
   request StudentRequest @relation(fields: [requestId], references: [id])
 
   @@index([requestId, createdAt])
+}
+
+// Files attached to a request. The bytes live in the database (backed up with it) and are only
+// served through authenticated endpoints; rows are archived, never deleted.
+model StudentRequestAttachment {
+  id               String   @id @default(uuid())
+  requestId        String
+  fileName         String
+  mimeType         String
+  sizeBytes        Int
+  data             Bytes
+  visibleToStudent Boolean  @default(false)
+  uploadedByUserId String?
+  isArchived       Boolean  @default(false)
+  archivedReason   String?
+  createdAt        DateTime @default(now())
+
+  request StudentRequest @relation(fields: [requestId], references: [id])
+
+  @@index([requestId])
+}
+
+// A request sent to another body (scientific / financial affairs, college, other) for an opinion or for execution.
+model RequestReferral {
+  id               String          @id @default(uuid())
+  requestId        String
+  mode             ReferralMode
+  target           ReferralTarget
+  targetName       String?
+  reason           String
+  requested        String?
+  dueAt            DateTime?
+  status           ReferralStatus  @default(PENDING)
+  referredByUserId String?
+  outcome          ReferralOutcome?
+  responseNote     String?
+  respondedByUserId String?
+  respondedAt      DateTime?
+  cancelReason     String?
+
+  request StudentRequest @relation(fields: [requestId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([requestId])
+  @@index([status])
+}
+
+// Who changed which student field, when, from what to what.
+model StudentDataChange {
+  id              String   @id @default(uuid())
+  studentId       String
+  field           String
+  oldValue        String?
+  newValue        String?
+  changedByUserId String?
+  createdAt       DateTime @default(now())
+
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@index([studentId, createdAt])
 }

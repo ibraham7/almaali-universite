@@ -3,7 +3,8 @@ import { Alert, Box, Button, Chip, MenuItem, Pagination, Paper, Stack, Table, Ta
 import { getAffairsRequests, getAffairsServices, type AffairsServiceItem, type RequestRow } from '../../api/affairs';
 import AffairsRequestDialog from './AffairsRequestDialog';
 import AffairsNewRequestDialog from './AffairsNewRequestDialog';
-import { errorText, formatDate } from './affairsUi';
+import StudentFileDialog from './StudentFileDialog';
+import { CHANNEL_LABEL, errorText, formatDate } from './affairsUi';
 import { StatusChip } from './AffairsBits';
 
 const VIEWS = [
@@ -20,6 +21,8 @@ export default function AffairsRequestsTab({ role }: { role: string }) {
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
   const [serviceId, setServiceId] = useState('');
+  const [channel, setChannel] = useState('');
+  const [fileId, setFileId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<RequestRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -33,9 +36,9 @@ export default function AffairsRequestsTab({ role }: { role: string }) {
   useEffect(() => { getAffairsServices().then(setServices).catch(() => undefined); }, []);
   useEffect(() => { const timer = setTimeout(() => { setQuery(search.trim()); setPage(1); }, 350); return () => clearTimeout(timer); }, [search]);
 
-  const load = useCallback(() => getAffairsRequests({ view, search: query || undefined, serviceId: serviceId || undefined, page })
+  const load = useCallback(() => getAffairsRequests({ view, search: query || undefined, serviceId: serviceId || undefined, channel: channel || undefined, page })
     .then((result) => { setRows(result.items); setTotal(result.total); setPageSize(result.pageSize); setError(''); })
-    .catch((cause) => setError(errorText(cause, 'تعذر تحميل الطلبات.'))), [view, query, serviceId, page]);
+    .catch((cause) => setError(errorText(cause, 'تعذر تحميل الطلبات.'))), [view, query, serviceId, channel, page]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -58,6 +61,11 @@ export default function AffairsRequestsTab({ role }: { role: string }) {
           <MenuItem value="">كل الخدمات</MenuItem>
           {services.map((s) => <MenuItem key={s.id} value={s.id}>{s.nameAr}</MenuItem>)}
         </TextField>
+        <TextField select size="small" label="المصدر" value={channel} onChange={(e) => { setChannel(e.target.value); setPage(1); }} sx={{ minWidth: 140 }}>
+          <MenuItem value="">الكل</MenuItem>
+          <MenuItem value="ONLINE">{CHANNEL_LABEL.ONLINE}</MenuItem>
+          <MenuItem value="IN_PERSON">{CHANNEL_LABEL.IN_PERSON}</MenuItem>
+        </TextField>
       </Stack>
 
       {message && <Alert severity="success" onClose={() => setMessage('')}>{message}</Alert>}
@@ -67,8 +75,8 @@ export default function AffairsRequestsTab({ role }: { role: string }) {
         <Table size="small" aria-label="الطلبات">
           <TableHead>
             <TableRow>
-              <TableCell>الرقم</TableCell><TableCell>الطالب</TableCell><TableCell>الخدمة</TableCell><TableCell>الحالة</TableCell>
-              <TableCell>الموظف</TableCell><TableCell>التاريخ</TableCell><TableCell>الموعد</TableCell>
+              <TableCell>الرقم</TableCell><TableCell>الطالب</TableCell><TableCell>الخدمة</TableCell><TableCell>المصدر</TableCell><TableCell>الحالة</TableCell>
+              <TableCell>الموظف</TableCell><TableCell>التاريخ</TableCell><TableCell>آخر تحديث</TableCell><TableCell>الموعد</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -79,20 +87,23 @@ export default function AffairsRequestsTab({ role }: { role: string }) {
                   <TableCell sx={{ fontWeight: 700 }}>{row.number}</TableCell>
                   <TableCell>{row.student.name}<Box component="span" sx={{ color: 'text.secondary', display: 'block', fontSize: 12 }}>{row.student.universityId}</Box></TableCell>
                   <TableCell>{row.service.nameAr}</TableCell>
+                  <TableCell>{CHANNEL_LABEL[row.channel]}</TableCell>
                   <TableCell><StatusChip status={row.status} /></TableCell>
                   <TableCell>{row.assignedStaff?.name ?? '—'}</TableCell>
                   <TableCell>{formatDate(row.createdAt)}</TableCell>
+                  <TableCell>{formatDate(row.updatedAt)}</TableCell>
                   <TableCell sx={late ? { color: 'error.main', fontWeight: 700 } : undefined}>{formatDate(row.dueAt)}{late ? ' (متأخر)' : ''}</TableCell>
                 </TableRow>
               );
             })}
-            {rows.length === 0 && <TableRow><TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>لا توجد طلبات.</TableCell></TableRow>}
+            {rows.length === 0 && <TableRow><TableCell colSpan={9} align="center" sx={{ py: 4, color: 'text.secondary' }}>لا توجد طلبات.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </TableContainer>
       {total > pageSize && <Pagination count={Math.ceil(total / pageSize)} page={page} onChange={(_, value) => setPage(value)} sx={{ alignSelf: 'center' }} />}
 
-      {openId && <AffairsRequestDialog requestId={openId} role={role} onClose={() => setOpenId(null)} onChanged={() => void load()} />}
+      {openId && <AffairsRequestDialog requestId={openId} role={role} onClose={() => setOpenId(null)} onChanged={() => void load()} onOpenStudent={setFileId} />}
+      {fileId && <StudentFileDialog studentId={fileId} onClose={() => setFileId(null)} />}
       {creating && <AffairsNewRequestDialog onClose={() => setCreating(false)} onCreated={(number) => { setCreating(false); setMessage(`تم تقديم الطلب ${number}.`); void load(); }} />}
     </Stack>
   );
