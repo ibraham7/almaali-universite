@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import type { AffairsUser } from './affairs.service.js';
 import { AffairsSettingsService } from './affairs-settings.service.js';
 import { audit, loadRequestForAction } from './affairs-access.js';
+import { notifyUsers } from './affairs-notifications.js';
 import { CODE_PATTERN, ISSUABLE_REQUEST_STATUSES, documentNumber, generateVerificationCode, maskName, renderTemplate } from './affairs-documents.rules.js';
 import { CreateDocumentTypeDto, ListDocumentsQueryDto, UpdateDocumentTypeDto } from './dto/affairs.dto.js';
 
@@ -99,6 +100,7 @@ export class AffairsDocumentsService {
       });
       await tx.studentRequestEvent.create({ data: { requestId, type: 'DOCUMENT_ISSUED', note: `صدرت الوثيقة ${number} (${type.nameAr})`, visibleToStudent: true, actorUserId: user.id, staffId: request.assignedStaffId } });
       await audit(tx, 'AFFAIRS_DOCUMENT_ISSUED', requestId, user.id, { number: request.number, documentId: doc.id, documentNumber: number, type: type.code });
+      await notifyUsers(tx, [s.userId], { kind: 'DOCUMENT_ISSUED', title: 'صدرت وثيقتك', body: `${type.nameAr} رقم ${number} (الطلب ${request.number})`, requestId });
 
       // A document-only service is finished once its document is issued.
       if (request.status === 'ACCEPTED' && request.service.outcome === 'DOCUMENT') {
@@ -170,7 +172,7 @@ export class AffairsDocumentsService {
     if (!why) throw new BadRequestException('سبب الإلغاء مطلوب.');
     await this.settings.assertCapability(user, 'capRevokeOwnDocuments');
     return this.prisma.$transaction(async (tx) => {
-      const doc = await tx.issuedDocument.findUnique({ where: { id } });
+      const doc = await tx.issuedDocument.findUnique({ where: { id }, include: { student: { select: { userId: true } } } });
       if (!doc) throw new NotFoundException('الوثيقة غير موجودة.');
       if (user.role !== 'SYSTEM_ADMIN' && doc.issuedByUserId !== user.id) throw new ForbiddenException('لا تملك صلاحية إلغاء هذه الوثيقة.');
       if (doc.status === 'REVOKED') throw new BadRequestException('الوثيقة ملغاة مسبقاً.');
@@ -180,6 +182,7 @@ export class AffairsDocumentsService {
         await tx.studentRequestEvent.create({ data: { requestId: doc.requestId, type: 'DOCUMENT_REVOKED', note: `سبب إلغاء ${doc.number}: ${why}`, visibleToStudent: false, actorUserId: user.id } });
       }
       await audit(tx, 'AFFAIRS_DOCUMENT_REVOKED', doc.requestId ?? doc.id, user.id, { documentId: id, documentNumber: doc.number, reason: why });
+      await notifyUsers(tx, [doc.student?.userId], { kind: 'DOCUMENT_REVOKED', title: 'أُلغيت وثيقة', body: `الوثيقة رقم ${doc.number}`, requestId: doc.requestId });
       return { ok: true };
     });
   }

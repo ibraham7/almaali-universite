@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import {
   createMyAffairsRequest, downloadMyAttachment, getMyAffairsConfig, getMyAffairsRequest, getMyAffairsRequests, getMyAffairsServices, uploadMyAttachment,
@@ -23,11 +24,18 @@ export default function StudentRequestsPage() {
   const [busy, setBusy] = useState(false);
   const [dialogError, setDialogError] = useState('');
   const [detail, setDetail] = useState<StudentMyRequestDetails | null>(null);
+  const [urlParams, setUrlParams] = useSearchParams();
+  const wanted = urlParams.get('open');
 
   const load = useCallback(() => getMyAffairsRequests()
     .then((list) => { setRows(list); setError(''); })
     .catch((cause) => setError(errorText(cause, 'تعذر تحميل طلباتك.'))), []);
   useEffect(() => { void load(); getMyAffairsServices().then(setServices).catch(() => undefined); getMyAffairsConfig().then(setConfig).catch(() => undefined); }, [load]);
+  useEffect(() => {
+    if (!wanted) return;
+    getMyAffairsRequest(wanted).then(setDetail).catch(() => undefined);
+    setUrlParams({}, { replace: true });
+  }, [wanted, setUrlParams]);
 
   async function submit() {
     setBusy(true); setDialogError('');

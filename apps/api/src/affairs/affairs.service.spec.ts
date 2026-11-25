@@ -51,6 +51,8 @@ function setup(overrides: { request?: Record<string, unknown>; candidates?: { id
     affairsRequestCounter: { upsert: vi.fn().mockResolvedValue({ last: 1 }) },
     student: { findUnique: vi.fn().mockResolvedValue({ id: 'stu1' }) },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
+    affairsNotification: { createMany: vi.fn().mockResolvedValue({}) },
+    user: { findMany: vi.fn().mockResolvedValue([]) },
   };
   prisma.$transaction = vi.fn(async (work: (tx: unknown) => Promise<unknown>) => work(prisma));
   return { prisma, service: new AffairsService(prisma as unknown as PrismaService, fakeSettings()) };

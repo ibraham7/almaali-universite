@@ -31,6 +31,8 @@ function mockPrisma(request: Record<string, unknown> = {}) {
     affairsStaff: { findMany: vi.fn().mockResolvedValue([]) },
     affairsRequestCounter: { upsert: vi.fn().mockResolvedValue({ last: 1 }) },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
+    affairsNotification: { createMany: vi.fn().mockResolvedValue({}) },
+    user: { findMany: vi.fn().mockResolvedValue([]) },
   };
   prisma.studentRequest.groupBy = vi.fn().mockResolvedValue([]);
   prisma.$transaction = vi.fn(async (work: (tx: unknown) => Promise<unknown>) => work(prisma));

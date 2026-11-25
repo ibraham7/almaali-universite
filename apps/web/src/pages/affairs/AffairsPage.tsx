@@ -41,7 +41,7 @@ export default function AffairsPage() {
         </Tabs>
       </Paper>
       <Box>
-        {current.id === 'home' && <AffairsHomeTab role={role} />}
+        {current.id === 'home' && <AffairsHomeTab />}
         {current.id === 'files' && <AffairsFilesTab />}
         {current.id === 'requests' && <AffairsRequestsTab role={role} />}
         {current.id === 'documents' && <AffairsDocumentsTab role={role} />}

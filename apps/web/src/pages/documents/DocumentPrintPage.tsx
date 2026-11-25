@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { Alert, Box, Button, GlobalStyles, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
@@ -13,6 +13,8 @@ export default function DocumentPrintPage() {
   const [doc, setDoc] = useState<DocumentView | null>(null);
   const [error, setError] = useState('');
   const [qr, setQr] = useState('');
+  const paperRef = useRef<HTMLDivElement>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -25,6 +27,41 @@ export default function DocumentPrintPage() {
     QRCode.toDataURL(verifyUrl, { margin: 1, width: 220, errorCorrectionLevel: 'M' }).then(setQr).catch(() => setQr(''));
   }, [verifyUrl]);
 
+  // Download as a PDF file: the page is drawn at A4 width, then cut into A4 pages. Heavy libraries load only on click.
+  async function downloadPdf() {
+    const element = paperRef.current;
+    if (!element || !doc) return;
+    setSaving(true); setError('');
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
+      const canvas = await html2canvas(element, {
+        scale: 3, backgroundColor: '#ffffff', useCORS: true, windowWidth: 1000,
+        onclone: (cloned) => { const paper = cloned.querySelector('.paper') as HTMLElement | null; if (paper) { paper.style.width = '794px'; paper.style.maxWidth = 'none'; paper.style.boxShadow = 'none'; } },
+      });
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const margin = 8;
+      const pageWidth = 210 - margin * 2;
+      const pageHeight = 297 - margin * 2;
+      const mmPerPx = pageWidth / canvas.width;
+      const slicePx = Math.floor(pageHeight / mmPerPx);
+      for (let offset = 0, page = 0; offset < canvas.height; offset += slicePx, page += 1) {
+        const height = Math.min(slicePx, canvas.height - offset);
+        const slice = document.createElement('canvas');
+        slice.width = canvas.width; slice.height = height;
+        const context = slice.getContext('2d');
+        if (!context) throw new Error('canvas');
+        context.fillStyle = '#ffffff'; context.fillRect(0, 0, slice.width, slice.height);
+        context.drawImage(canvas, 0, offset, canvas.width, height, 0, 0, canvas.width, height);
+        if (page > 0) pdf.addPage();
+        pdf.addImage(slice.toDataURL('image/jpeg', 0.95), 'JPEG', margin, margin, pageWidth, height * mmPerPx);
+      }
+      pdf.setProperties({ title: `${doc.payload.type.titleAr} ${doc.number}`, subject: 'جامعة المعالي' });
+      pdf.save(`${doc.number}.pdf`);
+    } catch {
+      setError('تعذر إنشاء ملف PDF. استخدم زر الطباعة ثم احفظ كـ PDF.');
+    } finally { setSaving(false); }
+  }
+
   const groups = new Map<string, NonNullable<DocumentView['payload']['results']>>();
   for (const row of doc?.payload.results ?? []) groups.set(row.semester, [...(groups.get(row.semester) ?? []), row]);
 
@@ -33,13 +70,14 @@ export default function DocumentPrintPage() {
       <GlobalStyles styles={{ '@page': { size: 'A4', margin: '12mm' }, '@media print': { body: { background: '#fff !important' }, '.no-print': { display: 'none !important' }, '.paper': { boxShadow: 'none !important', margin: '0 !important', width: '100% !important', minHeight: 'auto !important' } } }} />
       <Stack className="no-print" direction="row" spacing={1} sx={{ maxWidth: 794, mx: 'auto', mb: 2, alignItems: 'center' }}>
         <Button variant="outlined" sx={{ bgcolor: '#fff' }} onClick={() => navigate(-1)}>رجوع</Button>
-        <Button variant="contained" disabled={!doc} onClick={() => window.print()}>طباعة / حفظ PDF</Button>
+        <Button variant="contained" disabled={!doc || saving} onClick={() => void downloadPdf()}>{saving ? 'جارٍ إنشاء الملف...' : 'تنزيل PDF'}</Button>
+        <Button variant="outlined" sx={{ bgcolor: '#fff' }} disabled={!doc} onClick={() => window.print()}>طباعة</Button>
         {doc?.status === 'REVOKED' && <Typography sx={{ color: '#c0392b', fontWeight: 700 }}>هذه الوثيقة ملغاة</Typography>}
       </Stack>
       {error && <Alert severity="error" sx={{ maxWidth: 794, mx: 'auto' }}>{error}</Alert>}
       {!doc && !error && <Typography sx={{ textAlign: 'center' }}>جارٍ التحميل...</Typography>}
       {doc && (
-        <Box className="paper" sx={{ position: 'relative', bgcolor: '#fff', width: 794, maxWidth: '100%', minHeight: 1050, mx: 'auto', boxShadow: '0 2px 14px rgba(0,0,0,.18)', p: { xs: 2, sm: 5 }, border: '8px double #d5aa55', overflow: 'hidden' }}>
+        <Box ref={paperRef} className="paper" sx={{ position: 'relative', bgcolor: '#fff', width: 794, maxWidth: '100%', minHeight: 1050, mx: 'auto', boxShadow: '0 2px 14px rgba(0,0,0,.18)', p: { xs: 2, sm: 5 }, border: '8px double #d5aa55', overflow: 'hidden' }}>
           {doc.status === 'REVOKED' && (
             <Box aria-hidden sx={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
               <Typography sx={{ transform: 'rotate(-30deg)', fontSize: 120, fontWeight: 800, color: 'rgba(192,57,43,.18)', border: '8px solid rgba(192,57,43,.18)', px: 4 }}>ملغاة</Typography>

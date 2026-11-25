@@ -789,6 +789,8 @@ model AffairsStaff {
   userId         String  @unique
   specialization String?
   isActive       Boolean @default(true)
+  // Unit manager (phase 5): a staff member with the REGISTRAR role who also assigns and follows up the unit's work. Not a new role.
+  isManager      Boolean @default(false)
 
   user     User                  @relation(fields: [userId], references: [id])
   services AffairsStaffService[]
@@ -993,4 +995,19 @@ model AffairsSetting {
   value           Json
   updatedByUserId String?
   updatedAt       DateTime @updatedAt
+}
+
+// ===== Student Affairs (phase 5): in-system notifications. Marked read, never deleted. =====
+model AffairsNotification {
+  id        String    @id @default(uuid())
+  userId    String
+  kind      String
+  title     String
+  body      String?
+  requestId String?
+  isRead    Boolean   @default(false)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, isRead, createdAt])
 }

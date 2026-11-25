@@ -8,8 +8,9 @@ import { AffairsFilesService } from './affairs-files.service.js';
 import { AffairsDocumentsService } from './affairs-documents.service.js';
 import { AffairsSettingsService } from './affairs-settings.service.js';
 import { AffairsReportsService } from './affairs-reports.service.js';
+import { AffairsNotificationsService } from './affairs-notifications.service.js';
 import {
-  ReportFiltersDto, RunReportDto, SummaryQueryDto, UpdateSettingsDto, CreateDocumentTypeDto, ListDocumentsQueryDto, RevokeDocumentDto, UpdateDocumentTypeDto,
+  ListNotificationsQueryDto, ReportFiltersDto, RunReportDto, SummaryQueryDto, UpdateSettingsDto, CreateDocumentTypeDto, ListDocumentsQueryDto, RevokeDocumentDto, UpdateDocumentTypeDto,
   ArchiveAttachmentDto, CancelReferralDto, CreateReferralDto, ListReferralsQueryDto, ListStudentsQueryDto, RespondReferralDto,
   AssignRequestDto, ChangeStatusDto, CommentDto, CreateServiceDto, CreateStaffDto, ListRequestsQueryDto,
   ProxyCreateRequestDto, StudentCreateRequestDto, StudentSearchQueryDto, UpdateServiceDto, UpdateStaffDto,
@@ -33,6 +34,7 @@ export class AffairsController {
     private readonly documents: AffairsDocumentsService,
     private readonly settings: AffairsSettingsService,
     private readonly reports: AffairsReportsService,
+    private readonly notifications: AffairsNotificationsService,
   ) {}
 
   private send(res: Response, att: { fileName: string; mimeType: string; data: Uint8Array }) {
@@ -69,7 +71,7 @@ export class AffairsController {
   @Get('staff/candidates') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
   staffCandidates() { return this.affairs.staffCandidates(); }
 
-  @Post('staff') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Post('staff') @Roles('SYSTEM_ADMIN')
   createStaff(@Body() body: CreateStaffDto, @Req() req: AuthenticatedRequest) { return this.affairs.createStaff(body, req.user); }
 
   @Patch('staff/:id') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
@@ -113,6 +115,22 @@ export class AffairsController {
 
   @Get('requests/:id/attachments/:attId/download') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
   async downloadAttachment(@Param('id') id: string, @Param('attId') attId: string, @Res() res: Response) { this.send(res, await this.attachments.downloadForStaff(id, attId)); }
+
+  @Get('me') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  me(@Req() req: AuthenticatedRequest) { return this.affairs.me(req.user); }
+
+  // ----- notifications (everyone reads only their own) -----
+  @Get('notifications') @Roles('STUDENT', 'REGISTRAR', 'SYSTEM_ADMIN')
+  listNotifications(@Query() query: ListNotificationsQueryDto, @Req() req: AuthenticatedRequest) { return this.notifications.list(req.user, query.unread === 'true', query.page ?? 1); }
+
+  @Get('notifications/unread-count') @Roles('STUDENT', 'REGISTRAR', 'SYSTEM_ADMIN')
+  unreadCount(@Req() req: AuthenticatedRequest) { return this.notifications.unreadCount(req.user); }
+
+  @Post('notifications/read-all') @Roles('STUDENT', 'REGISTRAR', 'SYSTEM_ADMIN')
+  readAll(@Req() req: AuthenticatedRequest) { return this.notifications.markAllRead(req.user); }
+
+  @Post('notifications/:id/read') @Roles('STUDENT', 'REGISTRAR', 'SYSTEM_ADMIN')
+  readOne(@Param('id') id: string, @Req() req: AuthenticatedRequest) { return this.notifications.markRead(id, req.user); }
 
   // ----- reports -----
   @Get('reports/catalog') @Roles('REGISTRAR', 'SYSTEM_ADMIN')

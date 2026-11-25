@@ -16,7 +16,7 @@ export interface AffairsServiceItem {
   documentTypeId: string | null;
 }
 export interface AffairsStaffItem {
-  id: string; userId: string; name: string; email: string; specialization: string | null; isActive: boolean; serviceIds: string[]; open: number; done: number;
+  id: string; userId: string; name: string; email: string; specialization: string | null; isActive: boolean; isManager: boolean; serviceIds: string[]; open: number; done: number;
 }
 export interface StaffCandidate { id: string; email: string; displayName: string | null; username: string | null }
 export interface RequestRow {
@@ -40,7 +40,7 @@ export interface RequestDetails extends Omit<RequestRow, 'student' | 'service'> 
   details: string | null; decisionReason: string | null;
   student: { id: string; universityId: string; name: string; phone: string | null; status: string; universityEmail: string | null };
   service: { id: string; code: string; nameAr: string; attachmentsNote: string | null; feeNote: string | null; workflowNote: string | null };
-  canAct: boolean; canTake: boolean; allowedStatuses: RequestStatus[]; events: RequestEvent[];
+  canAct: boolean; canTake: boolean; canAssign: boolean; allowedStatuses: RequestStatus[]; events: RequestEvent[];
   attachments: AttachmentItem[]; referrals: ReferralItem[]; pendingReferral: ReferralItem | null;
   documents: RequestDocument[]; documentTypeName: string | null; canIssueDocument: boolean;
 }
@@ -157,6 +157,7 @@ export const verifyDocument = (code: string) => get<DocumentVerifyResult>(`/docu
 export interface ReportFilters { from?: string; to?: string; serviceId?: string; staffId?: string; channel?: string; collegeId?: string }
 export interface ReportOverview {
   period: { from: string | null; to: string | null };
+  scope: { canSeeAll: boolean };
   totals: { total: number; open: number; completed: number; rejected: number; cancelled: number; overdue: number; avgDays: number | null };
   byService: { serviceId: string; name: string; total: number; open: number; completed: number; rejected: number; cancelled: number; avgDays: number | null }[];
   byStatus: { status: RequestStatus; label: string; count: number }[];
@@ -182,3 +183,12 @@ export interface SettingsView { definitions: SettingDef[]; values: Record<string
 export const getAffairsSettings = () => get<SettingsView>('/affairs/settings');
 export const updateAffairsSettings = (values: Record<string, boolean | number>) => patch<SettingsView>('/affairs/settings', { values });
 export const getMyAffairsConfig = () => get<{ onlineSubmissionEnabled: boolean; maxAttachmentMb: number }>('/affairs/my/config');
+
+// who am I / notifications
+export interface AffairsMe { role: string; staffId: string | null; isStaff: boolean; isManager: boolean; canManage: boolean }
+export interface NotificationItem { id: string; kind: string; title: string; body: string | null; requestId: string | null; isRead: boolean; createdAt: string }
+export const getAffairsMe = () => get<AffairsMe>('/affairs/me');
+export const getNotifications = (unreadOnly: boolean, page: number) => get<{ items: NotificationItem[]; hasMore: boolean; page: number; unread: number }>('/affairs/notifications', { unread: unreadOnly ? 'true' : undefined, page });
+export const getUnreadCount = () => get<{ unread: number }>('/affairs/notifications/unread-count');
+export const markNotificationRead = (id: string) => post<{ unread: number }>(`/affairs/notifications/${id}/read`, {});
+export const markAllNotificationsRead = () => post<{ unread: number }>('/affairs/notifications/read-all', {});

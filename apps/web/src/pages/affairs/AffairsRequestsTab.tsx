@@ -41,7 +41,7 @@ export default function AffairsRequestsTab({ role }: { role: string }) {
   const [services, setServices] = useState<AffairsServiceItem[]>([]);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(() => urlParams.get('open'));
   const [creating, setCreating] = useState(false);
 
   useEffect(() => { getAffairsServices().then(setServices).catch(() => undefined); }, []);

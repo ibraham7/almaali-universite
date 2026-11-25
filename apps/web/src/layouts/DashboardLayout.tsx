@@ -47,6 +47,8 @@ import ForumRoundedIcon from '@mui/icons-material/ForumRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
 import SupportAgentRoundedIcon from '@mui/icons-material/SupportAgentRounded';
 
+import NotificationsBell from '../components/NotificationsBell';
+
 import {
   useAuth,
 } from '../auth/AuthContext';
@@ -865,6 +867,8 @@ export default function DashboardLayout() {
                 الإدارة الجامعية
               </Typography>
             </Box>
+
+            {['STUDENT', 'REGISTRAR', 'SYSTEM_ADMIN'].includes(userRole) && <NotificationsBell role={userRole} />}
 
             <Tooltip title="تسجيل الخروج">
               <IconButton

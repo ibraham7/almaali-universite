@@ -64,6 +64,9 @@ export class CreateStaffDto {
   @IsUUID()
   userId!: string;
 
+  @IsOptional() @IsBoolean()
+  isManager?: boolean;
+
   @IsOptional() @IsString() @MaxLength(150)
   specialization?: string;
 
@@ -72,6 +75,9 @@ export class CreateStaffDto {
 }
 
 export class UpdateStaffDto {
+  @IsOptional() @IsBoolean()
+  isManager?: boolean;
+
   @IsOptional() @IsString() @MaxLength(150)
   specialization?: string;
 
@@ -359,4 +365,12 @@ export class RunReportDto {
 
   @IsOptional() @ValidateNested() @Type(() => BuilderFiltersDto)
   filters?: BuilderFiltersDto;
+}
+
+export class ListNotificationsQueryDto {
+  @IsOptional() @IsIn(['true'])
+  unread?: string;
+
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100000)
+  page?: number;
 }

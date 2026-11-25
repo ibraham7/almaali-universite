@@ -4,6 +4,7 @@ import type { AffairsUser } from './affairs.service.js';
 import { AffairsSettingsService } from './affairs-settings.service.js';
 import { CancelReferralDto, CreateReferralDto, ListReferralsQueryDto, RespondReferralDto } from './dto/affairs.dto.js';
 import { audit, loadRequestForAction } from './affairs-access.js';
+import { notifyUsers, studentStatusMessage } from './affairs-notifications.js';
 import { isTerminal, type RequestStatus } from './affairs.rules.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -61,6 +62,8 @@ export class AffairsReferralsService {
       await tx.studentRequestEvent.create({ data: { requestId, type: 'STATUS_CHANGED', fromStatus: from, toStatus: 'REFERRED', note: `أُحيل الطلب إلى ${label}`, visibleToStudent: true, actorUserId: user.id, staffId: request.assignedStaffId } });
       await tx.studentRequestEvent.create({ data: { requestId, type: 'REFERRAL_SENT', note: `${label} (${dto.mode === 'OPINION' ? 'طلب رأي/موافقة' : 'إحالة للتنفيذ'}): ${reason}${referral.requested ? ' — المطلوب: ' + referral.requested : ''}`, visibleToStudent: false, actorUserId: user.id, staffId: request.assignedStaffId } });
       await audit(tx, 'AFFAIRS_REFERRAL_CREATED', requestId, user.id, { number: request.number, referralId: referral.id, mode: dto.mode, target: dto.target, targetName, reason });
+      const owner = await tx.student.findUnique({ where: { id: request.studentId }, select: { userId: true } });
+      await notifyUsers(tx, [owner?.userId], { ...studentStatusMessage(request.number, 'REFERRED'), requestId });
       return referral;
     });
   }
@@ -82,6 +85,8 @@ export class AffairsReferralsService {
       await tx.studentRequestEvent.create({ data: { requestId: referral.requestId, type: 'REFERRAL_ANSWERED', note: `رد ${label}: ${OUTCOME_LABEL[dto.outcome]}${note ? ' — ' + note : ''}`, visibleToStudent: false, actorUserId: user.id, staffId: request.assignedStaffId } });
       await tx.studentRequestEvent.create({ data: { requestId: referral.requestId, type: 'STATUS_CHANGED', fromStatus: 'REFERRED', toStatus: to, note: to === 'COMPLETED' ? 'نُفّذ الإجراء' : 'عاد الطلب إلى الموظف المختص', visibleToStudent: true, actorUserId: user.id, staffId: request.assignedStaffId } });
       await audit(tx, 'AFFAIRS_REFERRAL_ANSWERED', referral.requestId, user.id, { number: request.number, referralId, outcome: dto.outcome, note: note || undefined });
+      const owner = await tx.student.findUnique({ where: { id: request.studentId }, select: { userId: true } });
+      await notifyUsers(tx, [owner?.userId], { ...studentStatusMessage(request.number, to, null, true), requestId: referral.requestId });
       return { ok: true, status: to };
     });
   }
@@ -99,6 +104,8 @@ export class AffairsReferralsService {
       await tx.studentRequestEvent.create({ data: { requestId: referral.requestId, type: 'REFERRAL_CANCELLED', note: why, visibleToStudent: false, actorUserId: user.id, staffId: request.assignedStaffId } });
       await tx.studentRequestEvent.create({ data: { requestId: referral.requestId, type: 'STATUS_CHANGED', fromStatus: 'REFERRED', toStatus: 'IN_PROGRESS', note: 'عاد الطلب إلى الموظف المختص', visibleToStudent: true, actorUserId: user.id, staffId: request.assignedStaffId } });
       await audit(tx, 'AFFAIRS_REFERRAL_CANCELLED', referral.requestId, user.id, { number: request.number, referralId, reason: why });
+      const owner = await tx.student.findUnique({ where: { id: request.studentId }, select: { userId: true } });
+      await notifyUsers(tx, [owner?.userId], { ...studentStatusMessage(request.number, 'IN_PROGRESS', null, true), requestId: referral.requestId });
       return { ok: true };
     });
   }
