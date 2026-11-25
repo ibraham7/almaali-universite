@@ -20,6 +20,7 @@ export const EVENT_LABEL: Record<string, string> = {
   STATUS_CHANGED: 'تغيّرت حالة الطلب', COMMENT: 'ملاحظة داخلية',
   REFERRAL_SENT: 'إحالة إلى جهة', REFERRAL_ANSWERED: 'رد الجهة', REFERRAL_CANCELLED: 'إلغاء الإحالة',
   ATTACHMENT_ADDED: 'أُضيف مرفق', ATTACHMENT_ARCHIVED: 'أُرشف مرفق',
+  DOCUMENT_ISSUED: 'صدرت وثيقة', DOCUMENT_REVOKED: 'أُلغيت وثيقة',
 };
 
 export const CHANNEL_LABEL: Record<RequestChannel, string> = { ONLINE: 'إلكتروني', IN_PERSON: 'حضوري' };
@@ -29,6 +30,8 @@ export const TARGET_LABEL: Record<ReferralTarget, string> = { ACADEMIC_AFFAIRS: 
 export const MODE_LABEL = { OPINION: 'طلب رأي/موافقة', EXECUTION: 'إحالة للتنفيذ' } as const;
 export const REFERRAL_STATUS_LABEL = { PENDING: 'بانتظار الرد', ANSWERED: 'تم الرد', CANCELLED: 'ملغاة' } as const;
 export const REFERRAL_OUTCOME_LABEL: Record<ReferralOutcome, string> = { APPROVED: 'موافقة', REJECTED: 'رفض', NOTES: 'ملاحظات', DONE: 'تم التنفيذ', NOT_DONE: 'لم يتم التنفيذ' };
+
+export const DOCUMENT_STATUS_LABEL = { ACTIVE: 'نشطة', REVOKED: 'ملغاة' } as const;
 
 export const ALLOWED_UPLOAD_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;

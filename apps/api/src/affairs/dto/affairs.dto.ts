@@ -19,6 +19,10 @@ class ServiceSetupDto {
 
   @IsOptional() @IsString() @MaxLength(1000)
   workflowNote?: string;
+
+  // Document this service issues (null removes the link).
+  @IsOptional() @IsUUID()
+  documentTypeId?: string | null;
 }
 
 export class CreateServiceDto extends ServiceSetupDto {
@@ -205,4 +209,66 @@ export class ListStudentsQueryDto {
 export class ArchiveAttachmentDto {
   @IsString() @IsNotEmpty() @MaxLength(500)
   reason!: string;
+}
+
+export class CreateDocumentTypeDto {
+  @IsString() @Matches(/^[A-Z][A-Z0-9_]{1,39}$/, { message: 'رمز النوع: أحرف إنجليزية كبيرة وأرقام و _ فقط.' })
+  code!: string;
+
+  @IsString() @IsNotEmpty() @MaxLength(150)
+  nameAr!: string;
+
+  @IsString() @IsNotEmpty() @MaxLength(150)
+  titleAr!: string;
+
+  @IsString() @IsNotEmpty() @MaxLength(150)
+  issuingBody!: string;
+
+  @IsString() @IsNotEmpty() @MaxLength(4000)
+  bodyTemplate!: string;
+
+  @IsOptional() @IsString() @MaxLength(500)
+  footerNote?: string;
+
+  @IsOptional() @IsBoolean()
+  includesResults?: boolean;
+}
+
+export class UpdateDocumentTypeDto {
+  @IsOptional() @IsString() @IsNotEmpty() @MaxLength(150)
+  nameAr?: string;
+
+  @IsOptional() @IsString() @IsNotEmpty() @MaxLength(150)
+  titleAr?: string;
+
+  @IsOptional() @IsString() @IsNotEmpty() @MaxLength(150)
+  issuingBody?: string;
+
+  @IsOptional() @IsString() @IsNotEmpty() @MaxLength(4000)
+  bodyTemplate?: string;
+
+  @IsOptional() @IsString() @MaxLength(500)
+  footerNote?: string;
+
+  @IsOptional() @IsBoolean()
+  includesResults?: boolean;
+
+  @IsOptional() @IsBoolean()
+  isActive?: boolean;
+}
+
+export class RevokeDocumentDto {
+  @IsString() @IsNotEmpty() @MaxLength(500)
+  reason!: string;
+}
+
+export class ListDocumentsQueryDto {
+  @IsOptional() @IsString() @MaxLength(100)
+  search?: string;
+
+  @IsOptional() @IsIn(['ACTIVE', 'REVOKED'])
+  status?: string;
+
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100000)
+  page?: number;
 }

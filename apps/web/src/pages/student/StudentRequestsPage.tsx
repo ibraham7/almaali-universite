@@ -6,6 +6,7 @@ import {
 } from '../../api/affairs';
 import { checkUpload, errorText, formatDate } from '../affairs/affairsUi';
 import AttachmentsPanel from '../affairs/AttachmentsPanel';
+import { DOCUMENT_STATUS_LABEL } from '../affairs/affairsUi';
 import { StatusChip, Timeline } from '../affairs/AffairsBits';
 
 export default function StudentRequestsPage() {
@@ -131,6 +132,18 @@ export default function StudentRequestsPage() {
               {detail.decisionReason && <Alert severity="info">السبب: {detail.decisionReason}</Alert>}
               <Typography sx={{ fontWeight: 700 }}>متابعة الطلب</Typography>
               <Timeline events={detail.events} />
+              {detail.documents.length > 0 && (
+                <Stack spacing={1}>
+                  <Typography sx={{ fontWeight: 700 }}>الوثائق الصادرة</Typography>
+                  {detail.documents.map((d) => (
+                    <Stack key={d.id} direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }} dir="ltr">{d.number}</Typography>
+                      <Typography variant="body2">{d.typeName} · {DOCUMENT_STATUS_LABEL[d.status]}</Typography>
+                      <Button size="small" component="a" href={`/documents/${d.id}`} target="_blank" rel="noopener noreferrer">عرض / طباعة</Button>
+                    </Stack>
+                  ))}
+                </Stack>
+              )}
               <AttachmentsPanel
                 attachments={detail.attachments}
                 canUpload={!['COMPLETED', 'REJECTED', 'CANCELLED'].includes(detail.status)}

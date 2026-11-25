@@ -50,6 +50,7 @@ export class AffairsFilesService {
       include: {
         numberHistory: { orderBy: { validTo: 'desc' } },
         dataChanges: { orderBy: { createdAt: 'desc' }, take: 100 },
+        documents: { orderBy: { issuedAt: 'desc' }, select: { id: true, number: true, status: true, issuedAt: true, revokedAt: true, revokedReason: true, type: { select: { nameAr: true } } } },
         affairsRequests: {
           orderBy: { createdAt: 'desc' }, take: 100,
           select: {
@@ -95,6 +96,7 @@ export class AffairsFilesService {
         referrals: r.referrals,
       })),
       attachments: s.affairsRequests.flatMap((r) => r.attachments.map((a) => ({ ...a, requestId: r.id, requestNumber: r.number }))),
+      documents: s.documents.map((d) => ({ id: d.id, number: d.number, status: d.status, issuedAt: d.issuedAt, revokedAt: d.revokedAt, revokedReason: d.revokedReason, typeName: d.type.nameAr })),
       dataChanges: s.dataChanges.map((c) => ({ id: c.id, field: c.field, oldValue: c.oldValue, newValue: c.newValue, createdAt: c.createdAt, changedBy: c.changedByUserId ? actors.get(c.changedByUserId) ?? null : null })),
     };
   }

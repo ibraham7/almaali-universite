@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import {
-  archiveAttachment, assignAffairsRequest, changeAffairsStatus, commentAffairsRequest, downloadStaffAttachment, getAffairsRequest, getAffairsStaff, uploadStaffAttachment,
+  issueDocument, archiveAttachment, assignAffairsRequest, changeAffairsStatus, commentAffairsRequest, downloadStaffAttachment, getAffairsRequest, getAffairsStaff, uploadStaffAttachment,
   type AffairsStaffItem, type RequestDetails, type RequestStatus,
 } from '../../api/affairs';
 import { CHANNEL_LABEL, REASON_REQUIRED, STATUS_LABEL, errorText, formatDate } from './affairsUi';
 import AttachmentsPanel from './AttachmentsPanel';
 import ReferralPanel from './ReferralPanel';
+import { DOCUMENT_STATUS_LABEL } from './affairsUi';
 import { StatusChip, Timeline } from './AffairsBits';
 
 // Mounted only while a request is open, so every opening starts clean.
@@ -91,6 +92,28 @@ export default function AffairsRequestDialog({ requestId, role, onClose, onChang
             />
             <Divider />
             <ReferralPanel data={data} onChanged={() => { void load(); onChanged(); }} />
+            {(data.documents.length > 0 || data.documentTypeName) && (
+              <>
+                <Divider />
+                <Stack spacing={1}>
+                  <Typography sx={{ fontWeight: 700 }}>الوثائق الصادرة</Typography>
+                  {data.documents.length === 0 && <Typography variant="body2" color="text.secondary">لم تصدر وثيقة لهذا الطلب بعد.</Typography>}
+                  {data.documents.map((d) => (
+                    <Stack key={d.id} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }} dir="ltr">{d.number}</Typography>
+                      <Typography variant="body2">{d.typeName} · {DOCUMENT_STATUS_LABEL[d.status]} · {formatDate(d.issuedAt)}</Typography>
+                      <Button size="small" component="a" href={`/documents/${d.id}`} target="_blank" rel="noopener noreferrer">عرض / طباعة</Button>
+                    </Stack>
+                  ))}
+                  {data.canIssueDocument && (
+                    <Box><Button variant="contained" disabled={busy} onClick={() => run(() => issueDocument(data.id))}>إصدار وثيقة ({data.documentTypeName})</Button></Box>
+                  )}
+                  {!data.canIssueDocument && data.documentTypeName && data.documents.every((d) => d.status === 'REVOKED') && !['ACCEPTED', 'COMPLETED'].includes(data.status) && (
+                    <Typography variant="caption" color="text.secondary">تُصدر الوثيقة بعد قبول الطلب أو إكماله.</Typography>
+                  )}
+                </Stack>
+              </>
+            )}
 
             {(data.canTake || (role === 'SYSTEM_ADMIN' && data.status !== 'COMPLETED' && data.status !== 'REJECTED' && data.status !== 'CANCELLED')) && <Divider />}
 

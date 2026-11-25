@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Paper, Stack, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField } from '@mui/material';
-import { createAffairsService, getAffairsServices, updateAffairsService, type AffairsServiceItem } from '../../api/affairs';
+import { createAffairsService, getAffairsServices, getDocumentTypes, updateAffairsService, type AffairsServiceItem, type DocumentTypeItem } from '../../api/affairs';
 import { OUTCOME_SERVICE_LABEL, SERVICE_CHANNEL_LABEL, errorText } from './affairsUi';
 
-type Form = { id?: string; code: string; nameAr: string; description: string; expectedDays: string; specialization: string; channel: string; outcome: string; attachmentsNote: string; feeNote: string; workflowNote: string };
-const EMPTY: Form = { code: '', nameAr: '', description: '', expectedDays: '5', specialization: '', channel: 'BOTH', outcome: 'NONE', attachmentsNote: '', feeNote: '', workflowNote: '' };
+type Form = { id?: string; code: string; nameAr: string; description: string; expectedDays: string; specialization: string; channel: string; outcome: string; attachmentsNote: string; feeNote: string; workflowNote: string; documentTypeId: string };
+const EMPTY: Form = { code: '', nameAr: '', description: '', expectedDays: '5', specialization: '', channel: 'BOTH', outcome: 'NONE', attachmentsNote: '', feeNote: '', workflowNote: '', documentTypeId: '' };
 
 export default function AffairsServicesTab() {
   const [items, setItems] = useState<AffairsServiceItem[]>([]);
@@ -12,6 +12,8 @@ export default function AffairsServicesTab() {
   const [error, setError] = useState('');
   const [dialogError, setDialogError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [docTypes, setDocTypes] = useState<DocumentTypeItem[]>([]);
+  useEffect(() => { getDocumentTypes().then(setDocTypes).catch(() => undefined); }, []);
 
   const load = useCallback(() => getAffairsServices()
     .then((list) => { setItems(list); setError(''); })
@@ -25,7 +27,7 @@ export default function AffairsServicesTab() {
   async function save() {
     if (!form) return;
     setBusy(true); setDialogError('');
-    const body = { nameAr: form.nameAr.trim(), description: form.description.trim(), expectedDays: Number(form.expectedDays), specialization: form.specialization.trim(), channel: form.channel, outcome: form.outcome, attachmentsNote: form.attachmentsNote.trim(), feeNote: form.feeNote.trim(), workflowNote: form.workflowNote.trim() };
+    const body = { nameAr: form.nameAr.trim(), description: form.description.trim(), expectedDays: Number(form.expectedDays), specialization: form.specialization.trim(), channel: form.channel, outcome: form.outcome, attachmentsNote: form.attachmentsNote.trim(), feeNote: form.feeNote.trim(), workflowNote: form.workflowNote.trim(), documentTypeId: form.documentTypeId || null };
     try {
       if (form.id) await updateAffairsService(form.id, body);
       else await createAffairsService({ ...body, code: form.code.trim() });
@@ -58,7 +60,7 @@ export default function AffairsServicesTab() {
                   <Switch checked={item.isActive} onChange={() => void toggle(item)} slotProps={{ input: { 'aria-label': `تفعيل ${item.nameAr}` } }} />
                   <Chip size="small" label={item.isActive ? 'فعّالة' : 'متوقفة'} color={item.isActive ? 'success' : 'default'} />
                 </TableCell>
-                <TableCell><Button size="small" onClick={() => { setDialogError(''); setForm({ id: item.id, code: item.code, nameAr: item.nameAr, description: item.description ?? '', expectedDays: String(item.expectedDays), specialization: item.specialization ?? '', channel: item.channel, outcome: item.outcome, attachmentsNote: item.attachmentsNote ?? '', feeNote: item.feeNote ?? '', workflowNote: item.workflowNote ?? '' }); }}>تعديل</Button></TableCell>
+                <TableCell><Button size="small" onClick={() => { setDialogError(''); setForm({ id: item.id, code: item.code, nameAr: item.nameAr, description: item.description ?? '', expectedDays: String(item.expectedDays), specialization: item.specialization ?? '', channel: item.channel, outcome: item.outcome, attachmentsNote: item.attachmentsNote ?? '', feeNote: item.feeNote ?? '', workflowNote: item.workflowNote ?? '', documentTypeId: item.documentTypeId ?? '' }); }}>تعديل</Button></TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -84,6 +86,10 @@ export default function AffairsServicesTab() {
               </TextField>
               <TextField label="المرفقات المطلوبة (نص يظهر للطالب)" value={form.attachmentsNote} onChange={(e) => setForm({ ...form, attachmentsNote: e.target.value })} />
               <TextField label="الرسوم (مثال: بدون رسوم، أو القيمة)" value={form.feeNote} onChange={(e) => setForm({ ...form, feeNote: e.target.value })} />
+              <TextField select label="الوثيقة التي تصدرها الخدمة" value={form.documentTypeId} onChange={(e) => setForm({ ...form, documentTypeId: e.target.value })} helperText="تظهر زر «إصدار وثيقة» داخل الطلب بعد قبوله">
+                <MenuItem value="">لا شيء</MenuItem>
+                {docTypes.map((t) => <MenuItem key={t.id} value={t.id}>{t.nameAr}</MenuItem>)}
+              </TextField>
               <TextField label="مسار المعالجة (جهات المراجعة والموافقة)" multiline minRows={2} value={form.workflowNote} onChange={(e) => setForm({ ...form, workflowNote: e.target.value })} />
             </>)}
           </Stack>
