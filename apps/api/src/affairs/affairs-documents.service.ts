@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { AffairsUser } from './affairs.service.js';
+import { AffairsSettingsService } from './affairs-settings.service.js';
 import { audit, loadRequestForAction } from './affairs-access.js';
 import { CODE_PATTERN, ISSUABLE_REQUEST_STATUSES, documentNumber, generateVerificationCode, maskName, renderTemplate } from './affairs-documents.rules.js';
 import { CreateDocumentTypeDto, ListDocumentsQueryDto, UpdateDocumentTypeDto } from './dto/affairs.dto.js';
@@ -15,7 +16,7 @@ const STATUS_TEXT: Record<string, string> = { ACTIVE: 'مقيّد' };
 
 @Injectable()
 export class AffairsDocumentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly settings: AffairsSettingsService) {}
 
   // ---------- document types (wording of each document) ----------
   listTypes() {
@@ -49,6 +50,7 @@ export class AffairsDocumentsService {
   // ---------- issuing ----------
   // A document is issued from a request that was accepted or completed, by the assigned staff member or a system admin.
   async issue(requestId: string, user: AffairsUser) {
+    await this.settings.assertCapability(user, 'capIssueDocuments');
     return this.prisma.$transaction(async (tx) => {
       await loadRequestForAction(tx as never, requestId, user);
       const request = await tx.studentRequest.findUnique({
@@ -166,6 +168,7 @@ export class AffairsDocumentsService {
   async revoke(id: string, reason: string, user: AffairsUser) {
     const why = (reason ?? '').trim();
     if (!why) throw new BadRequestException('سبب الإلغاء مطلوب.');
+    await this.settings.assertCapability(user, 'capRevokeOwnDocuments');
     return this.prisma.$transaction(async (tx) => {
       const doc = await tx.issuedDocument.findUnique({ where: { id } });
       if (!doc) throw new NotFoundException('الوثيقة غير موجودة.');

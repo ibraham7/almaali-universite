@@ -1,5 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { dayRange } from './affairs-reports.catalog.js';
+import { AffairsSettingsService } from './affairs-settings.service.js';
 import {
   AssignRequestDto, ChangeStatusDto, CommentDto, CreateServiceDto, CreateStaffDto, ListRequestsQueryDto,
   ProxyCreateRequestDto, StudentCreateRequestDto, UpdateServiceDto, UpdateStaffDto,
@@ -17,7 +19,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class AffairsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly settings: AffairsSettingsService) {}
 
   // ---------- helpers ----------
   private studentName(s: { fullName: string | null; firstName: string; middleName: string | null; familyName: string }) {
@@ -187,6 +189,7 @@ export class AffairsService {
       const service = await tx.affairsService.findUnique({ where: { id: serviceId } });
       if (!service) throw new NotFoundException('الخدمة غير موجودة.');
       if (!service.isActive) throw new BadRequestException('هذه الخدمة متوقفة حالياً.');
+      if (user.role === 'STUDENT' && !(await this.settings.get<boolean>('studentOnlineSubmission'))) throw new BadRequestException('استقبال الطلبات الإلكترونية متوقف مؤقتاً. راجع دائرة شؤون الطلاب.');
       if (user.role === 'STUDENT' && service.channel === 'IN_PERSON') throw new BadRequestException('هذه الخدمة تُقدَّم حضورياً فقط، راجع دائرة شؤون الطلاب.');
       const student = await tx.student.findUnique({ where: { id: studentId }, select: { id: true } });
       if (!student) throw new NotFoundException('الطالب غير موجود.');
@@ -197,7 +200,8 @@ export class AffairsService {
       });
       const number = requestNumber(now.getFullYear(), counter.last);
 
-      const candidates = await tx.affairsStaff.findMany({ where: { isActive: true, services: { some: { serviceId, isActive: true } } }, select: { id: true } });
+      const autoAssign = await this.settings.get<boolean>('autoAssign');
+      const candidates = autoAssign ? await tx.affairsStaff.findMany({ where: { isActive: true, services: { some: { serviceId, isActive: true } } }, select: { id: true } }) : [];
       const loads = candidates.length
         ? await tx.studentRequest.groupBy({ by: ['assignedStaffId'], where: { assignedStaffId: { in: candidates.map((c) => c.id) }, status: { in: OPEN_STATUSES } }, _count: { _all: true } })
         : [];
@@ -223,12 +227,14 @@ export class AffairsService {
   }
 
   async createByProxy(dto: ProxyCreateRequestDto, user: AffairsUser) {
+    await this.settings.assertCapability(user, 'capCreateRequestsOnBehalf');
     return this.createForStudent(dto.studentId, dto.serviceId, dto.subject, dto.details, user);
   }
 
   // ---------- listing / details ----------
   private viewWhere(view: string | undefined, userId: string) {
     switch (view) {
+      case 'open': return { status: { in: OPEN_STATUSES } };
       case 'new': return { status: 'NEW' as const };
       case 'mine': return { assignedStaff: { userId }, status: { in: OPEN_STATUSES } };
       case 'waiting': return { status: 'WAITING_COMPLETION' as const };
@@ -245,6 +251,14 @@ export class AffairsService {
     if (query.serviceId) where.serviceId = query.serviceId;
     if (query.status) where.status = query.status;
     if (query.channel) where.channel = query.channel;
+    const extra: Record<string, unknown>[] = [];
+    const created = dayRange(query.from, query.to);
+    if (created) extra.push({ createdAt: created });
+    if (query.staffId) extra.push({ assignedStaffId: query.staffId });
+    if (query.collegeId) extra.push({ student: { collegeId: query.collegeId } });
+    if (query.overdue) extra.push({ status: { in: OPEN_STATUSES }, dueAt: { lt: new Date() } });
+    if (query.closedToday) { const start = new Date(); start.setHours(0, 0, 0, 0); extra.push({ status: 'COMPLETED', closedAt: { gte: start } }); }
+    if (extra.length) where.AND = extra;
     const term = query.search?.trim();
     if (term) {
       where.OR = [
@@ -331,6 +345,7 @@ export class AffairsService {
       let targetStaffId: string;
 
       if (user.role === 'REGISTRAR') {
+        await this.settings.assertCapability(user, 'capTakeNewRequests');
         // A staff member may only pick up a new request nobody has taken yet.
         if (r.status !== 'NEW' || r.assignedStaffId) throw new ForbiddenException('لا يمكنك استلام هذا الطلب.');
         const me = await tx.affairsStaff.findUnique({ where: { userId: user.id }, include: { services: { where: { isActive: true } } } });
@@ -397,19 +412,28 @@ export class AffairsService {
   }
 
   // ---------- summary ----------
-  async summary(user: AffairsUser) {
+  async summary(user: AffairsUser, filters: { from?: string; to?: string; serviceId?: string } = {}) {
     const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
-    const [fresh, mine, waiting, referred, doneToday, overdue, events] = await Promise.all([
-      this.prisma.studentRequest.count({ where: { status: 'NEW' } }),
-      this.prisma.studentRequest.count({ where: { assignedStaff: { userId: user.id }, status: { in: OPEN_STATUSES } } }),
-      this.prisma.studentRequest.count({ where: { status: 'WAITING_COMPLETION' } }),
-      this.prisma.studentRequest.count({ where: { status: 'REFERRED' } }),
-      this.prisma.studentRequest.count({ where: { status: 'COMPLETED', closedAt: { gte: startOfDay } } }),
-      this.prisma.studentRequest.count({ where: { status: { in: OPEN_STATUSES }, dueAt: { lt: new Date() } } }),
+    // Optional filters (period, service) narrow every counter; the lists behind each counter use the same filters.
+    const base: Record<string, unknown> = {};
+    const created = dayRange(filters.from, filters.to);
+    if (created) base.createdAt = created;
+    if (filters.serviceId) base.serviceId = filters.serviceId;
+    const withBase = (extra: Record<string, unknown>) => ({ AND: [base, extra] });
+    const [fresh, mine, waiting, referred, doneToday, overdue, events, studentsTotal, studentsActive] = await Promise.all([
+      this.prisma.studentRequest.count({ where: withBase({ status: 'NEW' }) }),
+      this.prisma.studentRequest.count({ where: withBase({ assignedStaff: { userId: user.id }, status: { in: OPEN_STATUSES } }) }),
+      this.prisma.studentRequest.count({ where: withBase({ status: 'WAITING_COMPLETION' }) }),
+      this.prisma.studentRequest.count({ where: withBase({ status: 'REFERRED' }) }),
+      this.prisma.studentRequest.count({ where: withBase({ status: 'COMPLETED', closedAt: { gte: startOfDay } }) }),
+      this.prisma.studentRequest.count({ where: withBase({ status: { in: OPEN_STATUSES }, dueAt: { lt: new Date() } }) }),
       this.prisma.studentRequestEvent.findMany({ orderBy: { createdAt: 'desc' }, take: 10, include: { request: { select: { id: true, number: true, service: { select: { nameAr: true } } } } } }),
+      this.prisma.student.count(),
+      this.prisma.student.count({ where: { status: 'ACTIVE' } }),
     ]);
     const result: Record<string, unknown> = {
       counts: { new: fresh, mine, waiting, referred, doneToday, overdue },
+      students: { total: studentsTotal, active: studentsActive },
       recentEvents: events.map((e) => ({ id: e.id, type: e.type, fromStatus: e.fromStatus, toStatus: e.toStatus, note: e.note, createdAt: e.createdAt, requestId: e.request.id, requestNumber: e.request.number, serviceName: e.request.service.nameAr })),
     };
     if (user.role === 'SYSTEM_ADMIN') result.staffLoad = (await this.listStaff()).filter((s) => s.isActive).map((s) => ({ id: s.id, name: s.name, open: s.open, done: s.done }));

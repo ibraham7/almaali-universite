@@ -48,6 +48,7 @@ export interface AffairsSummary {
   counts: { new: number; mine: number; waiting: number; referred: number; doneToday: number; overdue: number };
   recentEvents: { id: string; type: string; toStatus: RequestStatus | null; note: string | null; createdAt: string; requestId: string; requestNumber: string; serviceName: string }[];
   staffLoad?: { id: string; name: string; open: number; done: number }[];
+  students: { total: number; active: number };
 }
 export interface OperationItem extends RequestEvent { actor: string | null; requestId: string; requestNumber: string; serviceName: string }
 export interface StudentMyRequest { id: string; number: string; status: RequestStatus; subject: string | null; createdAt: string; closedAt: string | null; service: { nameAr: string } }
@@ -74,7 +75,7 @@ const get = async <T,>(url: string, params?: object) => (await apiClient.get<T>(
 const post = async <T,>(url: string, body: object) => (await apiClient.post<T>(url, body)).data;
 const patch = async <T,>(url: string, body: object) => (await apiClient.patch<T>(url, body)).data;
 
-export const getAffairsSummary = () => get<AffairsSummary>('/affairs/summary');
+export const getAffairsSummary = (params?: object) => get<AffairsSummary>('/affairs/summary', params);
 export const getAffairsOperations = (page: number) => get<{ items: OperationItem[]; hasMore: boolean; page: number }>('/affairs/operations', { page });
 export const getAffairsServices = () => get<AffairsServiceItem[]>('/affairs/services');
 export const createAffairsService = (body: object) => post<AffairsServiceItem>('/affairs/services', body);
@@ -151,3 +152,33 @@ export const getDocument = (id: string) => get<DocumentView>(`/affairs/documents
 export const issueDocument = (requestId: string) => post<{ id: string; number: string }>(`/affairs/requests/${requestId}/documents`, {});
 export const revokeDocument = (id: string, reason: string) => post<unknown>(`/affairs/documents/${id}/revoke`, { reason });
 export const verifyDocument = (code: string) => get<DocumentVerifyResult>(`/documents/verify/${encodeURIComponent(code)}`);
+
+// reports
+export interface ReportFilters { from?: string; to?: string; serviceId?: string; staffId?: string; channel?: string; collegeId?: string }
+export interface ReportOverview {
+  period: { from: string | null; to: string | null };
+  totals: { total: number; open: number; completed: number; rejected: number; cancelled: number; overdue: number; avgDays: number | null };
+  byService: { serviceId: string; name: string; total: number; open: number; completed: number; rejected: number; cancelled: number; avgDays: number | null }[];
+  byStatus: { status: RequestStatus; label: string; count: number }[];
+  byChannel: { channel: RequestChannel; label: string; count: number }[];
+  series: { granularity: 'day' | 'month'; points: { date: string; count: number }[] };
+  staffWorkload: { staffId: string; name: string; open: number; completed: number; rejected: number; avgDays: number | null }[];
+  documents: { issued: number; revoked: number; byType: { type: string; issued: number; revoked: number }[] };
+  referrals: { total: number; pending: number; answered: number; cancelled: number; byTarget: { target: string; label: string; count: number }[] };
+  truncated: boolean; definitions: Record<string, string>; generatedAt: string;
+}
+export interface CatalogColumn { id: string; label: string }
+export interface CatalogSource { id: 'requests' | 'documents' | 'referrals'; label: string; dateLabel: string; columns: CatalogColumn[]; dimensions: CatalogColumn[]; statuses: string[] }
+export interface RunReportBody { source: string; columns: string[]; groupBy?: string; filters?: { from?: string; to?: string; status?: string; serviceId?: string; channel?: string } }
+export interface RunReportResult { source: string; groupBy: string | null; truncated: boolean; total: number; shown?: number; columns: CatalogColumn[]; rows: Record<string, string | number>[] }
+export const getReportOverview = (filters: ReportFilters) => get<ReportOverview>('/affairs/reports/overview', filters);
+export const getReportCatalog = () => get<CatalogSource[]>('/affairs/reports/catalog');
+export const runReport = (body: RunReportBody) => post<RunReportResult>('/affairs/reports/run', body);
+export const exportReport = async (body: RunReportBody) => (await apiClient.post<Blob>('/affairs/reports/export', body, { responseType: 'blob' })).data;
+
+// settings
+export interface SettingDef { key: string; group: 'general' | 'capabilities'; type: 'boolean' | 'int'; default: boolean | number; min?: number; max?: number; label: string; description: string }
+export interface SettingsView { definitions: SettingDef[]; values: Record<string, boolean | number> }
+export const getAffairsSettings = () => get<SettingsView>('/affairs/settings');
+export const updateAffairsSettings = (values: Record<string, boolean | number>) => patch<SettingsView>('/affairs/settings', { values });
+export const getMyAffairsConfig = () => get<{ onlineSubmissionEnabled: boolean; maxAttachmentMb: number }>('/affairs/my/config');

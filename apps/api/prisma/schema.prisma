@@ -985,3 +985,12 @@ model DocumentCounter {
   year Int @id
   last Int @default(0)
 }
+
+// ===== Student Affairs (phase 4): settings and capability switches inside the fixed roles. =====
+// One row per setting key; the defaults live in code. Rows are never deleted (the value is overwritten).
+model AffairsSetting {
+  key             String   @id
+  value           Json
+  updatedByUserId String?
+  updatedAt       DateTime @updatedAt
+}

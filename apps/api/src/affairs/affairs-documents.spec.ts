@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AffairsDocumentsService } from './affairs-documents.service.js';
 import { CODE_PATTERN, documentNumber, generateVerificationCode, maskName, renderTemplate } from './affairs-documents.rules.js';
+import { fakeSettings } from './affairs-test-utils.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 const owner = { id: 'u-staff', role: 'REGISTRAR' };
@@ -62,7 +63,7 @@ function mockPrisma(over: { request?: Record<string, unknown>; type?: Record<str
 describe('issuing a document', () => {
   it('issues a snapshot with number + code, logs event and audit, and completes a document-only request', async () => {
     const p = mockPrisma();
-    const doc: any = await new AffairsDocumentsService(p as unknown as PrismaService).issue('r1', owner);
+    const doc: any = await new AffairsDocumentsService(p as unknown as PrismaService, fakeSettings()).issue('r1', owner);
     expect(doc.number).toMatch(/^DOC-\d{2}-0003$/);
     expect(doc.verificationCode).toMatch(CODE_PATTERN);
     const data = p.issuedDocument.create.mock.calls[0][0].data;
@@ -75,12 +76,12 @@ describe('issuing a document', () => {
 
   it('does not auto-complete when the service also needs an action', async () => {
     const p = mockPrisma({ request: { service: { outcome: 'BOTH', documentType: { id: 't1', code: 'X', nameAr: 'x', titleAr: 'x', issuingBody: 'x', bodyTemplate: 'x', includesResults: false, isActive: true } } } });
-    await new AffairsDocumentsService(p as unknown as PrismaService).issue('r1', owner);
+    await new AffairsDocumentsService(p as unknown as PrismaService, fakeSettings()).issue('r1', owner);
     expect(p.studentRequest.update).not.toHaveBeenCalled();
   });
 
   it('only the assigned staff or an admin; only for accepted/completed requests; needs an active type; no second active document', async () => {
-    const svc = (p: unknown) => new AffairsDocumentsService(p as unknown as PrismaService);
+    const svc = (p: unknown) => new AffairsDocumentsService(p as unknown as PrismaService, fakeSettings());
     await expect(svc(mockPrisma()).issue('r1', other)).rejects.toBeInstanceOf(ForbiddenException);
     await expect(svc(mockPrisma()).issue('r1', admin)).resolves.toBeDefined();
     await expect(svc(mockPrisma({ request: { status: 'IN_PROGRESS' } })).issue('r1', owner)).rejects.toBeInstanceOf(BadRequestException);
@@ -95,7 +96,7 @@ describe('revoking, reading and public check', () => {
 
   it('revoking needs a reason, the issuer or an admin, keeps the row, and hides the reason from the student event', async () => {
     const p = mockPrisma({ docs: doc });
-    const svc = new AffairsDocumentsService(p as unknown as PrismaService);
+    const svc = new AffairsDocumentsService(p as unknown as PrismaService, fakeSettings());
     await expect(svc.revoke('d1', '  ', owner)).rejects.toBeInstanceOf(BadRequestException);
     await expect(svc.revoke('d1', 'خطأ', other)).rejects.toBeInstanceOf(ForbiddenException);
     await svc.revoke('d1', 'بيانات خاطئة', owner);
@@ -104,12 +105,12 @@ describe('revoking, reading and public check', () => {
     expect(events.find((e: any) => e.visibleToStudent)).toMatchObject({ note: expect.not.stringContaining('بيانات خاطئة') });
     expect(events.find((e: any) => !e.visibleToStudent).note).toContain('بيانات خاطئة');
     const again = mockPrisma({ docs: { ...doc, status: 'REVOKED' } });
-    await expect(new AffairsDocumentsService(again as unknown as PrismaService).revoke('d1', 'x', admin)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(new AffairsDocumentsService(again as unknown as PrismaService, fakeSettings()).revoke('d1', 'x', admin)).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('a student can read only their own document and never sees the revoke reason', async () => {
     const p = mockPrisma({ docs: { ...doc, status: 'REVOKED' } });
-    const svc = new AffairsDocumentsService(p as unknown as PrismaService);
+    const svc = new AffairsDocumentsService(p as unknown as PrismaService, fakeSettings());
     expect((await svc.get('d1', student)).revokedReason).toBeNull();
     expect((await svc.get('d1', admin)).revokedReason).toBe('سر');
     await expect(svc.get('d1', { id: 'u-someone', role: 'STUDENT' })).rejects.toBeInstanceOf(NotFoundException);
@@ -117,7 +118,7 @@ describe('revoking, reading and public check', () => {
 
   it('public check returns minimal data, and never touches the database for malformed codes', async () => {
     const p = mockPrisma({ docs: { ...doc, type: { nameAr: 'وثيقة قيد', issuingBody: 'دائرة شؤون الطلاب' }, student: { fullName: 'سارة محمد العلي', firstName: 'سارة', middleName: null, familyName: 'العلي' } } });
-    const svc = new AffairsDocumentsService(p as unknown as PrismaService);
+    const svc = new AffairsDocumentsService(p as unknown as PrismaService, fakeSettings());
     expect(await svc.verify('../etc')).toEqual({ status: 'NOT_FOUND' });
     expect(p.issuedDocument.findUnique).not.toHaveBeenCalled();
     const ok: any = await svc.verify('ABCDEFGHIJKLMNOP');

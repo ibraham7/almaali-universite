@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { AffairsUser } from './affairs.service.js';
+import { AffairsSettingsService } from './affairs-settings.service.js';
 import { audit, loadRequestForAction } from './affairs-access.js';
 import { isTerminal, type RequestStatus } from './affairs.rules.js';
 
@@ -24,11 +25,12 @@ function safeName(name: string, ext: string) {
 
 @Injectable()
 export class AffairsAttachmentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly settings: AffairsSettingsService) {}
 
   private async validate(file: UploadedBinary | undefined) {
     if (!file || !file.buffer?.length) throw new BadRequestException('اختر ملفاً.');
-    if (file.buffer.length > MAX_ATTACHMENT_BYTES) throw new BadRequestException('حجم الملف أكبر من 5 ميغابايت.');
+    const maxMb = await this.settings.get<number>('maxAttachmentMb');
+    if (file.buffer.length > Math.min(maxMb, 5) * 1024 * 1024) throw new BadRequestException(`حجم الملف أكبر من ${maxMb} ميغابايت.`);
     const type = detectType(file.buffer);
     if (!type) throw new BadRequestException('النوع غير مسموح: PDF أو JPG أو PNG فقط.');
     return type;
@@ -37,7 +39,7 @@ export class AffairsAttachmentsService {
   private async store(tx: any, requestId: string, file: UploadedBinary, user: AffairsUser, visibleToStudent: boolean) {
     const type = await this.validate(file);
     const count = await tx.studentRequestAttachment.count({ where: { requestId, isArchived: false } });
-    if (count >= MAX_ATTACHMENTS_PER_REQUEST) throw new BadRequestException('وصلت للحد الأقصى من المرفقات لهذا الطلب.');
+    if (count >= Math.min(await this.settings.get<number>('maxAttachmentsPerRequest'), MAX_ATTACHMENTS_PER_REQUEST)) throw new BadRequestException('وصلت للحد الأقصى من المرفقات لهذا الطلب.');
     const row = await tx.studentRequestAttachment.create({
       data: { requestId, fileName: safeName(file.originalname, type.ext), mimeType: type.mime, sizeBytes: file.buffer.length, data: file.buffer, visibleToStudent, uploadedByUserId: user.id },
       select: { id: true, fileName: true, mimeType: true, sizeBytes: true, visibleToStudent: true, createdAt: true },

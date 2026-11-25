@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Alert, Box, Button, Chip, MenuItem, Pagination, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField } from '@mui/material';
 import { getAffairsRequests, getAffairsServices, type AffairsServiceItem, type RequestRow } from '../../api/affairs';
 import AffairsRequestDialog from './AffairsRequestDialog';
@@ -9,6 +10,7 @@ import { StatusChip } from './AffairsBits';
 
 const VIEWS = [
   { value: 'all', label: 'الكل' },
+  { value: 'open', label: 'المفتوحة' },
   { value: 'new', label: 'الجديدة' },
   { value: 'mine', label: 'المسندة لي' },
   { value: 'waiting', label: 'بانتظار الاستكمال' },
@@ -16,8 +18,17 @@ const VIEWS = [
   { value: 'done', label: 'المنجزة والمرفوضة' },
 ];
 
+// Filters that arrive in the address (from a home counter or a report) and are shown as removable chips.
+const URL_FILTERS: { key: string; label: string }[] = [
+  { key: 'overdue', label: 'متأخرة' }, { key: 'closedToday', label: 'منجزة اليوم' }, { key: 'status', label: 'حالة محددة' },
+  { key: 'from', label: 'من تاريخ' }, { key: 'to', label: 'إلى تاريخ' }, { key: 'serviceId', label: 'خدمة محددة' }, { key: 'staffId', label: 'موظف محدد' }, { key: 'collegeId', label: 'كلية محددة' },
+];
+
 export default function AffairsRequestsTab({ role }: { role: string }) {
-  const [view, setView] = useState('all');
+  const [urlParams, setUrlParams] = useSearchParams();
+  const initialView = urlParams.get('view') ?? 'all';
+  const [extra, setExtra] = useState<Record<string, string>>(() => Object.fromEntries(URL_FILTERS.map((f) => [f.key, urlParams.get(f.key)]).filter(([, v]) => v) as [string, string][]));
+  const [view, setView] = useState(VIEWS.some((v) => v.value === initialView) ? initialView : 'all');
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
   const [serviceId, setServiceId] = useState('');
@@ -36,9 +47,9 @@ export default function AffairsRequestsTab({ role }: { role: string }) {
   useEffect(() => { getAffairsServices().then(setServices).catch(() => undefined); }, []);
   useEffect(() => { const timer = setTimeout(() => { setQuery(search.trim()); setPage(1); }, 350); return () => clearTimeout(timer); }, [search]);
 
-  const load = useCallback(() => getAffairsRequests({ view, search: query || undefined, serviceId: serviceId || undefined, channel: channel || undefined, page })
+  const load = useCallback(() => getAffairsRequests({ view, search: query || undefined, serviceId: serviceId || extra.serviceId || undefined, channel: channel || undefined, status: extra.status, overdue: extra.overdue, closedToday: extra.closedToday, from: extra.from, to: extra.to, staffId: extra.staffId, collegeId: extra.collegeId, page })
     .then((result) => { setRows(result.items); setTotal(result.total); setPageSize(result.pageSize); setError(''); })
-    .catch((cause) => setError(errorText(cause, 'تعذر تحميل الطلبات.'))), [view, query, serviceId, channel, page]);
+    .catch((cause) => setError(errorText(cause, 'تعذر تحميل الطلبات.'))), [view, query, serviceId, channel, extra, page]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -68,6 +79,15 @@ export default function AffairsRequestsTab({ role }: { role: string }) {
         </TextField>
       </Stack>
 
+      {Object.keys(extra).length > 0 && (
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', alignItems: 'center' }}>
+          <Chip size="small" color="info" label="مرشحات من المؤشر" />
+          {URL_FILTERS.filter((f) => extra[f.key]).map((f) => (
+            <Chip key={f.key} size="small" variant="outlined" label={f.key === 'from' || f.key === 'to' ? `${f.label}: ${extra[f.key]}` : f.label}
+              onDelete={() => { const next = { ...extra }; delete next[f.key]; setExtra(next); const p = new URLSearchParams(urlParams); p.delete(f.key); setUrlParams(p, { replace: true }); setPage(1); }} />
+          ))}
+        </Stack>
+      )}
       {message && <Alert severity="success" onClose={() => setMessage('')}>{message}</Alert>}
       {error && <Alert severity="error">{error}</Alert>}
 
