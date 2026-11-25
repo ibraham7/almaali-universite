@@ -30,7 +30,7 @@ export default function AffairsRequestDialog({ requestId, role, onClose, onChang
 
   useEffect(() => {
     void load();
-    if (role === 'SYSTEM_ADMIN') getAffairsStaff().then(setStaff).catch(() => undefined);
+    getAffairsStaff().then(setStaff).catch(() => undefined);
   }, [requestId, role, load]);
 
   async function run(work: () => Promise<unknown>, after?: () => void) {
@@ -115,7 +115,7 @@ export default function AffairsRequestDialog({ requestId, role, onClose, onChang
               </>
             )}
 
-            {(data.canTake || (role === 'SYSTEM_ADMIN' && data.status !== 'COMPLETED' && data.status !== 'REJECTED' && data.status !== 'CANCELLED')) && <Divider />}
+            {(data.canTake || data.canAssign) && <Divider />}
 
             {data.canTake && (
               <Box><Button variant="contained" disabled={busy} onClick={() => run(() => assignAffairsRequest(data.id, {}))}>استلام الطلب</Button></Box>
@@ -149,7 +149,7 @@ export default function AffairsRequestDialog({ requestId, role, onClose, onChang
               </Stack>
             )}
 
-            {role === 'SYSTEM_ADMIN' && !['COMPLETED', 'REJECTED', 'CANCELLED'].includes(data.status) && (
+            {data.canAssign && (
               <Stack spacing={1}>
                 <Typography sx={{ fontWeight: 700 }}>{data.assignedStaff ? 'إعادة الإسناد' : 'إسناد الطلب'}</Typography>
                 <TextField select size="small" label="الموظف" value={staffId} onChange={(e) => setStaffId(e.target.value)} helperText={eligibleStaff.length === 0 ? 'لا يوجد موظف فعّال آخر لديه هذه الخدمة.' : undefined}>

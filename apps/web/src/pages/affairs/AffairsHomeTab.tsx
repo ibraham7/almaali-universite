@@ -16,7 +16,7 @@ const CARDS: { key: keyof AffairsSummary['counts']; label: string; color: string
 
 function isoDay(d: Date) { return d.toISOString().slice(0, 10); }
 
-export default function AffairsHomeTab({ role }: { role: string }) {
+export default function AffairsHomeTab() {
   const navigate = useNavigate();
   const [summary, setSummary] = useState<AffairsSummary | null>(null);
   const [services, setServices] = useState<AffairsServiceItem[]>([]);
@@ -78,7 +78,7 @@ export default function AffairsHomeTab({ role }: { role: string }) {
         <Typography variant="body2">الطلاب النشطون (حالتهم «ACTIVE»): <b data-testid="students-active">{summary.students.active}</b></Typography>
       </Stack>
 
-      {role === 'SYSTEM_ADMIN' && summary.staffLoad && (
+      {summary.staffLoad && (
         <Paper variant="outlined" sx={{ p: 2 }}>
           <Typography sx={{ fontWeight: 700, mb: 1 }}>حجم العمل لكل موظف</Typography>
           <Table size="small" aria-label="حجم العمل">

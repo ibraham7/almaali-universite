@@ -1,6 +1,8 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { dayRange } from './affairs-reports.catalog.js';
+import { canManage, isUnitManager } from './affairs-access.js';
+import { managerRecipients, notifyUsers, studentStatusMessage } from './affairs-notifications.js';
 import { AffairsSettingsService } from './affairs-settings.service.js';
 import {
   AssignRequestDto, ChangeStatusDto, CommentDto, CreateServiceDto, CreateStaffDto, ListRequestsQueryDto,
@@ -36,6 +38,11 @@ export class AffairsService {
 
   private async staffOf(userId: string) {
     return this.prisma.affairsStaff.findUnique({ where: { userId } });
+  }
+
+  async me(user: AffairsUser) {
+    const staff = await this.prisma.affairsStaff.findUnique({ where: { userId: user.id }, select: { id: true, isManager: true, isActive: true } });
+    return { role: user.role, staffId: staff?.id ?? null, isStaff: !!staff, isManager: !!staff && staff.isManager && staff.isActive, canManage: await canManage(this.prisma, user) };
   }
 
   // ---------- services ----------
@@ -95,7 +102,7 @@ export class AffairsService {
     const load = await this.loadByStaff();
     return staff.map((s) => ({
       id: s.id, userId: s.userId, name: s.user.displayName || s.user.username || s.user.email, email: s.user.email,
-      specialization: s.specialization, isActive: s.isActive, serviceIds: s.services.map((x) => x.serviceId),
+      specialization: s.specialization, isActive: s.isActive, isManager: s.isManager, serviceIds: s.services.map((x) => x.serviceId),
       open: load.get(s.id)?.open ?? 0, done: load.get(s.id)?.done ?? 0,
     }));
   }
@@ -135,7 +142,7 @@ export class AffairsService {
     await this.assertServicesExist(serviceIds);
     const created = await this.prisma.affairsStaff.create({
       data: {
-        userId: dto.userId, specialization: dto.specialization?.trim() || null,
+        userId: dto.userId, specialization: dto.specialization?.trim() || null, isManager: dto.isManager ?? false,
         services: { create: serviceIds.map((serviceId) => ({ serviceId })) },
       },
     });
@@ -144,6 +151,8 @@ export class AffairsService {
   }
 
   async updateStaff(id: string, dto: UpdateStaffDto, user: AffairsUser) {
+    if (!(await canManage(this.prisma, user))) throw new ForbiddenException('إدارة الموظفين لمدير النظام أو مدير الوحدة.');
+    if (dto.isManager !== undefined && user.role !== 'SYSTEM_ADMIN') throw new ForbiddenException('تعيين مدير الوحدة لمدير النظام فقط.');
     const found = await this.prisma.affairsStaff.findUnique({ where: { id } });
     if (!found) throw new NotFoundException('الموظف غير موجود.');
     const serviceIds = dto.serviceIds ? [...new Set(dto.serviceIds)] : undefined;
@@ -152,6 +161,7 @@ export class AffairsService {
       const data: Record<string, unknown> = {};
       if (dto.specialization !== undefined) data.specialization = dto.specialization.trim() || null;
       if (dto.isActive !== undefined) data.isActive = dto.isActive;
+      if (dto.isManager !== undefined) data.isManager = dto.isManager;
       const row = await tx.affairsStaff.update({ where: { id }, data });
       if (serviceIds) {
         // Never delete link rows: switch them on/off instead.
@@ -191,7 +201,7 @@ export class AffairsService {
       if (!service.isActive) throw new BadRequestException('هذه الخدمة متوقفة حالياً.');
       if (user.role === 'STUDENT' && !(await this.settings.get<boolean>('studentOnlineSubmission'))) throw new BadRequestException('استقبال الطلبات الإلكترونية متوقف مؤقتاً. راجع دائرة شؤون الطلاب.');
       if (user.role === 'STUDENT' && service.channel === 'IN_PERSON') throw new BadRequestException('هذه الخدمة تُقدَّم حضورياً فقط، راجع دائرة شؤون الطلاب.');
-      const student = await tx.student.findUnique({ where: { id: studentId }, select: { id: true } });
+      const student = await tx.student.findUnique({ where: { id: studentId }, select: { id: true, userId: true } });
       if (!student) throw new NotFoundException('الطالب غير موجود.');
 
       const now = new Date();
@@ -221,6 +231,15 @@ export class AffairsService {
       if (staffId) {
         await tx.studentRequestEvent.create({ data: { requestId: request.id, type: 'ASSIGNED', fromStatus: 'NEW', toStatus: 'ASSIGNED', visibleToStudent: true, actorUserId: user.id, staffId, note: 'أُسند الطلب تلقائياً إلى موظف مختص' } });
         await this.audit(tx, 'AFFAIRS_REQUEST_ASSIGNED', request.id, user.id, { number, staffId, auto: true });
+      }
+      // Notifications: the student gets a receipt; the staff member (or the managers when nobody is assigned) is told there is work.
+      const line = `الطلب ${number} — ${service.nameAr}`;
+      await notifyUsers(tx, [student.userId], { kind: 'REQUEST_CREATED', title: 'تم استلام طلبك', body: line, requestId: request.id });
+      if (staffId) {
+        const staff = await tx.affairsStaff.findUnique({ where: { id: staffId }, select: { userId: true } });
+        await notifyUsers(tx, [staff?.userId].filter((id) => id !== user.id), { kind: 'REQUEST_ASSIGNED', title: 'أُسند إليك طلب جديد', body: line, requestId: request.id });
+      } else {
+        await notifyUsers(tx, (await managerRecipients(tx)).filter((id) => id !== user.id), { kind: 'REQUEST_UNASSIGNED', title: 'طلب جديد بانتظار الإسناد', body: line, requestId: request.id });
       }
       return request;
     });
@@ -322,6 +341,7 @@ export class AffairsService {
       service: r.service,
       assignedStaff: r.assignedStaff ? { id: r.assignedStaff.id, name: r.assignedStaff.user.displayName || r.assignedStaff.user.username || r.assignedStaff.user.email } : null,
       canAct, canTake: user.role === 'REGISTRAR' && r.status === 'NEW' && !r.assignedStaff,
+      canAssign: (await canManage(this.prisma, user)) && !['COMPLETED', 'REJECTED', 'CANCELLED'].includes(r.status),
       allowedStatuses: canAct ? TRANSITIONS[r.status as RequestStatus].filter((s) => s !== 'ASSIGNED' && s !== 'REFERRED' && !(r.status === 'REFERRED' && r.referrals.some((x) => x.status === 'PENDING'))) : [],
       events: r.events.map((e) => ({ id: e.id, type: e.type, fromStatus: e.fromStatus, toStatus: e.toStatus, note: e.note, visibleToStudent: e.visibleToStudent, createdAt: e.createdAt, actor: e.actorUserId ? actorName.get(e.actorUserId) ?? null : null })),
     };
@@ -344,7 +364,8 @@ export class AffairsService {
       const reason = this.cleanReason(dto.reason);
       let targetStaffId: string;
 
-      if (user.role === 'REGISTRAR') {
+      const manage = user.role === 'SYSTEM_ADMIN' || (await isUnitManager(tx, user));
+      if (!manage) {
         await this.settings.assertCapability(user, 'capTakeNewRequests');
         // A staff member may only pick up a new request nobody has taken yet.
         if (r.status !== 'NEW' || r.assignedStaffId) throw new ForbiddenException('لا يمكنك استلام هذا الطلب.');
@@ -373,6 +394,8 @@ export class AffairsService {
         },
       });
       await this.audit(tx, isReassign ? 'AFFAIRS_REQUEST_REASSIGNED' : 'AFFAIRS_REQUEST_ASSIGNED', id, user.id, { number: r.number, from: r.assignedStaffId, to: targetStaffId, reason: reason || undefined });
+      const assignee = await tx.affairsStaff.findUnique({ where: { id: targetStaffId }, select: { userId: true } });
+      await notifyUsers(tx, [assignee?.userId].filter((uid) => uid !== user.id), { kind: 'REQUEST_ASSIGNED', title: isReassign ? 'أُعيد إسناد طلب إليك' : 'أُسند إليك طلب', body: `الطلب ${r.number}${reason ? ` — ${reason}` : ''}`, requestId: id });
       return updated;
     });
   }
@@ -396,6 +419,8 @@ export class AffairsService {
       });
       await tx.studentRequestEvent.create({ data: { requestId: id, type: 'STATUS_CHANGED', fromStatus: from, toStatus: to, note: note || null, visibleToStudent: true, actorUserId: user.id, staffId: r.assignedStaffId } });
       await this.audit(tx, 'AFFAIRS_REQUEST_STATUS_CHANGED', id, user.id, { number: r.number, from, to, reason: note || undefined });
+      const owner = await tx.student.findUnique({ where: { id: r.studentId }, select: { userId: true } });
+      await notifyUsers(tx, [owner?.userId], { ...studentStatusMessage(r.number, to, note), requestId: id });
       return updated;
     });
   }
@@ -436,7 +461,7 @@ export class AffairsService {
       students: { total: studentsTotal, active: studentsActive },
       recentEvents: events.map((e) => ({ id: e.id, type: e.type, fromStatus: e.fromStatus, toStatus: e.toStatus, note: e.note, createdAt: e.createdAt, requestId: e.request.id, requestNumber: e.request.number, serviceName: e.request.service.nameAr })),
     };
-    if (user.role === 'SYSTEM_ADMIN') result.staffLoad = (await this.listStaff()).filter((s) => s.isActive).map((s) => ({ id: s.id, name: s.name, open: s.open, done: s.done }));
+    if (await canManage(this.prisma, user)) result.staffLoad = (await this.listStaff()).filter((s) => s.isActive).map((s) => ({ id: s.id, name: s.name, open: s.open, done: s.done }));
     return result;
   }
 

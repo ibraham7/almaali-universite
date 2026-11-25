@@ -35,7 +35,9 @@ describe('settings catalogue and validation', () => {
 function settingsWithRows(rows: { key: string; value: unknown }[] = []) {
   const prisma: any = {
     affairsSetting: { findMany: vi.fn().mockResolvedValue(rows), upsert: vi.fn().mockResolvedValue({}) },
+    affairsStaff: { findUnique: vi.fn().mockResolvedValue(null) },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
+    affairsNotification: { createMany: vi.fn().mockResolvedValue({}) },
   };
   prisma.$transaction = vi.fn(async (work: (tx: unknown) => Promise<unknown>) => work(prisma));
   return { prisma, service: new AffairsSettingsService(prisma as unknown as PrismaService) };
@@ -81,6 +83,9 @@ function mockRequestPrisma(over: Record<string, unknown> = {}) {
     affairsRequestCounter: { upsert: vi.fn().mockResolvedValue({ last: 1 }) },
     student: { findUnique: vi.fn().mockResolvedValue({ id: 'stu1' }) },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
+    affairsNotification: { createMany: vi.fn().mockResolvedValue({}) },
+    user: { findMany: vi.fn().mockResolvedValue([]) },
+
   };
   prisma.$transaction = vi.fn(async (work: (tx: unknown) => Promise<unknown>) => work(prisma));
   return prisma;
@@ -92,7 +97,7 @@ describe('settings are enforced where the action happens', () => {
     const created: any = await new AffairsService(p as unknown as PrismaService, fakeSettings({ autoAssign: false })).createForStudent('stu1', 's1', 'x', undefined, student);
     expect(created.status).toBe('NEW');
     expect(created.assignedStaffId).toBeNull();
-    expect(p.affairsStaff.findMany).not.toHaveBeenCalled();
+    expect(p.affairsStaff.findMany).not.toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ services: expect.anything() }) }));
     const on: any = await new AffairsService(mockRequestPrisma() as unknown as PrismaService, fakeSettings()).createForStudent('stu1', 's1', 'x', undefined, student);
     expect(on.status).toBe('ASSIGNED');
   });
@@ -178,7 +183,7 @@ describe('AffairsReportsService', () => {
           .mockResolvedValueOnce([{ createdAt: day('2026-11-01') }, { createdAt: day('2026-11-01') }, { createdAt: day('2026-11-02') }]),
       },
       affairsService: { findMany: vi.fn().mockResolvedValue([{ id: 's1', nameAr: 'وثيقة قيد' }, { id: 's2', nameAr: 'تأجيل' }]) },
-      affairsStaff: { findMany: vi.fn().mockResolvedValue([{ id: 'st1', userId: 'u-staff', user: { displayName: 'رنا', username: null, email: 'a@x' } }, { id: 'st2', userId: 'u-other', user: { displayName: 'عمر', username: null, email: 'b@x' } }]) },
+      affairsStaff: { findUnique: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([{ id: 'st1', userId: 'u-staff', user: { displayName: 'رنا', username: null, email: 'a@x' } }, { id: 'st2', userId: 'u-other', user: { displayName: 'عمر', username: null, email: 'b@x' } }]) },
       issuedDocument: { groupBy: vi.fn().mockResolvedValue([{ typeId: 't1', status: 'ACTIVE', _count: { _all: 5 } }, { typeId: 't1', status: 'REVOKED', _count: { _all: 1 } }]) },
       documentType: { findMany: vi.fn().mockResolvedValue([{ id: 't1', nameAr: 'وثيقة قيد' }]) },
       requestReferral: { groupBy: vi.fn().mockResolvedValue([{ target: 'COLLEGE', status: 'PENDING', _count: { _all: 2 } }, { target: 'COLLEGE', status: 'ANSWERED', _count: { _all: 1 } }]) },
@@ -222,7 +227,7 @@ describe('AffairsReportsService', () => {
       { number: 'SR-1', status: 'COMPLETED', channel: 'ONLINE', createdAt: day('2026-11-01'), dueAt: day('2026-11-04'), closedAt: day('2026-11-03'), student: { universityId: '27010001', fullName: 'سارة', firstName: 'سارة', middleName: null, familyName: 'ع', collegeId: 'c1' }, service: { nameAr: 'وثيقة قيد' }, assignedStaff: { user: { displayName: 'رنا', username: null, email: 'a@x' } } },
       { number: 'SR-2', status: 'NEW', channel: 'IN_PERSON', createdAt: day('2026-11-02'), dueAt: day('2026-11-05'), closedAt: null, student: { universityId: '27010002', fullName: 'خالد', firstName: 'خالد', middleName: null, familyName: 'م', collegeId: null }, service: { nameAr: 'وثيقة قيد' }, assignedStaff: null },
     ];
-    const prisma: any = { studentRequest: { findMany: vi.fn().mockResolvedValue(rows) }, college: { findMany: vi.fn().mockResolvedValue([{ id: 'c1', nameAr: 'الهندسة' }]) } };
+    const prisma: any = { affairsStaff: { findUnique: vi.fn().mockResolvedValue(null) }, studentRequest: { findMany: vi.fn().mockResolvedValue(rows) }, college: { findMany: vi.fn().mockResolvedValue([{ id: 'c1', nameAr: 'الهندسة' }]) } };
     const svc = new AffairsReportsService(prisma as unknown as PrismaService);
     const grouped: any = await svc.run({ source: 'requests', columns: [], groupBy: 'service' }, owner);
     expect(grouped.rows).toEqual([{ label: 'وثيقة قيد', count: 2, avgDays: 2 }]);

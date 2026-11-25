@@ -18,3 +18,15 @@ export async function loadRequestForAction(
 export function audit(tx: any, action: string, entityId: string, userId: string, details: Record<string, unknown>) {
   return tx.auditLog.create({ data: { action, entity: 'StudentRequest', entityId, userId, details: JSON.stringify(details) } });
 }
+
+// The unit manager is a REGISTRAR whose staff profile carries the manager flag (no separate role).
+export async function isUnitManager(db: any, user: AffairsUser): Promise<boolean> {
+  if (user.role !== 'REGISTRAR') return false;
+  const staff = await db.affairsStaff.findUnique({ where: { userId: user.id }, select: { isManager: true, isActive: true } });
+  return !!staff && staff.isManager === true && staff.isActive === true;
+}
+
+// Who may assign / re-assign requests and see the whole unit's workload: system admin or the unit manager.
+export async function canManage(db: any, user: AffairsUser): Promise<boolean> {
+  return user.role === 'SYSTEM_ADMIN' || isUnitManager(db, user);
+}

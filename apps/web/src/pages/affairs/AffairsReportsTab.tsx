@@ -33,8 +33,8 @@ function Overview({ role }: { role: string }) {
   useEffect(() => {
     getAffairsServices().then(setServices).catch(() => undefined);
     getColleges().then(setColleges).catch(() => undefined);
-    if (role === 'SYSTEM_ADMIN') getAffairsStaff().then(setStaff).catch(() => undefined);
-  }, [role]);
+    getAffairsStaff().then(setStaff).catch(() => undefined);
+  }, []);
 
   const filters: ReportFilters = useMemo(() => ({ from: range.from || undefined, to: range.to || undefined, serviceId: serviceId || undefined, channel: channel || undefined, staffId: staffId || undefined, collegeId: collegeId || undefined }), [range, serviceId, channel, staffId, collegeId]);
 
@@ -77,7 +77,7 @@ function Overview({ role }: { role: string }) {
             <TextField select size="small" label="الخدمة" value={serviceId} onChange={(e) => setServiceId(e.target.value)}><MenuItem value="">كل الخدمات</MenuItem>{services.map((s) => <MenuItem key={s.id} value={s.id}>{s.nameAr}</MenuItem>)}</TextField>
             <TextField select size="small" label="الكلية" value={collegeId} onChange={(e) => setCollegeId(e.target.value)}><MenuItem value="">كل الكليات</MenuItem>{colleges.map((c) => <MenuItem key={c.id} value={c.id}>{c.nameAr}</MenuItem>)}</TextField>
             <TextField select size="small" label="مصدر الطلب" value={channel} onChange={(e) => setChannel(e.target.value)}><MenuItem value="">الكل</MenuItem><MenuItem value="ONLINE">إلكتروني</MenuItem><MenuItem value="IN_PERSON">حضوري</MenuItem></TextField>
-            {role === 'SYSTEM_ADMIN' && <TextField select size="small" label="الموظف" value={staffId} onChange={(e) => setStaffId(e.target.value)}><MenuItem value="">كل الموظفين</MenuItem>{staff.map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}</TextField>}
+            {data?.scope.canSeeAll && <TextField select size="small" label="الموظف" value={staffId} onChange={(e) => setStaffId(e.target.value)}><MenuItem value="">كل الموظفين</MenuItem>{staff.map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}</TextField>}
           </Box>
           <Typography variant="caption" color="text.secondary">الفترة تُحسب على تاريخ تقديم الطلب. المعروض: {periodText}.</Typography>
         </Stack>
@@ -141,7 +141,7 @@ function Overview({ role }: { role: string }) {
           </Paper>
 
           <Paper variant="outlined" sx={{ p: 2 }}>
-            <Typography sx={{ fontWeight: 700, mb: 1 }}>حجم العمل {role === 'SYSTEM_ADMIN' ? 'حسب الموظف' : '(لك)'}</Typography>
+            <Typography sx={{ fontWeight: 700, mb: 1 }}>حجم العمل {data.scope.canSeeAll ? 'حسب الموظف' : '(لك)'}</Typography>
             <TableContainer>
               <Table size="small" aria-label="حجم العمل">
                 <TableHead><TableRow><TableCell>الموظف</TableCell><TableCell>مفتوح</TableCell><TableCell>مكتمل</TableCell><TableCell>مرفوض</TableCell><TableCell>متوسط أيام الإنجاز</TableCell></TableRow></TableHead>

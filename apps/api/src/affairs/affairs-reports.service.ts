@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/com
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { AffairsUser } from './affairs.service.js';
 import { OPEN_STATUSES } from './affairs.rules.js';
+import { canManage } from './affairs-access.js';
 import { ReportFiltersDto, RunReportDto } from './dto/affairs.dto.js';
 import {
   CATALOG, CHANNEL_AR, MODE_AR, OUTCOME_AR, STATUS_AR, TARGET_AR, checkSelection, dayOf, dayRange, daysBetween, monthOf, sourceOf, toCsv,
@@ -37,28 +38,28 @@ function staffName(user: { displayName: string | null; username: string | null; 
 export class AffairsReportsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  catalog(user: AffairsUser) {
-    const isAdmin = user.role === 'SYSTEM_ADMIN';
+  async catalog(user: AffairsUser) {
+    const isAdmin = await canManage(this.prisma, user);
     return CATALOG.map((s) => ({
       ...s, columns: s.columns.filter((c) => !c.adminOnly || isAdmin), dimensions: s.dimensions.filter((d) => !d.adminOnly || isAdmin),
     }));
   }
 
-  private requestWhere(f: ReportFiltersDto, user: AffairsUser) {
+  private requestWhere(f: ReportFiltersDto, seeAll: boolean) {
     const where: Record<string, unknown> = {};
     const created = dayRange(f.from, f.to);
     if (created) where.createdAt = created;
     if (f.serviceId) where.serviceId = f.serviceId;
     if (f.channel) where.channel = f.channel;
     if (f.collegeId) where.student = { collegeId: f.collegeId };
-    if (f.staffId && user.role === 'SYSTEM_ADMIN') where.assignedStaffId = f.staffId;
+    if (f.staffId && seeAll) where.assignedStaffId = f.staffId;
     return where;
   }
 
   // ---------- overview (all aggregation happens here, in the database or in this method) ----------
   async overview(f: ReportFiltersDto, user: AffairsUser) {
-    const isAdmin = user.role === 'SYSTEM_ADMIN';
-    const where = this.requestWhere(f, user);
+    const isAdmin = await canManage(this.prisma, user);
+    const where = this.requestWhere(f, isAdmin);
     const now = new Date();
 
     const [grouped, channels, overdue, completedRows, createdRows, services, staffRows] = await Promise.all([
@@ -158,6 +159,7 @@ export class AffairsReportsService {
 
     return {
       period: { from: f.from ?? null, to: f.to ?? null },
+      scope: { canSeeAll: isAdmin },
       totals: { ...totals, avgDays: avg(allDays) },
       byService: [...byServiceMap.values()].sort((a, b) => b.total - a.total),
       byStatus: [...byStatusMap.entries()].map(([status, count]) => ({ status, label: STATUS_AR[status] ?? status, count })).sort((a, b) => b.count - a.count),
@@ -240,7 +242,7 @@ export class AffairsReportsService {
   }
 
   async run(body: RunReportDto, user: AffairsUser, limit = SHOWN_ROWS) {
-    const isAdmin = user.role === 'SYSTEM_ADMIN';
+    const isAdmin = await canManage(this.prisma, user);
     const problem = checkSelection(body.source, body.columns ?? [], body.groupBy, isAdmin);
     if (problem) {
       if (problem.includes('لمدير النظام فقط')) throw new ForbiddenException(problem);

@@ -55,6 +55,7 @@ function mockPrisma(over: { request?: Record<string, unknown>; type?: Record<str
     user: { findUnique: vi.fn().mockResolvedValue({ displayName: 'موظفة' }) },
     student: { findUnique: vi.fn() },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
+    affairsNotification: { createMany: vi.fn().mockResolvedValue({}) },
   };
   prisma.$transaction = vi.fn(async (work: (tx: unknown) => Promise<unknown>) => work(prisma));
   return prisma;

@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import type { AffairsUser } from './affairs.service.js';
 import { AffairsSettingsService } from './affairs-settings.service.js';
 import { audit, loadRequestForAction } from './affairs-access.js';
+import { notifyUsers } from './affairs-notifications.js';
 import { isTerminal, type RequestStatus } from './affairs.rules.js';
 
 export const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
@@ -64,11 +65,12 @@ export class AffairsAttachmentsService {
     return this.prisma.$transaction(async (tx) => {
       const student = await tx.student.findUnique({ where: { userId: user.id }, select: { id: true } });
       if (!student) throw new ForbiddenException('حسابك غير مرتبط بملف طالب.');
-      const request = await tx.studentRequest.findFirst({ where: { id: requestId, studentId: student.id }, select: { id: true, number: true, status: true } });
+      const request = await tx.studentRequest.findFirst({ where: { id: requestId, studentId: student.id }, select: { id: true, number: true, status: true, assignedStaff: { select: { userId: true } } } });
       if (!request) throw new NotFoundException('الطلب غير موجود.');
       if (isTerminal(request.status as RequestStatus)) throw new BadRequestException('الطلب منتهٍ ولا يمكن إضافة مرفقات.');
       const row = await this.store(tx, requestId, file as UploadedBinary, user, true);
       await audit(tx, 'AFFAIRS_ATTACHMENT_ADDED', requestId, user.id, { number: request.number, attachmentId: row.id, by: 'student' });
+      await notifyUsers(tx, [request.assignedStaff?.userId], { kind: 'ATTACHMENT_FROM_STUDENT', title: 'أضاف الطالب مرفقاً', body: `الطلب ${request.number}`, requestId });
       return row;
     });
   }
