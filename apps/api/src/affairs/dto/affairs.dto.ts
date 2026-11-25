@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
+import { ALL_COLUMN_IDS, ALL_DIMENSION_IDS, ALL_STATUS_IDS } from '../affairs-reports.catalog.js';
+import { ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, ValidateNested } from 'class-validator';
 
 // REFERRED is reached only through a referral record (see the referral endpoints).
 const STATUSES = ['ASSIGNED', 'IN_PROGRESS', 'WAITING_COMPLETION', 'REFERRED', 'ACCEPTED', 'COMPLETED', 'REJECTED', 'CANCELLED'];
@@ -82,7 +83,7 @@ export class UpdateStaffDto {
 }
 
 export class ListRequestsQueryDto {
-  @IsOptional() @IsIn(['all', 'new', 'mine', 'waiting', 'referred', 'done'])
+  @IsOptional() @IsIn(['all', 'open', 'new', 'mine', 'waiting', 'referred', 'done'])
   view?: string;
 
   @IsOptional() @IsString() @MaxLength(100)
@@ -96,6 +97,25 @@ export class ListRequestsQueryDto {
 
   @IsOptional() @IsIn(['ONLINE', 'IN_PERSON'])
   channel?: string;
+
+  @IsOptional() @IsDateString()
+  from?: string;
+
+  @IsOptional() @IsDateString()
+  to?: string;
+
+  @IsOptional() @IsUUID()
+  staffId?: string;
+
+  @IsOptional() @IsString() @MaxLength(64)
+  collegeId?: string;
+
+  @IsOptional() @IsIn(['true'])
+  overdue?: string;
+
+  // Completed today (the same definition as the home counter).
+  @IsOptional() @IsIn(['true'])
+  closedToday?: string;
 
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100000)
   page?: number;
@@ -271,4 +291,72 @@ export class ListDocumentsQueryDto {
 
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100000)
   page?: number;
+}
+
+export class UpdateSettingsDto {
+  // { key: value } for the known settings; each value is validated against the settings catalogue.
+  @IsObject()
+  values!: Record<string, unknown>;
+}
+
+export class SummaryQueryDto {
+  @IsOptional() @IsDateString()
+  from?: string;
+
+  @IsOptional() @IsDateString()
+  to?: string;
+
+  @IsOptional() @IsUUID()
+  serviceId?: string;
+}
+
+export class ReportFiltersDto {
+  @IsOptional() @IsDateString()
+  from?: string;
+
+  @IsOptional() @IsDateString()
+  to?: string;
+
+  @IsOptional() @IsUUID()
+  serviceId?: string;
+
+  @IsOptional() @IsUUID()
+  staffId?: string;
+
+  @IsOptional() @IsIn(['ONLINE', 'IN_PERSON'])
+  channel?: string;
+
+  @IsOptional() @IsString() @MaxLength(64)
+  collegeId?: string;
+}
+
+export class BuilderFiltersDto {
+  @IsOptional() @IsDateString()
+  from?: string;
+
+  @IsOptional() @IsDateString()
+  to?: string;
+
+  @IsOptional() @IsIn(ALL_STATUS_IDS)
+  status?: string;
+
+  @IsOptional() @IsUUID()
+  serviceId?: string;
+
+  @IsOptional() @IsIn(['ONLINE', 'IN_PERSON'])
+  channel?: string;
+}
+
+export class RunReportDto {
+  @IsIn(['requests', 'documents', 'referrals'])
+  source!: 'requests' | 'documents' | 'referrals';
+
+  @IsArray() @ArrayMaxSize(12) @IsIn(ALL_COLUMN_IDS, { each: true })
+  columns!: string[];
+
+  @IsOptional() @IsIn(ALL_DIMENSION_IDS)
+  groupBy?: string;
+
+  @IsOptional() @ValidateNested() @Type(() => BuilderFiltersDto)
+  filters?: BuilderFiltersDto;
 }

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { AffairsUser } from './affairs.service.js';
+import { AffairsSettingsService } from './affairs-settings.service.js';
 import { CancelReferralDto, CreateReferralDto, ListReferralsQueryDto, RespondReferralDto } from './dto/affairs.dto.js';
 import { audit, loadRequestForAction } from './affairs-access.js';
 import { isTerminal, type RequestStatus } from './affairs.rules.js';
@@ -33,10 +34,11 @@ export function outcomeAllowed(mode: string, outcome: string) {
 
 @Injectable()
 export class AffairsReferralsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly settings: AffairsSettingsService) {}
 
   // Send a request to another body. The request becomes REFERRED and stays assigned to the original staff member.
   async create(requestId: string, dto: CreateReferralDto, user: AffairsUser) {
+    await this.settings.assertCapability(user, 'capCreateReferrals');
     const reason = dto.reason.trim();
     if (!reason) throw new BadRequestException('سبب الإحالة مطلوب.');
     const targetName = dto.targetName?.trim() || null;

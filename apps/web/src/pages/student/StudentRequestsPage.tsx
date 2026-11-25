@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import {
-  createMyAffairsRequest, downloadMyAttachment, getMyAffairsRequest, getMyAffairsRequests, getMyAffairsServices, uploadMyAttachment,
+  createMyAffairsRequest, downloadMyAttachment, getMyAffairsConfig, getMyAffairsRequest, getMyAffairsRequests, getMyAffairsServices, uploadMyAttachment,
   type StudentMyRequest, type StudentMyRequestDetails,
 } from '../../api/affairs';
 import { checkUpload, errorText, formatDate } from '../affairs/affairsUi';
@@ -19,6 +19,7 @@ export default function StudentRequestsPage() {
   const [subject, setSubject] = useState('');
   const [details, setDetails] = useState('');
   const [files, setFiles] = useState<File[]>([]);
+  const [config, setConfig] = useState<{ onlineSubmissionEnabled: boolean; maxAttachmentMb: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [dialogError, setDialogError] = useState('');
   const [detail, setDetail] = useState<StudentMyRequestDetails | null>(null);
@@ -26,7 +27,7 @@ export default function StudentRequestsPage() {
   const load = useCallback(() => getMyAffairsRequests()
     .then((list) => { setRows(list); setError(''); })
     .catch((cause) => setError(errorText(cause, 'تعذر تحميل طلباتك.'))), []);
-  useEffect(() => { void load(); getMyAffairsServices().then(setServices).catch(() => undefined); }, [load]);
+  useEffect(() => { void load(); getMyAffairsServices().then(setServices).catch(() => undefined); getMyAffairsConfig().then(setConfig).catch(() => undefined); }, [load]);
 
   async function submit() {
     setBusy(true); setDialogError('');
@@ -54,8 +55,9 @@ export default function StudentRequestsPage() {
     <Stack spacing={2}>
       <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="h5" sx={{ fontWeight: 800 }}>طلباتي</Typography>
-        <Button variant="contained" onClick={() => { setDialogError(''); setCreating(true); }}>طلب جديد</Button>
+        <Button variant="contained" disabled={config?.onlineSubmissionEnabled === false} onClick={() => { setDialogError(''); setCreating(true); }}>طلب جديد</Button>
       </Stack>
+      {config?.onlineSubmissionEnabled === false && <Alert severity="warning">تقديم الطلبات إلكترونياً متوقف مؤقتاً. راجع دائرة شؤون الطلاب مباشرة.</Alert>}
       {message && <Alert severity="success" onClose={() => setMessage('')}>{message}</Alert>}
       {error && <Alert severity="error">{error}</Alert>}
 
@@ -105,7 +107,7 @@ export default function StudentRequestsPage() {
                     setDialogError(''); setFiles((prev) => [...prev, ...picked].slice(0, 10));
                   }} />
               </Button>
-              <Typography variant="caption" color="text.secondary"> PDF أو JPG أو PNG، حتى 5 ميغابايت للملف</Typography>
+              <Typography variant="caption" color="text.secondary"> PDF أو JPG أو PNG، حتى {config?.maxAttachmentMb ?? 5} ميغابايت للملف</Typography>
               {files.map((f, i) => (
                 <Typography key={`${f.name}-${i}`} variant="body2">{f.name} <Button size="small" onClick={() => setFiles(files.filter((_, j) => j !== i))}>إزالة</Button></Typography>
               ))}

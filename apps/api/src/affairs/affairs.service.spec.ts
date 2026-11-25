@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AffairsService } from './affairs.service.js';
+import { fakeSettings } from './affairs-test-utils.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { canTransition, pickLeastLoaded, reasonRequired, requestNumber } from './affairs.rules.js';
 
@@ -52,7 +53,7 @@ function setup(overrides: { request?: Record<string, unknown>; candidates?: { id
     auditLog: { create: vi.fn().mockResolvedValue({}) },
   };
   prisma.$transaction = vi.fn(async (work: (tx: unknown) => Promise<unknown>) => work(prisma));
-  return { prisma, service: new AffairsService(prisma as unknown as PrismaService) };
+  return { prisma, service: new AffairsService(prisma as unknown as PrismaService, fakeSettings()) };
 }
 
 describe('AffairsService.changeStatus', () => {

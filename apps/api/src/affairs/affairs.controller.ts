@@ -6,8 +6,10 @@ import { AffairsAttachmentsService, MAX_ATTACHMENT_BYTES, type UploadedBinary } 
 import { AffairsReferralsService } from './affairs-referrals.service.js';
 import { AffairsFilesService } from './affairs-files.service.js';
 import { AffairsDocumentsService } from './affairs-documents.service.js';
+import { AffairsSettingsService } from './affairs-settings.service.js';
+import { AffairsReportsService } from './affairs-reports.service.js';
 import {
-  CreateDocumentTypeDto, ListDocumentsQueryDto, RevokeDocumentDto, UpdateDocumentTypeDto,
+  ReportFiltersDto, RunReportDto, SummaryQueryDto, UpdateSettingsDto, CreateDocumentTypeDto, ListDocumentsQueryDto, RevokeDocumentDto, UpdateDocumentTypeDto,
   ArchiveAttachmentDto, CancelReferralDto, CreateReferralDto, ListReferralsQueryDto, ListStudentsQueryDto, RespondReferralDto,
   AssignRequestDto, ChangeStatusDto, CommentDto, CreateServiceDto, CreateStaffDto, ListRequestsQueryDto,
   ProxyCreateRequestDto, StudentCreateRequestDto, StudentSearchQueryDto, UpdateServiceDto, UpdateStaffDto,
@@ -29,6 +31,8 @@ export class AffairsController {
     private readonly referrals: AffairsReferralsService,
     private readonly files: AffairsFilesService,
     private readonly documents: AffairsDocumentsService,
+    private readonly settings: AffairsSettingsService,
+    private readonly reports: AffairsReportsService,
   ) {}
 
   private send(res: Response, att: { fileName: string; mimeType: string; data: Uint8Array }) {
@@ -41,7 +45,7 @@ export class AffairsController {
 
   // ----- staff side (REGISTRAR, SYSTEM_ADMIN) -----
   @Get('summary') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
-  summary(@Req() req: AuthenticatedRequest) { return this.affairs.summary(req.user); }
+  summary(@Query() query: SummaryQueryDto, @Req() req: AuthenticatedRequest) { return this.affairs.summary(req.user, query); }
 
   @Get('operations') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
   operations(@Query('page') page?: string) {
@@ -110,6 +114,33 @@ export class AffairsController {
   @Get('requests/:id/attachments/:attId/download') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
   async downloadAttachment(@Param('id') id: string, @Param('attId') attId: string, @Res() res: Response) { this.send(res, await this.attachments.downloadForStaff(id, attId)); }
 
+  // ----- reports -----
+  @Get('reports/catalog') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  reportCatalog(@Req() req: AuthenticatedRequest) { return this.reports.catalog(req.user); }
+
+  @Get('reports/overview') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  reportOverview(@Query() query: ReportFiltersDto, @Req() req: AuthenticatedRequest) { return this.reports.overview(query, req.user); }
+
+  @Post('reports/run') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  runReport(@Body() body: RunReportDto, @Req() req: AuthenticatedRequest) { return this.reports.run(body, req.user); }
+
+  @Post('reports/export') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  async exportReport(@Body() body: RunReportDto, @Req() req: AuthenticatedRequest, @Res() res: Response) {
+    const csv = await this.reports.exportCsv(body, req.user);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="report.csv"');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.end(csv);
+  }
+
+  // ----- settings -----
+  @Get('settings') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  getSettings() { return this.settings.view(); }
+
+  @Patch('settings') @Roles('SYSTEM_ADMIN')
+  updateSettings(@Body() body: UpdateSettingsDto, @Req() req: AuthenticatedRequest) { return this.settings.update(body.values, req.user); }
+
   // ----- documents -----
   @Get('documents/types') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
   documentTypes() { return this.documents.listTypes(); }
@@ -157,6 +188,10 @@ export class AffairsController {
 
   @Get('my/requests/:id') @Roles('STUDENT')
   myRequest(@Param('id') id: string, @Req() req: AuthenticatedRequest) { return this.affairs.myRequest(id, req.user); }
+
+  // What the student portal needs to know before showing the form.
+  @Get('my/config') @Roles('STUDENT')
+  async myConfig() { return { onlineSubmissionEnabled: await this.settings.get<boolean>('studentOnlineSubmission'), maxAttachmentMb: await this.settings.get<number>('maxAttachmentMb') }; }
 
   @Get('my/documents') @Roles('STUDENT')
   myDocuments(@Req() req: AuthenticatedRequest) { return this.documents.mine(req.user); }

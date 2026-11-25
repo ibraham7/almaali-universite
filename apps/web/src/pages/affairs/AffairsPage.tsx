@@ -9,8 +9,10 @@ import AffairsOperationsTab from './AffairsOperationsTab';
 import AffairsFilesTab from './AffairsFilesTab';
 import AffairsReferralsTab from './AffairsReferralsTab';
 import AffairsDocumentsTab from './AffairsDocumentsTab';
+import AffairsReportsTab from './AffairsReportsTab';
+import AffairsSettingsTab from './AffairsSettingsTab';
 
-// The ten sections of the student-affairs dashboard. `phase` is set for sections that are not built yet.
+// The ten sections of the student-affairs dashboard.
 const SECTIONS = [
   { id: 'home', label: 'الرئيسية' },
   { id: 'files', label: 'ملفات الطلاب' },
@@ -19,9 +21,9 @@ const SECTIONS = [
   { id: 'documents', label: 'الوثائق والإفادات' },
   { id: 'referrals', label: 'المعاملات والإحالات' },
   { id: 'staff', label: 'الموظفون وتوزيع المهام' },
-  { id: 'reports', label: 'التقارير والإحصائيات', phase: 4 },
+  { id: 'reports', label: 'التقارير والإحصائيات' },
   { id: 'operations', label: 'سجل العمليات' },
-  { id: 'settings', label: 'الإعدادات والصلاحيات', phase: 4 },
+  { id: 'settings', label: 'الإعدادات والصلاحيات' },
 ] as const;
 
 export default function AffairsPage() {
@@ -43,16 +45,12 @@ export default function AffairsPage() {
         {current.id === 'files' && <AffairsFilesTab />}
         {current.id === 'requests' && <AffairsRequestsTab role={role} />}
         {current.id === 'documents' && <AffairsDocumentsTab role={role} />}
+        {current.id === 'reports' && <AffairsReportsTab role={role} />}
+        {current.id === 'settings' && <AffairsSettingsTab role={role} />}
         {current.id === 'referrals' && <AffairsReferralsTab role={role} />}
         {current.id === 'services' && <AffairsServicesTab />}
         {current.id === 'staff' && <AffairsStaffTab role={role} />}
         {current.id === 'operations' && <AffairsOperationsTab />}
-        {'phase' in current && (
-          <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>{current.label}</Typography>
-            <Typography color="text.secondary">قيد الإعداد — المرحلة {current.phase}</Typography>
-          </Paper>
-        )}
       </Box>
     </Stack>
   );
