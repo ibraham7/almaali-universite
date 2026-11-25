@@ -13,6 +13,7 @@ import {
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -62,7 +63,8 @@ interface StatCardProps {
   title: string;
   value: string;
   description: string;
-  icon: ReactNode;
+  // لم تعد تُعرض (تصميم البطاقة الجديد: رقم + اسم)، وتبقى حتى لا تتغير أماكن الاستدعاء
+  icon?: ReactNode;
 }
 
 interface QuickActionProps {
@@ -144,120 +146,126 @@ function enrollmentStatusLabel(
   }
 }
 
+// لون الخط السفلي للبطاقة (نفس بطاقات صفحة الهبوط)
+const STAT_CARD_ACCENT = '#5B84C4';
+
+// رقم متحرّك: يعدّ من الرقم السابق إلى الجديد حين تظهر البطاقة على الشاشة.
+// القيم غير الرقمية (مثل حالة التسجيل) تُعرض كما هي، ومع «تقليل الحركة» يظهر الرقم النهائي مباشرة.
+function AnimatedNumber({ value }: { value: string }) {
+  const target = /^\d+(\.\d+)?$/.test(value) ? Number(value) : null;
+  const decimals = value.includes('.') ? value.split('.')[1].length : 0;
+  const reduceMotion = typeof window !== 'undefined'
+    && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+
+  const ref = useRef<HTMLSpanElement>(null);
+  const shownRef = useRef(0);
+  const [shown, setShown] = useState(0);
+  const [visible, setVisible] = useState(() => typeof IntersectionObserver === 'undefined');
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || target === null || visible) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setVisible(true);
+        observer.disconnect();
+      }
+    }, { threshold: 0.3 });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [target, visible]);
+
+  useEffect(() => {
+    if (target === null || !visible || reduceMotion) return;
+    const from = shownRef.current;
+    if (from === target) return;
+    const duration = 1400;
+    const startedAt = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const progress = Math.min((now - startedAt) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = progress === 1 ? target : from + (target - from) * eased;
+      shownRef.current = current;
+      setShown(current);
+      if (progress < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [target, visible, reduceMotion]);
+
+  if (target === null) return <span ref={ref}>{value}</span>;
+  const number = reduceMotion ? target : shown;
+  return (
+    <span ref={ref}>
+      {number.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}
+    </span>
+  );
+}
+
 function StatCard({
   title,
   value,
   description,
-  icon,
 }: StatCardProps) {
+  const isNumber = /^\d+(\.\d+)?$/.test(value);
+
   return (
     <Card
       sx={{
         height: '100%',
-        boxShadow: 'none',
-
-        transition:
-          '0.2s ease',
+        textAlign: 'center',
+        borderRadius: 4,
+        borderBottom: `4px solid ${STAT_CARD_ACCENT}`,
+        boxShadow: '0 10px 28px rgba(15, 50, 90, 0.10)',
+        transition: 'transform 0.25s ease, box-shadow 0.25s ease',
 
         '&:hover': {
-          borderColor:
-            '#C7D4E0',
-
-          transform:
-            'translateY(-2px)',
+          transform: 'translateY(-4px)',
+          boxShadow: '0 16px 36px rgba(15, 50, 90, 0.16)',
         },
       }}
     >
       <CardContent
         sx={{
-          p: 2.5,
+          px: 2,
+          py: 3,
 
           '&:last-child': {
-            pb: 2.5,
+            pb: 3,
           },
         }}
       >
-        <Box
+        <Typography
+          component="div"
           sx={{
-            display: 'flex',
-
-            alignItems:
-              'flex-start',
-
-            justifyContent:
-              'space-between',
-
-            gap: 2,
+            fontSize: isNumber ? 36 : 22,
+            lineHeight: 1.25,
+            fontWeight: 700,
+            fontVariantNumeric: 'tabular-nums',
+            color: universityColors.navyDark,
           }}
         >
-          <Box>
-            <Typography
-              sx={{
-                fontSize: 12.5,
-
-                color:
-                  universityColors.textSecondary,
-
-                fontWeight: 500,
-              }}
-            >
-              {title}
-            </Typography>
-
-            <Typography
-              sx={{
-                mt: 0.6,
-
-                fontSize: 27,
-
-                lineHeight: 1.3,
-
-                fontWeight: 700,
-
-                color:
-                  universityColors.navyDark,
-              }}
-            >
-              {value}
-            </Typography>
-          </Box>
-
-          <Box
-            sx={{
-              width: 46,
-              height: 46,
-
-              borderRadius: 2.5,
-
-              display: 'flex',
-
-              alignItems:
-                'center',
-
-              justifyContent:
-                'center',
-
-              flexShrink: 0,
-
-              bgcolor:
-                universityColors.softBlue,
-
-              color:
-                universityColors.navy,
-            }}
-          >
-            {icon}
-          </Box>
-        </Box>
+          <AnimatedNumber value={value} />
+        </Typography>
 
         <Typography
           sx={{
-            mt: 1.5,
+            mt: 0.75,
+            fontSize: 15,
+            fontWeight: 500,
+            color: universityColors.textSecondary,
+          }}
+        >
+          {title}
+        </Typography>
 
+        <Typography
+          sx={{
+            mt: 1,
             fontSize: 11.5,
-
-            color:
-              universityColors.textSecondary,
+            color: universityColors.textSecondary,
+            opacity: 0.85,
           }}
         >
           {description}
