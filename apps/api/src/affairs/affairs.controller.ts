@@ -1,7 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
-import type { Request } from 'express';
+import { Body, Controller, Get, Param, Patch, Post, Query, Req, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import type { Request, Response } from 'express';
 import { AffairsService, AffairsUser } from './affairs.service.js';
+import { AffairsAttachmentsService, MAX_ATTACHMENT_BYTES, type UploadedBinary } from './affairs-attachments.service.js';
+import { AffairsReferralsService } from './affairs-referrals.service.js';
+import { AffairsFilesService } from './affairs-files.service.js';
 import {
+  ArchiveAttachmentDto, CancelReferralDto, CreateReferralDto, ListReferralsQueryDto, ListStudentsQueryDto, RespondReferralDto,
   AssignRequestDto, ChangeStatusDto, CommentDto, CreateServiceDto, CreateStaffDto, ListRequestsQueryDto,
   ProxyCreateRequestDto, StudentCreateRequestDto, StudentSearchQueryDto, UpdateServiceDto, UpdateStaffDto,
 } from './dto/affairs.dto.js';
@@ -16,7 +21,20 @@ interface AuthenticatedRequest extends Request {
 @Controller('affairs')
 @UseGuards(JwtGuard, RolesGuard)
 export class AffairsController {
-  constructor(private readonly affairs: AffairsService) {}
+  constructor(
+    private readonly affairs: AffairsService,
+    private readonly attachments: AffairsAttachmentsService,
+    private readonly referrals: AffairsReferralsService,
+    private readonly files: AffairsFilesService,
+  ) {}
+
+  private send(res: Response, att: { fileName: string; mimeType: string; data: Uint8Array }) {
+    res.setHeader('Content-Type', att.mimeType);
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(att.fileName)}`);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.end(Buffer.from(att.data));
+  }
 
   // ----- staff side (REGISTRAR, SYSTEM_ADMIN) -----
   @Get('summary') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
@@ -71,6 +89,37 @@ export class AffairsController {
   @Post('requests/:id/comment') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
   comment(@Param('id') id: string, @Body() body: CommentDto, @Req() req: AuthenticatedRequest) { return this.affairs.comment(id, body, req.user); }
 
+  // ----- student files (read only) -----
+  @Get('students') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  listStudents(@Query() query: ListStudentsQueryDto) { return this.files.list(query.search, query.page ?? 1); }
+
+  @Get('students/:id/file') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  studentFile(@Param('id') id: string) { return this.files.get(id); }
+
+  // ----- attachments -----
+  @Post('requests/:id/attachments') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_ATTACHMENT_BYTES + 1, files: 1 } }))
+  addAttachment(@Param('id') id: string, @UploadedFile() file: UploadedBinary | undefined, @Req() req: AuthenticatedRequest) { return this.attachments.addByStaff(id, file, req.user); }
+
+  @Post('requests/:id/attachments/:attId/archive') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  archiveAttachment(@Param('id') id: string, @Param('attId') attId: string, @Body() body: ArchiveAttachmentDto, @Req() req: AuthenticatedRequest) { return this.attachments.archive(id, attId, body.reason, req.user); }
+
+  @Get('requests/:id/attachments/:attId/download') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  async downloadAttachment(@Param('id') id: string, @Param('attId') attId: string, @Res() res: Response) { this.send(res, await this.attachments.downloadForStaff(id, attId)); }
+
+  // ----- referrals -----
+  @Get('referrals') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  listReferrals(@Query() query: ListReferralsQueryDto) { return this.referrals.list(query); }
+
+  @Post('requests/:id/referrals') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  createReferral(@Param('id') id: string, @Body() body: CreateReferralDto, @Req() req: AuthenticatedRequest) { return this.referrals.create(id, body, req.user); }
+
+  @Post('referrals/:id/respond') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  respondReferral(@Param('id') id: string, @Body() body: RespondReferralDto, @Req() req: AuthenticatedRequest) { return this.referrals.respond(id, body, req.user); }
+
+  @Post('referrals/:id/cancel') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  cancelReferral(@Param('id') id: string, @Body() body: CancelReferralDto, @Req() req: AuthenticatedRequest) { return this.referrals.cancel(id, body, req.user); }
+
   // ----- student side -----
   @Get('my/services') @Roles('STUDENT')
   myServices() { return this.affairs.myServices(); }
@@ -83,4 +132,11 @@ export class AffairsController {
 
   @Get('my/requests/:id') @Roles('STUDENT')
   myRequest(@Param('id') id: string, @Req() req: AuthenticatedRequest) { return this.affairs.myRequest(id, req.user); }
+
+  @Post('my/requests/:id/attachments') @Roles('STUDENT')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_ATTACHMENT_BYTES + 1, files: 1 } }))
+  addMyAttachment(@Param('id') id: string, @UploadedFile() file: UploadedBinary | undefined, @Req() req: AuthenticatedRequest) { return this.attachments.addByStudent(id, file, req.user); }
+
+  @Get('my/requests/:id/attachments/:attId/download') @Roles('STUDENT')
+  async downloadMyAttachment(@Param('id') id: string, @Param('attId') attId: string, @Req() req: AuthenticatedRequest, @Res() res: Response) { this.send(res, await this.attachments.downloadForStudent(id, attId, req.user)); }
 }

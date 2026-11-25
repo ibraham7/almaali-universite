@@ -1,9 +1,27 @@
 import { Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min } from 'class-validator';
 
-const STATUSES = ['ASSIGNED', 'IN_PROGRESS', 'WAITING_COMPLETION', 'REFERRED', 'COMPLETED', 'REJECTED', 'CANCELLED'];
+// REFERRED is reached only through a referral record (see the referral endpoints).
+const STATUSES = ['ASSIGNED', 'IN_PROGRESS', 'WAITING_COMPLETION', 'REFERRED', 'ACCEPTED', 'COMPLETED', 'REJECTED', 'CANCELLED'];
 
-export class CreateServiceDto {
+class ServiceSetupDto {
+  @IsOptional() @IsIn(['ONLINE', 'IN_PERSON', 'BOTH'])
+  channel?: string;
+
+  @IsOptional() @IsIn(['NONE', 'DOCUMENT', 'ACTION', 'BOTH'])
+  outcome?: string;
+
+  @IsOptional() @IsString() @MaxLength(1000)
+  attachmentsNote?: string;
+
+  @IsOptional() @IsString() @MaxLength(300)
+  feeNote?: string;
+
+  @IsOptional() @IsString() @MaxLength(1000)
+  workflowNote?: string;
+}
+
+export class CreateServiceDto extends ServiceSetupDto {
   @IsString() @Matches(/^[A-Z][A-Z0-9_]{1,39}$/, { message: 'رمز الخدمة: أحرف إنجليزية كبيرة وأرقام و _ فقط.' })
   code!: string;
 
@@ -20,7 +38,7 @@ export class CreateServiceDto {
   specialization?: string;
 }
 
-export class UpdateServiceDto {
+export class UpdateServiceDto extends ServiceSetupDto {
   @IsOptional() @IsString() @IsNotEmpty() @MaxLength(150)
   nameAr?: string;
 
@@ -71,6 +89,9 @@ export class ListRequestsQueryDto {
 
   @IsOptional() @IsIn(['NEW', ...STATUSES])
   status?: string;
+
+  @IsOptional() @IsIn(['ONLINE', 'IN_PERSON'])
+  channel?: string;
 
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100000)
   page?: number;
@@ -129,4 +150,59 @@ export class CommentDto {
 export class StudentSearchQueryDto {
   @IsString() @IsNotEmpty() @MaxLength(100)
   q!: string;
+}
+
+export class CreateReferralDto {
+  @IsIn(['OPINION', 'EXECUTION'])
+  mode!: string;
+
+  @IsIn(['ACADEMIC_AFFAIRS', 'FINANCIAL_AFFAIRS', 'COLLEGE', 'OTHER'])
+  target!: string;
+
+  // Name of the college / body (required for COLLEGE and OTHER).
+  @IsOptional() @IsString() @MaxLength(150)
+  targetName?: string;
+
+  @IsString() @IsNotEmpty() @MaxLength(1000)
+  reason!: string;
+
+  @IsOptional() @IsString() @MaxLength(1000)
+  requested?: string;
+
+  @IsOptional() @IsInt() @Min(1) @Max(365)
+  dueInDays?: number;
+}
+
+export class RespondReferralDto {
+  @IsIn(['APPROVED', 'REJECTED', 'NOTES', 'DONE', 'NOT_DONE'])
+  outcome!: string;
+
+  @IsOptional() @IsString() @MaxLength(2000)
+  note?: string;
+}
+
+export class CancelReferralDto {
+  @IsString() @IsNotEmpty() @MaxLength(1000)
+  reason!: string;
+}
+
+export class ListReferralsQueryDto {
+  @IsOptional() @IsIn(['PENDING', 'ANSWERED', 'CANCELLED'])
+  status?: string;
+
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100000)
+  page?: number;
+}
+
+export class ListStudentsQueryDto {
+  @IsOptional() @IsString() @MaxLength(100)
+  search?: string;
+
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100000)
+  page?: number;
+}
+
+export class ArchiveAttachmentDto {
+  @IsString() @IsNotEmpty() @MaxLength(500)
+  reason!: string;
 }

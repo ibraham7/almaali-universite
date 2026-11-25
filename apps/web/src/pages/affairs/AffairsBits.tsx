@@ -11,7 +11,7 @@ export function Timeline({ events, showActor = false }: { events: RequestEvent[]
     <Stack spacing={1.5} sx={{ borderInlineStart: '2px solid', borderColor: 'divider', ps: 2, ms: 1 }} aria-label="سجل الطلب">
       {events.map((event) => (
         <Box key={event.id} sx={{ position: 'relative' }}>
-          <Box sx={{ position: 'absolute', insetInlineStart: -23, top: 6, width: 10, height: 10, borderRadius: '50%', bgcolor: event.type === 'COMMENT' ? 'warning.main' : 'primary.main' }} />
+          <Box sx={{ position: 'absolute', insetInlineStart: -23, top: 6, width: 10, height: 10, borderRadius: '50%', bgcolor: event.visibleToStudent === false ? 'warning.main' : 'primary.main' }} />
           <Typography variant="body2" sx={{ fontWeight: 700 }}>
             {EVENT_LABEL[event.type] ?? event.type}
             {event.toStatus && event.type === 'STATUS_CHANGED' ? ` — ${STATUS_LABEL[event.toStatus]}` : ''}

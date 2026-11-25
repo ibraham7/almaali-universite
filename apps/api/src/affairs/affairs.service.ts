@@ -48,6 +48,9 @@ export class AffairsService {
       data: {
         code: dto.code, nameAr: dto.nameAr.trim(), description: dto.description?.trim() || null,
         expectedDays: dto.expectedDays ?? 5, specialization: dto.specialization?.trim() || null,
+        channel: (dto.channel as 'ONLINE' | 'IN_PERSON' | 'BOTH' | undefined) ?? 'BOTH',
+        outcome: (dto.outcome as 'NONE' | 'DOCUMENT' | 'ACTION' | 'BOTH' | undefined) ?? 'NONE',
+        attachmentsNote: dto.attachmentsNote?.trim() || null, feeNote: dto.feeNote?.trim() || null, workflowNote: dto.workflowNote?.trim() || null,
       },
     });
     await this.prisma.auditLog.create({ data: { action: 'AFFAIRS_SERVICE_CREATED', entity: 'AffairsService', entityId: created.id, userId: user.id, details: JSON.stringify({ code: created.code }) } });
@@ -63,6 +66,11 @@ export class AffairsService {
     if (dto.expectedDays !== undefined) data.expectedDays = dto.expectedDays;
     if (dto.specialization !== undefined) data.specialization = dto.specialization.trim() || null;
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
+    if (dto.channel !== undefined) data.channel = dto.channel;
+    if (dto.outcome !== undefined) data.outcome = dto.outcome;
+    if (dto.attachmentsNote !== undefined) data.attachmentsNote = dto.attachmentsNote.trim() || null;
+    if (dto.feeNote !== undefined) data.feeNote = dto.feeNote.trim() || null;
+    if (dto.workflowNote !== undefined) data.workflowNote = dto.workflowNote.trim() || null;
     const updated = await this.prisma.affairsService.update({ where: { id }, data });
     await this.prisma.auditLog.create({ data: { action: 'AFFAIRS_SERVICE_UPDATED', entity: 'AffairsService', entityId: id, userId: user.id, details: JSON.stringify(data) } });
     return updated;
@@ -174,6 +182,7 @@ export class AffairsService {
       const service = await tx.affairsService.findUnique({ where: { id: serviceId } });
       if (!service) throw new NotFoundException('الخدمة غير موجودة.');
       if (!service.isActive) throw new BadRequestException('هذه الخدمة متوقفة حالياً.');
+      if (user.role === 'STUDENT' && service.channel === 'IN_PERSON') throw new BadRequestException('هذه الخدمة تُقدَّم حضورياً فقط، راجع دائرة شؤون الطلاب.');
       const student = await tx.student.findUnique({ where: { id: studentId }, select: { id: true } });
       if (!student) throw new NotFoundException('الطالب غير موجود.');
 
@@ -193,6 +202,7 @@ export class AffairsService {
       const request = await tx.studentRequest.create({
         data: {
           number, studentId, serviceId, status: staffId ? 'ASSIGNED' : 'NEW', assignedStaffId: staffId,
+          channel: user.role === 'STUDENT' ? 'ONLINE' : 'IN_PERSON',
           subject: subject?.trim() || null, details: details?.trim() || null, createdByUserId: user.id,
           dueAt: new Date(now.getTime() + service.expectedDays * DAY_MS),
         },
@@ -229,6 +239,7 @@ export class AffairsService {
     const where: Record<string, unknown> = { ...this.viewWhere(query.view, user.id) };
     if (query.serviceId) where.serviceId = query.serviceId;
     if (query.status) where.status = query.status;
+    if (query.channel) where.channel = query.channel;
     const term = query.search?.trim();
     if (term) {
       where.OR = [
@@ -253,7 +264,7 @@ export class AffairsService {
     return {
       total, page, pageSize,
       items: rows.map((r) => ({
-        id: r.id, number: r.number, status: r.status, subject: r.subject, createdAt: r.createdAt, dueAt: r.dueAt, closedAt: r.closedAt,
+        id: r.id, number: r.number, status: r.status, channel: r.channel, subject: r.subject, createdAt: r.createdAt, dueAt: r.dueAt, closedAt: r.closedAt, updatedAt: r.updatedAt,
         student: { id: r.student.id, universityId: r.student.universityId, name: this.studentName(r.student) },
         service: r.service,
         assignedStaff: r.assignedStaff ? { id: r.assignedStaff.id, name: r.assignedStaff.user.displayName || r.assignedStaff.user.username || r.assignedStaff.user.email } : null,
@@ -265,10 +276,12 @@ export class AffairsService {
     const r = await this.prisma.studentRequest.findUnique({
       where: { id },
       include: {
-        student: { select: { id: true, universityId: true, fullName: true, firstName: true, middleName: true, familyName: true, phone: true, status: true, universityEmail: true } },
-        service: { select: { id: true, code: true, nameAr: true } },
+        student: { select: { id: true, userId: true, universityId: true, fullName: true, firstName: true, middleName: true, familyName: true, phone: true, status: true, universityEmail: true } },
+        service: { select: { id: true, code: true, nameAr: true, attachmentsNote: true, feeNote: true, workflowNote: true } },
         assignedStaff: { select: { id: true, userId: true, user: { select: { displayName: true, username: true, email: true } } } },
         events: { orderBy: { createdAt: 'asc' } },
+        attachments: { where: { isArchived: false }, orderBy: { createdAt: 'asc' }, select: { id: true, fileName: true, mimeType: true, sizeBytes: true, visibleToStudent: true, uploadedByUserId: true, createdAt: true } },
+        referrals: { orderBy: { createdAt: 'desc' } },
       },
     });
     if (!r) throw new NotFoundException('الطلب غير موجود.');
@@ -277,13 +290,16 @@ export class AffairsService {
     const actorName = new Map(actors.map((a) => [a.id, a.displayName || a.username || a.email]));
     const canAct = user.role === 'SYSTEM_ADMIN' || (user.role === 'REGISTRAR' && r.assignedStaff?.userId === user.id);
     return {
-      id: r.id, number: r.number, status: r.status, subject: r.subject, details: r.details, decisionReason: r.decisionReason,
-      createdAt: r.createdAt, dueAt: r.dueAt, closedAt: r.closedAt,
+      id: r.id, number: r.number, status: r.status, channel: r.channel, subject: r.subject, details: r.details, decisionReason: r.decisionReason,
+      createdAt: r.createdAt, dueAt: r.dueAt, closedAt: r.closedAt, updatedAt: r.updatedAt,
+      attachments: r.attachments.map((a) => ({ ...a, uploadedBy: a.uploadedByUserId === r.student.userId ? 'student' : 'staff' })),
+      referrals: r.referrals,
+      pendingReferral: r.referrals.find((x) => x.status === 'PENDING') ?? null,
       student: { id: r.student.id, universityId: r.student.universityId, name: this.studentName(r.student), phone: r.student.phone, status: r.student.status, universityEmail: r.student.universityEmail },
       service: r.service,
       assignedStaff: r.assignedStaff ? { id: r.assignedStaff.id, name: r.assignedStaff.user.displayName || r.assignedStaff.user.username || r.assignedStaff.user.email } : null,
       canAct, canTake: user.role === 'REGISTRAR' && r.status === 'NEW' && !r.assignedStaff,
-      allowedStatuses: canAct ? TRANSITIONS[r.status as RequestStatus].filter((s) => s !== 'ASSIGNED') : [],
+      allowedStatuses: canAct ? TRANSITIONS[r.status as RequestStatus].filter((s) => s !== 'ASSIGNED' && s !== 'REFERRED' && !(r.status === 'REFERRED' && r.referrals.some((x) => x.status === 'PENDING'))) : [],
       events: r.events.map((e) => ({ id: e.id, type: e.type, fromStatus: e.fromStatus, toStatus: e.toStatus, note: e.note, visibleToStudent: e.visibleToStudent, createdAt: e.createdAt, actor: e.actorUserId ? actorName.get(e.actorUserId) ?? null : null })),
     };
   }
@@ -343,6 +359,8 @@ export class AffairsService {
       const from = r.status as RequestStatus;
       const to = dto.status as RequestStatus;
       if (to === 'ASSIGNED') throw new BadRequestException('الإسناد يتم من خيار الإسناد.');
+      if (to === 'REFERRED') throw new BadRequestException('الإحالة تتم من خيار الإحالة.');
+      if (from === 'REFERRED' && (await tx.requestReferral.count({ where: { requestId: id, status: 'PENDING' } })) > 0) throw new BadRequestException('للطلب إحالة معلّقة: سجّل رد الجهة أو ألغِ الإحالة أولاً.');
       if (isTerminal(from)) throw new BadRequestException('الطلب منتهٍ ولا يمكن تغيير حالته.');
       if (!canTransition(from, to)) throw new BadRequestException('لا يمكن الانتقال من هذه الحالة إلى الحالة المطلوبة.');
       const note = this.cleanReason(dto.note);
@@ -416,7 +434,7 @@ export class AffairsService {
   }
 
   myServices() {
-    return this.prisma.affairsService.findMany({ where: { isActive: true }, orderBy: { createdAt: 'asc' }, select: { id: true, code: true, nameAr: true, description: true, expectedDays: true } });
+    return this.prisma.affairsService.findMany({ where: { isActive: true, channel: { not: 'IN_PERSON' } }, orderBy: { createdAt: 'asc' }, select: { id: true, code: true, nameAr: true, description: true, expectedDays: true, attachmentsNote: true, feeNote: true } });
   }
 
   async myRequests(user: AffairsUser) {
@@ -437,12 +455,15 @@ export class AffairsService {
     const student = await this.studentOf(user);
     const r = await this.prisma.studentRequest.findFirst({
       where: { id, studentId: student.id },
-      include: { service: { select: { nameAr: true } }, events: { where: { visibleToStudent: true }, orderBy: { createdAt: 'asc' } } },
+      include: {
+        service: { select: { nameAr: true } }, events: { where: { visibleToStudent: true }, orderBy: { createdAt: 'asc' } },
+        attachments: { where: { isArchived: false, visibleToStudent: true }, orderBy: { createdAt: 'asc' }, select: { id: true, fileName: true, mimeType: true, sizeBytes: true, createdAt: true } },
+      },
     });
     if (!r) throw new NotFoundException('الطلب غير موجود.');
     return {
       id: r.id, number: r.number, status: r.status, subject: r.subject, details: r.details, decisionReason: r.decisionReason,
-      createdAt: r.createdAt, dueAt: r.dueAt, closedAt: r.closedAt, service: r.service,
+      createdAt: r.createdAt, dueAt: r.dueAt, closedAt: r.closedAt, service: r.service, channel: r.channel, attachments: r.attachments,
       events: r.events.map((e) => ({ id: e.id, type: e.type, fromStatus: e.fromStatus, toStatus: e.toStatus, note: e.note, createdAt: e.createdAt })),
     };
   }

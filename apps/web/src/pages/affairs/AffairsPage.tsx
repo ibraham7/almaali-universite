@@ -6,15 +6,17 @@ import AffairsRequestsTab from './AffairsRequestsTab';
 import AffairsServicesTab from './AffairsServicesTab';
 import AffairsStaffTab from './AffairsStaffTab';
 import AffairsOperationsTab from './AffairsOperationsTab';
+import AffairsFilesTab from './AffairsFilesTab';
+import AffairsReferralsTab from './AffairsReferralsTab';
 
 // The ten sections of the student-affairs dashboard. `phase` is set for sections that are not built yet.
 const SECTIONS = [
   { id: 'home', label: 'الرئيسية' },
-  { id: 'files', label: 'ملفات الطلاب', phase: 2 },
+  { id: 'files', label: 'ملفات الطلاب' },
   { id: 'requests', label: 'طلبات الطلاب' },
   { id: 'services', label: 'الخدمات الطلابية' },
   { id: 'documents', label: 'الوثائق والإفادات', phase: 3 },
-  { id: 'referrals', label: 'المعاملات والإحالات', phase: 2 },
+  { id: 'referrals', label: 'المعاملات والإحالات' },
   { id: 'staff', label: 'الموظفون وتوزيع المهام' },
   { id: 'reports', label: 'التقارير والإحصائيات', phase: 4 },
   { id: 'operations', label: 'سجل العمليات' },
@@ -37,7 +39,9 @@ export default function AffairsPage() {
       </Paper>
       <Box>
         {current.id === 'home' && <AffairsHomeTab role={role} />}
+        {current.id === 'files' && <AffairsFilesTab />}
         {current.id === 'requests' && <AffairsRequestsTab role={role} />}
+        {current.id === 'referrals' && <AffairsReferralsTab role={role} />}
         {current.id === 'services' && <AffairsServicesTab />}
         {current.id === 'staff' && <AffairsStaffTab role={role} />}
         {current.id === 'operations' && <AffairsOperationsTab />}

@@ -323,6 +323,12 @@ export class StudentsService {
     try {
       return await this.prisma.$transaction(async (tx) => {
         const student = await tx.student.update({ where: { id }, data: normalized });
+        // Who changed which field, from what to what (shown in the affairs student file).
+        const asText = (value: unknown) => (value === null || value === undefined || value === '' ? null : value instanceof Date ? value.toISOString().slice(0, 10) : String(value));
+        const changes = Object.keys(normalized)
+          .filter((key) => asText(existing[key as keyof typeof existing]) !== asText(student[key as keyof typeof student]))
+          .map((key) => ({ studentId: id, field: key, oldValue: asText(existing[key as keyof typeof existing]), newValue: asText(student[key as keyof typeof student]), changedByUserId: actingUserId }));
+        if (changes.length > 0) await tx.studentDataChange.createMany({ data: changes });
         await tx.auditLog.create({ data: {
           action: 'STUDENT_UPDATED', entity: 'Student', entityId: id,
           userId: actingUserId,
