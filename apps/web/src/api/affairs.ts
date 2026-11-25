@@ -7,11 +7,13 @@ export type ServiceOutcome = 'NONE' | 'DOCUMENT' | 'ACTION' | 'BOTH';
 export type ReferralTarget = 'ACADEMIC_AFFAIRS' | 'FINANCIAL_AFFAIRS' | 'COLLEGE' | 'OTHER';
 export type ReferralMode = 'OPINION' | 'EXECUTION';
 export type ReferralStatus = 'PENDING' | 'ANSWERED' | 'CANCELLED';
+export type DocumentStatus = 'ACTIVE' | 'REVOKED';
 export type ReferralOutcome = 'APPROVED' | 'REJECTED' | 'NOTES' | 'DONE' | 'NOT_DONE';
 
 export interface AffairsServiceItem {
   id: string; code: string; nameAr: string; description: string | null; isActive: boolean; expectedDays: number; specialization: string | null;
   channel: ServiceChannel; outcome: ServiceOutcome; attachmentsNote: string | null; feeNote: string | null; workflowNote: string | null;
+  documentTypeId: string | null;
 }
 export interface AffairsStaffItem {
   id: string; userId: string; name: string; email: string; specialization: string | null; isActive: boolean; serviceIds: string[]; open: number; done: number;
@@ -40,6 +42,7 @@ export interface RequestDetails extends Omit<RequestRow, 'student' | 'service'> 
   service: { id: string; code: string; nameAr: string; attachmentsNote: string | null; feeNote: string | null; workflowNote: string | null };
   canAct: boolean; canTake: boolean; allowedStatuses: RequestStatus[]; events: RequestEvent[];
   attachments: AttachmentItem[]; referrals: ReferralItem[]; pendingReferral: ReferralItem | null;
+  documents: RequestDocument[]; documentTypeName: string | null; canIssueDocument: boolean;
 }
 export interface AffairsSummary {
   counts: { new: number; mine: number; waiting: number; referred: number; doneToday: number; overdue: number };
@@ -48,7 +51,7 @@ export interface AffairsSummary {
 }
 export interface OperationItem extends RequestEvent { actor: string | null; requestId: string; requestNumber: string; serviceName: string }
 export interface StudentMyRequest { id: string; number: string; status: RequestStatus; subject: string | null; createdAt: string; closedAt: string | null; service: { nameAr: string } }
-export interface StudentMyRequestDetails extends StudentMyRequest { details: string | null; decisionReason: string | null; dueAt: string | null; events: RequestEvent[]; attachments: AttachmentItem[]; channel: RequestChannel }
+export interface StudentMyRequestDetails extends StudentMyRequest { details: string | null; decisionReason: string | null; dueAt: string | null; events: RequestEvent[]; attachments: AttachmentItem[]; channel: RequestChannel; documents: RequestDocument[] }
 export interface ReferralRow {
   id: string; mode: ReferralMode; target: ReferralTarget; targetLabel: string; reason: string; requested: string | null; dueAt: string | null; status: ReferralStatus;
   outcome: ReferralOutcome | null; responseNote: string | null; respondedAt: string | null; createdAt: string; requestId: string; requestNumber: string;
@@ -63,6 +66,7 @@ export interface StudentFile {
   numberHistory: { universityId: string; college: string | null; replacedBy: string; reason: string | null; validFrom: string; validTo: string; changedBy: string | null }[];
   requests: { id: string; number: string; status: RequestStatus; channel: RequestChannel; subject: string | null; createdAt: string; closedAt: string | null; service: string; referrals: { id: string; status: ReferralStatus }[] }[];
   attachments: (AttachmentItem & { requestId: string; requestNumber: string })[];
+  documents: { id: string; number: string; status: DocumentStatus; issuedAt: string; revokedAt: string | null; revokedReason: string | null; typeName: string }[];
   dataChanges: { id: string; field: string; oldValue: string | null; newValue: string | null; createdAt: string; changedBy: string | null }[];
 }
 
@@ -115,3 +119,35 @@ export const getMyAffairsServices = () => get<Pick<AffairsServiceItem, 'id' | 'c
 export const getMyAffairsRequests = () => get<StudentMyRequest[]>('/affairs/my/requests');
 export const getMyAffairsRequest = (id: string) => get<StudentMyRequestDetails>(`/affairs/my/requests/${id}`);
 export const createMyAffairsRequest = (body: object) => post<{ id: string; number: string }>('/affairs/my/requests', body);
+
+// documents
+export interface RequestDocument { id: string; number: string; status: DocumentStatus; issuedAt: string; typeName: string }
+export interface DocumentTypeItem {
+  id: string; code: string; nameAr: string; titleAr: string; issuingBody: string; bodyTemplate: string; footerNote: string | null; includesResults: boolean; isActive: boolean;
+}
+export interface IssuedDocumentRow {
+  id: string; number: string; typeName: string; status: DocumentStatus; issuedAt: string; revokedAt: string | null; revokedReason: string | null;
+  studentName: string; universityId: string; requestNumber: string | null; requestId: string | null;
+}
+export interface DocumentPayload {
+  type: { nameAr: string; titleAr: string; issuingBody: string; footerNote: string | null };
+  student: { studentName: string; universityId: string; college: string | null; department: string | null; program: string | null; status: string; date: string };
+  body: string;
+  results: { semester: string; code: string; name: string; credits: number; score: string; grade: string; passed: boolean }[] | null;
+  issuedDate: string; issuedBy: string | null; requestNumber: string;
+}
+export interface DocumentView {
+  id: string; number: string; verificationCode: string; status: DocumentStatus; issuedAt: string; typeName: string; payload: DocumentPayload;
+  revokedAt: string | null; revokedReason: string | null; requestId: string | null; studentId: string;
+}
+export interface DocumentVerifyResult {
+  status: 'VALID' | 'REVOKED' | 'NOT_FOUND'; number?: string; typeName?: string; issuingBody?: string; issuedAt?: string; studentName?: string; revokedAt?: string | null;
+}
+export const getDocumentTypes = () => get<DocumentTypeItem[]>('/affairs/documents/types');
+export const createDocumentType = (body: object) => post<DocumentTypeItem>('/affairs/documents/types', body);
+export const updateDocumentType = (id: string, body: object) => patch<DocumentTypeItem>(`/affairs/documents/types/${id}`, body);
+export const getIssuedDocuments = (params: object) => get<{ items: IssuedDocumentRow[]; total: number; page: number; pageSize: number }>('/affairs/documents', params);
+export const getDocument = (id: string) => get<DocumentView>(`/affairs/documents/${id}`);
+export const issueDocument = (requestId: string) => post<{ id: string; number: string }>(`/affairs/requests/${requestId}/documents`, {});
+export const revokeDocument = (id: string, reason: string) => post<unknown>(`/affairs/documents/${id}/revoke`, { reason });
+export const verifyDocument = (code: string) => get<DocumentVerifyResult>(`/documents/verify/${encodeURIComponent(code)}`);

@@ -21,6 +21,8 @@ const StudentRegistrationPage = lazy(() => import('./pages/student/StudentRegist
 const StudentSchedulePage = lazy(() => import('./pages/student/StudentSchedulePage'));
 const StudentAcademicStatusPage = lazy(() => import('./pages/student/StudentAcademicStatusPage'));
 const StudentRequestsPage = lazy(() => import('./pages/student/StudentRequestsPage'));
+const DocumentPrintPage = lazy(() => import('./pages/documents/DocumentPrintPage'));
+const VerifyDocumentPage = lazy(() => import('./pages/documents/VerifyDocumentPage'));
 const AffairsPage = lazy(() => import('./pages/affairs/AffairsPage'));
 const AdvisorRegistrationsPage = lazy(() => import('./pages/advisor/AdvisorRegistrationsPage'));
 const AdvisorStudentRegistrationPage = lazy(() => import('./pages/advisor/AdvisorStudentRegistrationPage'));
@@ -49,6 +51,11 @@ function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<StudentSignupPage />} />
+        <Route path="/verify/:code?" element={<VerifyDocumentPage />} />
+
+        <Route element={<ProtectedRoute />}>
+          <Route path="/documents/:id" element={<DocumentPrintPage />} />
+        </Route>
 
         <Route element={<ProtectedRoute />}>
           <Route element={<DashboardLayout />}>

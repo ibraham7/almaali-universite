@@ -5,7 +5,9 @@ import { AffairsService, AffairsUser } from './affairs.service.js';
 import { AffairsAttachmentsService, MAX_ATTACHMENT_BYTES, type UploadedBinary } from './affairs-attachments.service.js';
 import { AffairsReferralsService } from './affairs-referrals.service.js';
 import { AffairsFilesService } from './affairs-files.service.js';
+import { AffairsDocumentsService } from './affairs-documents.service.js';
 import {
+  CreateDocumentTypeDto, ListDocumentsQueryDto, RevokeDocumentDto, UpdateDocumentTypeDto,
   ArchiveAttachmentDto, CancelReferralDto, CreateReferralDto, ListReferralsQueryDto, ListStudentsQueryDto, RespondReferralDto,
   AssignRequestDto, ChangeStatusDto, CommentDto, CreateServiceDto, CreateStaffDto, ListRequestsQueryDto,
   ProxyCreateRequestDto, StudentCreateRequestDto, StudentSearchQueryDto, UpdateServiceDto, UpdateStaffDto,
@@ -26,6 +28,7 @@ export class AffairsController {
     private readonly attachments: AffairsAttachmentsService,
     private readonly referrals: AffairsReferralsService,
     private readonly files: AffairsFilesService,
+    private readonly documents: AffairsDocumentsService,
   ) {}
 
   private send(res: Response, att: { fileName: string; mimeType: string; data: Uint8Array }) {
@@ -107,6 +110,28 @@ export class AffairsController {
   @Get('requests/:id/attachments/:attId/download') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
   async downloadAttachment(@Param('id') id: string, @Param('attId') attId: string, @Res() res: Response) { this.send(res, await this.attachments.downloadForStaff(id, attId)); }
 
+  // ----- documents -----
+  @Get('documents/types') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  documentTypes() { return this.documents.listTypes(); }
+
+  @Post('documents/types') @Roles('SYSTEM_ADMIN')
+  createDocumentType(@Body() body: CreateDocumentTypeDto, @Req() req: AuthenticatedRequest) { return this.documents.createType(body, req.user); }
+
+  @Patch('documents/types/:id') @Roles('SYSTEM_ADMIN')
+  updateDocumentType(@Param('id') id: string, @Body() body: UpdateDocumentTypeDto, @Req() req: AuthenticatedRequest) { return this.documents.updateType(id, body, req.user); }
+
+  @Get('documents') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  listDocuments(@Query() query: ListDocumentsQueryDto) { return this.documents.list(query); }
+
+  @Get('documents/:id') @Roles('REGISTRAR', 'SYSTEM_ADMIN', 'STUDENT')
+  getDocument(@Param('id') id: string, @Req() req: AuthenticatedRequest) { return this.documents.get(id, req.user); }
+
+  @Post('requests/:id/documents') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  issueDocument(@Param('id') id: string, @Req() req: AuthenticatedRequest) { return this.documents.issue(id, req.user); }
+
+  @Post('documents/:id/revoke') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  revokeDocument(@Param('id') id: string, @Body() body: RevokeDocumentDto, @Req() req: AuthenticatedRequest) { return this.documents.revoke(id, body.reason, req.user); }
+
   // ----- referrals -----
   @Get('referrals') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
   listReferrals(@Query() query: ListReferralsQueryDto) { return this.referrals.list(query); }
@@ -133,10 +158,22 @@ export class AffairsController {
   @Get('my/requests/:id') @Roles('STUDENT')
   myRequest(@Param('id') id: string, @Req() req: AuthenticatedRequest) { return this.affairs.myRequest(id, req.user); }
 
+  @Get('my/documents') @Roles('STUDENT')
+  myDocuments(@Req() req: AuthenticatedRequest) { return this.documents.mine(req.user); }
+
   @Post('my/requests/:id/attachments') @Roles('STUDENT')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_ATTACHMENT_BYTES + 1, files: 1 } }))
   addMyAttachment(@Param('id') id: string, @UploadedFile() file: UploadedBinary | undefined, @Req() req: AuthenticatedRequest) { return this.attachments.addByStudent(id, file, req.user); }
 
   @Get('my/requests/:id/attachments/:attId/download') @Roles('STUDENT')
   async downloadMyAttachment(@Param('id') id: string, @Param('attId') attId: string, @Req() req: AuthenticatedRequest, @Res() res: Response) { this.send(res, await this.attachments.downloadForStudent(id, attId, req.user)); }
+}
+
+// Public check of a document by its verification code: no login, minimal data.
+@Controller('documents')
+export class PublicDocumentsController {
+  constructor(private readonly documents: AffairsDocumentsService) {}
+
+  @Get('verify/:code')
+  verify(@Param('code') code: string) { return this.documents.verify(code); }
 }

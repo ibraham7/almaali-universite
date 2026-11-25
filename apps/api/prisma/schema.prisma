@@ -327,6 +327,7 @@ model Student {
   numberHistory StudentNumberHistory[]
   affairsRequests StudentRequest[]
   dataChanges     StudentDataChange[]
+  documents       IssuedDocument[]
 }
 
 model SupportTicket {
@@ -772,6 +773,9 @@ model AffairsService {
   attachmentsNote String?
   feeNote        String?
   workflowNote   String?
+  // Document issued by this service (phase 3).
+  documentTypeId String?
+  documentType   DocumentType? @relation(fields: [documentTypeId], references: [id])
 
   staff    AffairsStaffService[]
   requests StudentRequest[]
@@ -833,6 +837,7 @@ model StudentRequest {
   events        StudentRequestEvent[]
   attachments   StudentRequestAttachment[]
   referrals     RequestReferral[]
+  documents     IssuedDocument[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -920,4 +925,63 @@ model StudentDataChange {
   student Student @relation(fields: [studentId], references: [id])
 
   @@index([studentId, createdAt])
+}
+
+// ===== Student Affairs (phase 3): official documents. Never deleted: revoked with a reason. =====
+enum DocumentStatus {
+  ACTIVE
+  REVOKED
+}
+
+// A kind of document the university issues, with its wording. The page layout is the same official template for all.
+model DocumentType {
+  id              String  @id @default(uuid())
+  code            String  @unique
+  nameAr          String
+  titleAr         String
+  issuingBody     String
+  // Text with {{placeholders}} (studentName, universityId, college, department, program, status, date).
+  bodyTemplate    String
+  footerNote      String?
+  includesResults Boolean @default(false)
+  isActive        Boolean @default(true)
+
+  documents IssuedDocument[]
+  services  AffairsService[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// payload is a snapshot of everything printed on the document, so it never changes after issue.
+model IssuedDocument {
+  id               String         @id @default(uuid())
+  number           String         @unique
+  verificationCode String         @unique
+  typeId           String
+  studentId        String
+  requestId        String?
+  status           DocumentStatus @default(ACTIVE)
+  payload          Json
+  issuedByUserId   String?
+  issuedAt         DateTime       @default(now())
+  revokedAt        DateTime?
+  revokedReason    String?
+  revokedByUserId  String?
+
+  type    DocumentType    @relation(fields: [typeId], references: [id])
+  student Student         @relation(fields: [studentId], references: [id])
+  request StudentRequest? @relation(fields: [requestId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([requestId])
+  @@index([status])
+}
+
+model DocumentCounter {
+  year Int @id
+  last Int @default(0)
 }

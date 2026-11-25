@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Stack, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, Typography } from '@mui/material';
 import { downloadStaffAttachment, getStudentFile, type StudentFile } from '../../api/affairs';
 import { StatusChip } from './AffairsBits';
-import { CHANNEL_LABEL, errorText, formatDate, formatSize, saveBlob } from './affairsUi';
+import { CHANNEL_LABEL, DOCUMENT_STATUS_LABEL, errorText, formatDate, formatSize, saveBlob } from './affairsUi';
 
 const PERSONAL_LABELS: [string, string][] = [
   ['fullName', 'الاسم الكامل'], ['firstName', 'الاسم الأول'], ['middleName', 'اسم الأب'], ['familyName', 'اسم العائلة'], ['motherName', 'اسم الأم'],
@@ -48,7 +48,7 @@ export default function StudentFileDialog({ studentId, onClose }: { studentId: s
               <Tab value="requests" label={`الطلبات (${file.requests.length})`} />
               <Tab value="attachments" label={`المرفقات (${file.attachments.length})`} />
               <Tab value="changes" label="سجل التعديلات" />
-              <Tab value="documents" label="الوثائق" />
+              <Tab value="documents" label={`الوثائق (${file.documents.length})`} />
             </Tabs>
 
             {tab === 'data' && (
@@ -119,7 +119,20 @@ export default function StudentFileDialog({ studentId, onClose }: { studentId: s
               </TableContainer>
             )}
 
-            {tab === 'documents' && <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>الوثائق الصادرة — قيد الإعداد (المرحلة 3).</Typography>}
+            {tab === 'documents' && (
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small" aria-label="وثائق الطالب">
+                  <TableHead><TableRow><TableCell>الرقم</TableCell><TableCell>النوع</TableCell><TableCell>التاريخ</TableCell><TableCell>الحالة</TableCell><TableCell /></TableRow></TableHead>
+                  <TableBody>
+                    {file.documents.map((d) => (
+                      <TableRow key={d.id}><TableCell sx={{ fontWeight: 700 }}>{d.number}</TableCell><TableCell>{d.typeName}</TableCell><TableCell>{formatDate(d.issuedAt)}</TableCell><TableCell>{DOCUMENT_STATUS_LABEL[d.status]}{d.revokedReason ? ` — ${d.revokedReason}` : ''}</TableCell>
+                        <TableCell><Button size="small" component="a" href={`/documents/${d.id}`} target="_blank" rel="noopener noreferrer">عرض / طباعة</Button></TableCell></TableRow>
+                    ))}
+                    {file.documents.length === 0 && <TableRow><TableCell colSpan={5} align="center" sx={{ py: 3, color: 'text.secondary' }}>لا توجد وثائق صادرة.</TableCell></TableRow>}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </Stack>
         )}
       </DialogContent>

@@ -51,6 +51,7 @@ export class AffairsService {
         channel: (dto.channel as 'ONLINE' | 'IN_PERSON' | 'BOTH' | undefined) ?? 'BOTH',
         outcome: (dto.outcome as 'NONE' | 'DOCUMENT' | 'ACTION' | 'BOTH' | undefined) ?? 'NONE',
         attachmentsNote: dto.attachmentsNote?.trim() || null, feeNote: dto.feeNote?.trim() || null, workflowNote: dto.workflowNote?.trim() || null,
+        documentTypeId: dto.documentTypeId ?? null,
       },
     });
     await this.prisma.auditLog.create({ data: { action: 'AFFAIRS_SERVICE_CREATED', entity: 'AffairsService', entityId: created.id, userId: user.id, details: JSON.stringify({ code: created.code }) } });
@@ -71,6 +72,10 @@ export class AffairsService {
     if (dto.attachmentsNote !== undefined) data.attachmentsNote = dto.attachmentsNote.trim() || null;
     if (dto.feeNote !== undefined) data.feeNote = dto.feeNote.trim() || null;
     if (dto.workflowNote !== undefined) data.workflowNote = dto.workflowNote.trim() || null;
+    if (dto.documentTypeId !== undefined) {
+      if (dto.documentTypeId && !(await this.prisma.documentType.findUnique({ where: { id: dto.documentTypeId } }))) throw new BadRequestException('نوع الوثيقة غير موجود.');
+      data.documentTypeId = dto.documentTypeId;
+    }
     const updated = await this.prisma.affairsService.update({ where: { id }, data });
     await this.prisma.auditLog.create({ data: { action: 'AFFAIRS_SERVICE_UPDATED', entity: 'AffairsService', entityId: id, userId: user.id, details: JSON.stringify(data) } });
     return updated;
@@ -277,11 +282,12 @@ export class AffairsService {
       where: { id },
       include: {
         student: { select: { id: true, userId: true, universityId: true, fullName: true, firstName: true, middleName: true, familyName: true, phone: true, status: true, universityEmail: true } },
-        service: { select: { id: true, code: true, nameAr: true, attachmentsNote: true, feeNote: true, workflowNote: true } },
+        service: { select: { id: true, code: true, nameAr: true, attachmentsNote: true, feeNote: true, workflowNote: true, documentType: { select: { nameAr: true, isActive: true } } } },
         assignedStaff: { select: { id: true, userId: true, user: { select: { displayName: true, username: true, email: true } } } },
         events: { orderBy: { createdAt: 'asc' } },
         attachments: { where: { isArchived: false }, orderBy: { createdAt: 'asc' }, select: { id: true, fileName: true, mimeType: true, sizeBytes: true, visibleToStudent: true, uploadedByUserId: true, createdAt: true } },
         referrals: { orderBy: { createdAt: 'desc' } },
+        documents: { orderBy: { issuedAt: 'desc' }, select: { id: true, number: true, status: true, issuedAt: true, type: { select: { nameAr: true } } } },
       },
     });
     if (!r) throw new NotFoundException('الطلب غير موجود.');
@@ -294,6 +300,9 @@ export class AffairsService {
       createdAt: r.createdAt, dueAt: r.dueAt, closedAt: r.closedAt, updatedAt: r.updatedAt,
       attachments: r.attachments.map((a) => ({ ...a, uploadedBy: a.uploadedByUserId === r.student.userId ? 'student' : 'staff' })),
       referrals: r.referrals,
+      documents: r.documents.map((d) => ({ id: d.id, number: d.number, status: d.status, issuedAt: d.issuedAt, typeName: d.type.nameAr })),
+      documentTypeName: r.service.documentType?.nameAr ?? null,
+      canIssueDocument: canAct && !!r.service.documentType?.isActive && ['ACCEPTED', 'COMPLETED'].includes(r.status) && !r.documents.some((d) => d.status === 'ACTIVE'),
       pendingReferral: r.referrals.find((x) => x.status === 'PENDING') ?? null,
       student: { id: r.student.id, universityId: r.student.universityId, name: this.studentName(r.student), phone: r.student.phone, status: r.student.status, universityEmail: r.student.universityEmail },
       service: r.service,
@@ -458,12 +467,14 @@ export class AffairsService {
       include: {
         service: { select: { nameAr: true } }, events: { where: { visibleToStudent: true }, orderBy: { createdAt: 'asc' } },
         attachments: { where: { isArchived: false, visibleToStudent: true }, orderBy: { createdAt: 'asc' }, select: { id: true, fileName: true, mimeType: true, sizeBytes: true, createdAt: true } },
+        documents: { orderBy: { issuedAt: 'desc' }, select: { id: true, number: true, status: true, issuedAt: true, type: { select: { nameAr: true } } } },
       },
     });
     if (!r) throw new NotFoundException('الطلب غير موجود.');
     return {
       id: r.id, number: r.number, status: r.status, subject: r.subject, details: r.details, decisionReason: r.decisionReason,
       createdAt: r.createdAt, dueAt: r.dueAt, closedAt: r.closedAt, service: r.service, channel: r.channel, attachments: r.attachments,
+      documents: r.documents.map((d) => ({ id: d.id, number: d.number, status: d.status, issuedAt: d.issuedAt, typeName: d.type.nameAr })),
       events: r.events.map((e) => ({ id: e.id, type: e.type, fromStatus: e.fromStatus, toStatus: e.toStatus, note: e.note, createdAt: e.createdAt })),
     };
   }
