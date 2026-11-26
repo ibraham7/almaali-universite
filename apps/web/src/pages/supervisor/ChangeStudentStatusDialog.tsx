@@ -22,26 +22,28 @@ const WARNING: Record<string, string> = {
 // تغيير حالة الطالب الأكاديمية/الإدارية: الانتقالات المسموحة فقط، والسبب إلزامي.
 export default function ChangeStudentStatusDialog({ open, student, role, onClose, onDone }: {
   open: boolean;
-  student: { id: string; universityId: string; name: string; status: string } | null;
+  student: { id: string; universityId: string; name: string; status: string; deferredUntil?: string | null } | null;
   role?: string;
   onClose: () => void;
   onDone: (message: string) => void;
 }) {
   const [status, setStatus] = useState('');
   const [reason, setReason] = useState('');
+  const [returnDate, setReturnDate] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   const options = student ? allowedStudentStatuses(student.status, role) : [];
-  const close = () => { if (!busy) { setStatus(''); setReason(''); setError(''); onClose(); } };
+  const close = () => { if (!busy) { setStatus(''); setReason(''); setReturnDate(''); setError(''); onClose(); } };
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 
   async function save() {
     if (!student) return;
     setBusy(true); setError('');
     try {
-      await changeStudentStatus(student.id, { status, reason: reason.trim() });
-      onDone(`تم تغيير حالة ${student.name} إلى «${studentStatusLabel(status)}».`);
-      setStatus(''); setReason('');
+      await changeStudentStatus(student.id, { status, reason: reason.trim(), ...(status === 'DEFERRED' ? { returnDate } : {}) });
+      onDone(status === 'DEFERRED' && student.status === 'DEFERRED' ? `تم تعديل تاريخ عودة ${student.name} إلى ${returnDate}.` : `تم تغيير حالة ${student.name} إلى «${studentStatusLabel(status)}».${status === 'DEFERRED' ? ` يعود تلقائياً «مستمر» بتاريخ ${returnDate}.` : ''}`);
+      setStatus(''); setReason(''); setReturnDate('');
       onClose();
     } catch (cause) { setError(errorText(cause)); } finally { setBusy(false); }
   }
@@ -54,16 +56,19 @@ export default function ChangeStudentStatusDialog({ open, student, role, onClose
         {student && <Alert severity="info">{`${student.name} — ${student.universityId}. الحالة الحالية: «${studentStatusLabel(student.status)}».`}</Alert>}
         {student && options.length === 0 && <Alert severity="warning">لا توجد انتقالات مسموحة من هذه الحالة لحسابك. بعض التغييرات قرارات استثنائية لا يقوم بها إلا مدير النظام، وبعضها نهائي.</Alert>}
         <TextField select required label="الحالة الجديدة" value={status} disabled={options.length === 0} onChange={(event) => setStatus(event.target.value)}>
-          {options.map((value) => <MenuItem key={value} value={value}>{STUDENT_STATUS_LABEL[value]}</MenuItem>)}
+          {options.map((value) => <MenuItem key={value} value={value}>{value === student?.status ? 'تعديل تاريخ العودة (يبقى مؤجلاً)' : STUDENT_STATUS_LABEL[value]}</MenuItem>)}
         </TextField>
         {WARNING[status] && <Alert severity="warning">{WARNING[status]}</Alert>}
+        {status === 'DEFERRED' && <TextField required type="date" label="تاريخ العودة" value={returnDate} onChange={(event) => setReturnDate(event.target.value)}
+          slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: tomorrow } }}
+          helperText={student?.deferredUntil ? `التاريخ الحالي: ${student.deferredUntil.slice(0, 10)}. ` + 'عند هذا التاريخ يعود الطالب «مستمر» تلقائياً.' : 'عند هذا التاريخ يعود الطالب «مستمر» تلقائياً، ويستطيع بعدها تسجيل المقررات.'} />}
         <TextField required label="سبب التغيير" value={reason} onChange={(event) => setReason(event.target.value)} multiline minRows={2}
           helperText="يُسجَّل السبب مع اسمك بسجل الطالب وسجل العمليات." slotProps={{ htmlInput: { maxLength: 500 } }} />
       </Stack>
     </DialogContent>
     <DialogActions>
       <Button disabled={busy} onClick={close}>إلغاء</Button>
-      <Button variant="contained" disabled={busy || !status || !reason.trim()} onClick={() => void save()}>
+      <Button variant="contained" disabled={busy || !status || !reason.trim() || (status === 'DEFERRED' && !returnDate)} onClick={() => void save()}>
         {busy ? <CircularProgress size={20} color="inherit" /> : 'تغيير الحالة'}
       </Button>
     </DialogActions>

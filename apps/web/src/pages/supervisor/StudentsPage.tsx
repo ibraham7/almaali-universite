@@ -754,7 +754,7 @@ export default function StudentsPage() {
                                                     <Chip
                                                         size="small"
                                                         color={studentStatusColor(student.status)}
-                                                        label={studentStatusLabel(student.status)}
+                                                        label={studentStatusLabel(student.status) + (student.status === 'DEFERRED' && student.deferredUntil ? ` حتى ${student.deferredUntil.slice(0, 10)}` : '')}
                                                     />
 
                                                     {(!student.nationalId || !student.birthPlace) && (
@@ -1251,7 +1251,7 @@ export default function StudentsPage() {
                 </DialogActions>
             </Dialog>
             {canManage && <ChangeStudentStatusDialog open={statusOpen} role={user?.role}
-                student={selectedStudent ? { id: selectedStudent.id, universityId: selectedStudent.universityId, name: fullName(selectedStudent), status: selectedStudent.status } : null}
+                student={selectedStudent ? { id: selectedStudent.id, universityId: selectedStudent.universityId, name: fullName(selectedStudent), status: selectedStudent.status, deferredUntil: selectedStudent.deferredUntil } : null}
                 onClose={() => setStatusOpen(false)}
                 onDone={(message) => { setSuccess(message); setSelectedStudent(null); void loadStudents(); }} />}
             {canManage && <TransferCollegeDialog open={transferOpen}

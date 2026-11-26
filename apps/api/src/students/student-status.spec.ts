@@ -23,6 +23,7 @@ describe('student status rules', () => {
 
   it('lists the transitions each role may make', () => {
     expect(allowedTransitions('CONTINUING', 'REGISTRAR')).toEqual(['DEFERRED', 'WITHDRAWN', 'DISMISSED', 'DEREGISTERED']);
+    expect(allowedTransitions('DEFERRED', 'REGISTRAR')).toEqual(['DEFERRED', 'CONTINUING', 'WITHDRAWN']);
     expect(allowedTransitions('CONTINUING', 'SYSTEM_ADMIN')).toContain('GRADUATED');
     expect(allowedTransitions('DISMISSED', 'REGISTRAR')).toEqual([]);
     expect(allowedTransitions('DISMISSED', 'SYSTEM_ADMIN')).toEqual(['CONTINUING']);

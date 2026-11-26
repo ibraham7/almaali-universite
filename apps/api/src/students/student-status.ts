@@ -29,6 +29,7 @@ const TRANSITIONS: Array<{ from: StudentStatus; to: StudentStatus; adminOnly?: b
   { from: 'CONTINUING', to: 'DISMISSED' },
   { from: 'CONTINUING', to: 'DEREGISTERED' },
   { from: 'CONTINUING', to: 'GRADUATED', adminOnly: true },
+  { from: 'DEFERRED', to: 'DEFERRED' }, // تعديل تاريخ العودة
   { from: 'DEFERRED', to: 'CONTINUING' },
   { from: 'DEFERRED', to: 'WITHDRAWN' },
   { from: 'DISMISSED', to: 'CONTINUING', adminOnly: true },
