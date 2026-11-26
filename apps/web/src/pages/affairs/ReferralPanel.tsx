@@ -26,7 +26,8 @@ export default function ReferralPanel({ data, onChanged }: { data: RequestDetail
   }
 
   const needsName = form.target === 'COLLEGE' || form.target === 'OTHER';
-  const canSend = data.canAct && !pending && ['ASSIGNED', 'IN_PROGRESS'].includes(data.status);
+  // A new request nobody took yet can be referred too: the staff member who refers it takes it, an admin refers it as is.
+  const canSend = !pending && ((data.canAct && ['NEW', 'ASSIGNED', 'IN_PROGRESS'].includes(data.status)) || (data.canTake && data.status === 'NEW'));
   const outcomes = pending?.mode === 'EXECUTION' ? EXECUTION_OUTCOMES : OPINION_OUTCOMES;
   const noteRequired = outcome === 'REJECTED' || outcome === 'NOT_DONE';
 
