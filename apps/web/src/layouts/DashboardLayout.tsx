@@ -324,7 +324,8 @@ export default function DashboardLayout() {
       [userRole],
     );
 
-  const [closedGroups, setClosedGroups] = useState<Record<string, boolean>>({});
+  // المجموعات مسكّرة افتراضيًا، ما عدا المجموعة اللي فيها الصفحة الحالية. اختيار المستخدم يغلب الافتراضي.
+  const [groupToggles, setGroupToggles] = useState<Record<string, boolean>>({});
 
   function renderSections(renderItem: (item: NavigationItem) => ReactNode) {
     const grouped = new Set(NAV_GROUPS.flatMap((group) => group.paths));
@@ -337,11 +338,12 @@ export default function DashboardLayout() {
             .map((path) => visibleItems.find((item) => item.path === path))
             .filter((item): item is NavigationItem => Boolean(item));
           if (!items.length) return null;
-          const open = !closedGroups[group.key];
+          const hasActive = items.some((item) => location.pathname.startsWith(item.path));
+          const open = groupToggles[group.key] ?? hasActive;
           return (
             <Box key={group.key} sx={{ mt: 2 }}>
               <ListItemButton
-                onClick={() => setClosedGroups((current) => ({ ...current, [group.key]: open }))}
+                onClick={() => setGroupToggles((current) => ({ ...current, [group.key]: !open }))}
                 aria-expanded={open}
                 sx={{
                   minHeight: 42,
