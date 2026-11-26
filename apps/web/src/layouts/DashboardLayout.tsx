@@ -14,6 +14,7 @@ import {
   AppBar,
   Avatar,
   Box,
+  Collapse,
   Divider,
   Drawer,
   IconButton,
@@ -39,6 +40,7 @@ import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded';
 import DateRangeRoundedIcon from '@mui/icons-material/DateRangeRounded';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded';
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import AssignmentTurnedInRoundedIcon from '@mui/icons-material/AssignmentTurnedInRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
@@ -65,6 +67,15 @@ interface NavigationItem {
   icon: ReactNode;
   roles: string[];
 }
+
+// مجموعات القائمة الجانبية (قابلة للفتح والإغلاق). العناصر خارج أي مجموعة تظهر أولاً.
+const NAV_GROUPS: Array<{ key: string; label: string; paths: string[] }> = [
+  { key: 'students', label: 'إدارة شؤون الطلاب', paths: ['/students', '/affairs'] },
+  { key: 'academic', label: 'الإدارة الأكاديمية', paths: ['/academic-structure', '/supervisor/study-plan', '/courses', '/supervisor/sections', '/supervisor/registration-periods'] },
+  { key: 'system', label: 'إدارة النظام', paths: ['/users', '/settings'] },
+  { key: 'support', label: 'التواصل والدعم', paths: ['/support-tickets'] },
+  { key: 'audit', label: 'المتابعة والرقابة', paths: ['/audit-logs'] },
+];
 
 const navigationItems: NavigationItem[] = [
   {
@@ -131,7 +142,7 @@ const navigationItems: NavigationItem[] = [
   },
 
   {
-    label: 'الخطة الدراسية',
+    label: 'الخطط الدراسية',
     path: '/supervisor/study-plan',
     icon: <AccountTreeRoundedIcon />,
     roles: [
@@ -313,6 +324,40 @@ export default function DashboardLayout() {
       [userRole],
     );
 
+  const [closedGroups, setClosedGroups] = useState<Record<string, boolean>>({});
+
+  function renderSections(renderItem: (item: NavigationItem) => ReactNode) {
+    const grouped = new Set(NAV_GROUPS.flatMap((group) => group.paths));
+    const loose = visibleItems.filter((item) => !grouped.has(item.path));
+    return (
+      <>
+        {loose.map(renderItem)}
+        {NAV_GROUPS.map((group) => {
+          const items = group.paths
+            .map((path) => visibleItems.find((item) => item.path === path))
+            .filter((item): item is NavigationItem => Boolean(item));
+          if (!items.length) return null;
+          const open = !closedGroups[group.key];
+          return (
+            <Box key={group.key} sx={{ mt: 1 }}>
+              <ListItemButton
+                onClick={() => setClosedGroups((current) => ({ ...current, [group.key]: open }))}
+                aria-expanded={open}
+                sx={{ minHeight: 36, px: 1.5, borderRadius: 2, color: 'rgba(255,255,255,0.5)', '&:hover': { bgcolor: 'rgba(255,255,255,0.05)', color: '#FFFFFF' } }}
+              >
+                <ListItemText primary={group.label} sx={{ '& .MuiListItemText-primary': { fontSize: 12, fontWeight: 700 } }} />
+                <ExpandMoreRoundedIcon sx={{ fontSize: 20, transform: open ? 'none' : 'rotate(90deg)', transition: 'transform .2s' }} />
+              </ListItemButton>
+              <Collapse in={open} timeout="auto" unmountOnExit={false}>
+                {items.map(renderItem)}
+              </Collapse>
+            </Box>
+          );
+        })}
+      </>
+    );
+  }
+
   const pageTitle =
     getPageTitle(
       location.pathname,
@@ -447,7 +492,7 @@ export default function DashboardLayout() {
         </Typography>
 
         <List disablePadding>
-          {visibleItems.map(
+          {renderSections(
             (item) => {
               const selected =
                 item.path ===
