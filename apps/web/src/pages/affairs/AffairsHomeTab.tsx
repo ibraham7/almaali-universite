@@ -75,7 +75,7 @@ export default function AffairsHomeTab() {
 
       <Stack direction="row" spacing={3} useFlexGap sx={{ flexWrap: 'wrap' }}>
         <Typography variant="body2">إجمالي الطلاب: <b data-testid="students-total">{summary.students.total}</b></Typography>
-        <Typography variant="body2">الطلاب النشطون (حالتهم «ACTIVE»): <b data-testid="students-active">{summary.students.active}</b></Typography>
+        <Typography variant="body2">الطلاب المستمرون (حالتهم «مستمر»): <b data-testid="students-active">{summary.students.active}</b></Typography>
       </Stack>
 
       {summary.staffLoad && (

@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { STUDENT_STATUS_LABEL } from '../students/student-status.js';
 import type { AffairsUser } from './affairs.service.js';
 import { AffairsSettingsService } from './affairs-settings.service.js';
 import { audit, loadRequestForAction } from './affairs-access.js';
@@ -13,7 +14,8 @@ function studentName(s: { fullName: string | null; firstName: string; middleName
   return s.fullName || [s.firstName, s.middleName, s.familyName].filter(Boolean).join(' ');
 }
 
-const STATUS_TEXT: Record<string, string> = { ACTIVE: 'مقيّد' };
+// النص الرسمي في الوثيقة: المستمر «مقيّد»، وغيره باسم حالته (قيد استكمال التسجيل، مؤجل، منسحب...).
+const STATUS_TEXT: Record<string, string> = { ...STUDENT_STATUS_LABEL, CONTINUING: 'مقيّد' };
 
 @Injectable()
 export class AffairsDocumentsService {

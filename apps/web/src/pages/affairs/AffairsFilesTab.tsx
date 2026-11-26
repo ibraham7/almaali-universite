@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Pagination, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField } from '@mui/material';
 import { getStudentFiles, type StudentFileRow } from '../../api/affairs';
 import StudentFileDialog from './StudentFileDialog';
+import { studentStatusLabel } from '../../api/students';
 import { errorText } from './affairsUi';
 
 export default function AffairsFilesTab() {
@@ -31,7 +32,7 @@ export default function AffairsFilesTab() {
           <TableBody>
             {rows.map((r) => (
               <TableRow key={r.id} hover sx={{ cursor: 'pointer' }} onClick={() => setOpenId(r.id)}>
-                <TableCell sx={{ fontWeight: 700 }}>{r.universityId}</TableCell><TableCell>{r.name}</TableCell><TableCell>{r.college ?? '—'}</TableCell><TableCell>{r.status}</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>{r.universityId}</TableCell><TableCell>{r.name}</TableCell><TableCell>{r.college ?? '—'}</TableCell><TableCell>{studentStatusLabel(r.status)}</TableCell>
               </TableRow>
             ))}
             {rows.length === 0 && <TableRow><TableCell colSpan={4} align="center" sx={{ py: 4, color: 'text.secondary' }}>لا توجد نتائج.</TableCell></TableRow>}

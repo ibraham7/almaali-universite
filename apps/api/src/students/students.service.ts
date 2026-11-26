@@ -7,7 +7,8 @@ import {
 } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service.js';
-import { ApproveRegistrationDto, BulkDeleteStudentsDto, StudentInputDto, TransferCollegeDto } from './dto/student-input.dto.js';
+import { ApproveRegistrationDto, BulkDeleteStudentsDto, ChangeStudentStatusDto, StudentInputDto, TransferCollegeDto } from './dto/student-input.dto.js';
+import { STUDENT_STATUS_LABEL, parseStudentStatus, transitionRule, type StudentStatus } from './student-status.js';
 import { digitVariants, isDigitsOnly, isPersonName, isPlaceName, isSyrianMobile, isSyrianNationalId, normalizeDigits, normalizeGender, normalizeText } from './student-data-validation.js';
 
 interface FindStudentsOptions {
@@ -122,7 +123,6 @@ export class StudentsService {
       idOrPassport: optional(data.idOrPassport),
       universityEmail: optional(data.universityEmail),
       phone: data.phone?.trim() ? normalizeDigits(data.phone.trim()) : null,
-      status: data.status?.trim() || 'ACTIVE',
       collegeId: optional(data.collegeId),
       departmentId: optional(data.departmentId),
       programId: optional(data.programId),
@@ -160,6 +160,12 @@ export class StudentsService {
             studyPlanId: dto.studyPlanId, academicYearId: dto.academicYearId, semesterId: dto.semesterId,
           },
         });
+        // اعتماد التسجيل يحوّل «قيد استكمال التسجيل» إلى «مستمر» (يدويًا الآن؛ سيصبح تلقائيًا بعد الوثائق والقسط الأول).
+        const moved = await tx.student.findMany({ where: { id: { in: approvable }, status: 'PENDING_REGISTRATION' }, select: { id: true } });
+        if (moved.length) {
+          await tx.student.updateMany({ where: { id: { in: moved.map((m) => m.id) }, status: 'PENDING_REGISTRATION' }, data: { status: 'CONTINUING' } });
+          await tx.studentDataChange.createMany({ data: moved.map((m) => ({ studentId: m.id, field: 'status', oldValue: 'PENDING_REGISTRATION', newValue: 'CONTINUING', changedByUserId: actingUserId })) });
+        }
         await tx.auditLog.create({ data: {
           action: 'STUDENTS_REGISTRATION_APPROVED', entity: 'Student', userId: actingUserId,
           details: JSON.stringify({
@@ -171,6 +177,30 @@ export class StudentsService {
       });
     }
     return { approved: approvable.length, skipped };
+  }
+
+  // تغيير حالة الطالب الأكاديمية/الإدارية: انتقالات محددة، والسبب مطلوب، ويُسجَّل في سجل الطالب وسجل العمليات.
+  async changeStatus(id: string, dto: ChangeStudentStatusDto, user: { id: string; role: string }) {
+    const to = parseStudentStatus(dto.status);
+    if (!to) throw new BadRequestException('حالة الطالب غير معروفة.');
+    const reason = dto.reason?.trim();
+    if (!reason) throw new BadRequestException('سبب تغيير الحالة مطلوب.');
+    const student = await this.prisma.student.findUnique({ where: { id }, select: { id: true, universityId: true, status: true } });
+    if (!student) throw new NotFoundException('الطالب غير موجود.');
+    if (student.status === to) throw new BadRequestException('الطالب في هذه الحالة أصلاً.');
+    const rule = transitionRule(student.status, to);
+    if (!rule) throw new BadRequestException(`لا يمكن نقل الطالب من «${STUDENT_STATUS_LABEL[student.status as StudentStatus] ?? student.status}» إلى «${STUDENT_STATUS_LABEL[to]}».`);
+    if (rule.adminOnly && user.role !== 'SYSTEM_ADMIN') throw new ForbiddenException('هذا التغيير قرار استثنائي لا يقوم به إلا مدير النظام.');
+    return this.prisma.$transaction(async (tx) => {
+      const changed = await tx.student.updateMany({ where: { id, status: student.status }, data: { status: to } });
+      if (changed.count !== 1) throw new ConflictException('تغيّرت حالة الطالب أثناء العملية. حدّث الصفحة وأعد المحاولة.');
+      await tx.studentDataChange.create({ data: { studentId: id, field: 'status', oldValue: student.status, newValue: to, changedByUserId: user.id } });
+      await tx.auditLog.create({ data: {
+        action: 'STUDENT_STATUS_CHANGED', entity: 'Student', entityId: id, userId: user.id,
+        details: JSON.stringify({ universityId: student.universityId, from: student.status, to, reason }),
+      } });
+      return { id, status: to };
+    });
   }
 
   // نقل طالب إلى كلية أخرى: يتغير رمز الكلية في رقمه الجامعي (السنة الأصلية تبقى) ويبقى الرقم القديم بالسجل.
@@ -304,7 +334,8 @@ export class StudentsService {
     await this.ensureUniqueNationalId(normalized.nationalId);
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const student = await tx.student.create({ data: normalized });
+        // الطالب الجديد يبدأ «قيد استكمال التسجيل» (حالته لا تتغير من نموذج التعديل بل من «تغيير الحالة»).
+        const student = await tx.student.create({ data: { ...normalized, status: parseStudentStatus(data.status) ?? 'PENDING_REGISTRATION' } });
         await tx.auditLog.create({ data: {
           action: 'STUDENT_CREATED', entity: 'Student', entityId: student.id,
           userId: actingUserId, details: JSON.stringify({ universityId: student.universityId }),

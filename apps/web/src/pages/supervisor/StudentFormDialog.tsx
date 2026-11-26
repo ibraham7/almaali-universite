@@ -18,7 +18,7 @@ type Catalog = {
   advisors: Array<{ id: string; email: string }>;
 };
 
-const empty: StudentInput = { universityId: '', firstName: '', familyName: '', status: 'ACTIVE' };
+const empty: StudentInput = { universityId: '', firstName: '', familyName: '' };
 
 type StudentFieldErrors = Partial<Record<keyof StudentInput, string>>;
 
@@ -61,7 +61,7 @@ function initialValues(student: StudentListItem | null): StudentInput {
     englishName: student.englishName, gender,
     dateOfBirth: student.dateOfBirth?.slice(0, 10), nationality: student.nationality,
     idOrPassport: student.idOrPassport, universityEmail: student.universityEmail, phone: student.phone,
-    status: student.status, collegeId: student.collegeId, departmentId: student.departmentId,
+    collegeId: student.collegeId, departmentId: student.departmentId,
     programId: student.programId, studyPlanId: student.studyPlanId,
     academicYearId: student.academicYearId, semesterId: student.semesterId,
     advisorId: student.advisorId, admissionDate: student.admissionDate?.slice(0, 10),
@@ -228,7 +228,7 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
     </TextField>,
     field('dateOfBirth', 'تاريخ الميلاد', false, 'date'), controlledList('nationality', 'الجنسية', STUDENT_NATIONALITIES),
     field('idOrPassport', 'رقم الهوية أو جواز السفر'), field('universityEmail', 'البريد الجامعي', false, 'email'),
-    field('phone', 'رقم الهاتف'), field('status', 'حالة الطالب'),
+    field('phone', 'رقم الهاتف'),
     field('admissionDate', 'تاريخ القبول', false, 'date'),
   ];
   const academic = catalog ? [

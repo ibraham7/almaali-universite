@@ -4,6 +4,7 @@ import { dayRange } from './affairs-reports.catalog.js';
 import { canManage, isUnitManager } from './affairs-access.js';
 import { managerRecipients, notifyUsers, studentStatusMessage } from './affairs-notifications.js';
 import { AffairsSettingsService } from './affairs-settings.service.js';
+import { SERVICES_BLOCKED_MESSAGE, canRequestServices } from '../students/student-status.js';
 import {
   AssignRequestDto, ChangeStatusDto, CommentDto, CreateServiceDto, CreateStaffDto, ListRequestsQueryDto,
   ProxyCreateRequestDto, StudentCreateRequestDto, UpdateServiceDto, UpdateStaffDto,
@@ -201,8 +202,10 @@ export class AffairsService {
       if (!service.isActive) throw new BadRequestException('هذه الخدمة متوقفة حالياً.');
       if (user.role === 'STUDENT' && !(await this.settings.get<boolean>('studentOnlineSubmission'))) throw new BadRequestException('استقبال الطلبات الإلكترونية متوقف مؤقتاً. راجع دائرة شؤون الطلاب.');
       if (user.role === 'STUDENT' && service.channel === 'IN_PERSON') throw new BadRequestException('هذه الخدمة تُقدَّم حضورياً فقط، راجع دائرة شؤون الطلاب.');
-      const student = await tx.student.findUnique({ where: { id: studentId }, select: { id: true, userId: true } });
+      const student = await tx.student.findUnique({ where: { id: studentId }, select: { id: true, userId: true, status: true } });
       if (!student) throw new NotFoundException('الطالب غير موجود.');
+      // المنسحب والمفصول والمرقّن قيده: اطلاع فقط، لا يقدّمون طلبات خدمات من حسابهم (الموظف يقدّم عنهم عند اللزوم).
+      if (user.role === 'STUDENT' && !canRequestServices(student.status)) throw new ForbiddenException(SERVICES_BLOCKED_MESSAGE(student.status));
 
       const now = new Date();
       const counter = await tx.affairsRequestCounter.upsert({
@@ -454,7 +457,7 @@ export class AffairsService {
       this.prisma.studentRequest.count({ where: withBase({ status: { in: OPEN_STATUSES }, dueAt: { lt: new Date() } }) }),
       this.prisma.studentRequestEvent.findMany({ orderBy: { createdAt: 'desc' }, take: 10, include: { request: { select: { id: true, number: true, service: { select: { nameAr: true } } } } } }),
       this.prisma.student.count(),
-      this.prisma.student.count({ where: { status: 'ACTIVE' } }),
+      this.prisma.student.count({ where: { status: 'CONTINUING' } }),
     ]);
     const result: Record<string, unknown> = {
       counts: { new: fresh, mine, waiting, referred, doneToday, overdue },

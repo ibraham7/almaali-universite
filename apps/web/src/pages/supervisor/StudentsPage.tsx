@@ -49,7 +49,8 @@ import StudentFormDialog from './StudentFormDialog';
 import StudentImportDialog from './StudentImportDialog';
 import ApproveRegistrationDialog from './ApproveRegistrationDialog';
 import TransferCollegeDialog from './TransferCollegeDialog';
-import { bulkDeleteStudents, getStudentCapabilities } from '../../api/students';
+import { STUDENT_STATUS_LABEL, bulkDeleteStudents, getStudentCapabilities, studentStatusColor, studentStatusLabel } from '../../api/students';
+import ChangeStudentStatusDialog from './ChangeStudentStatusDialog';
 import { getColleges, getDepartments, getPrograms, type College, type Department, type Program } from '../../api/academicStructure';
 
 function getErrorMessage(
@@ -155,7 +156,7 @@ function exportStudentsCsv(items: StudentListItem[]) {
     };
     const rows = [
         ['الرقم الجامعي', 'اسم الطالب', 'البريد', 'حالة الطالب', 'حالة الحساب', 'آخر دخول'],
-        ...items.map((student) => [student.universityId, fullName(student), student.user?.email ?? student.universityEmail ?? '', student.status, student.user ? statusLabel(student.user.status) : 'لا يوجد حساب', student.user?.lastLoginAt ?? '']),
+        ...items.map((student) => [student.universityId, fullName(student), student.user?.email ?? student.universityEmail ?? '', studentStatusLabel(student.status), student.user ? statusLabel(student.user.status) : 'لا يوجد حساب', student.user?.lastLoginAt ?? '']),
     ];
     const csv = `\uFEFF${rows.map((row) => row.map(cell).join(',')).join('\r\n')}`;
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -173,6 +174,7 @@ export default function StudentsPage() {
     const [formOpen, setFormOpen] = useState(false);
     const [importOpen, setImportOpen] = useState(false);
     const [transferOpen, setTransferOpen] = useState(false);
+    const [statusOpen, setStatusOpen] = useState(false);
     // وضع التجريب: تحديد وحذف جماعي (مغلق افتراضياً، يُفعَّل من إعدادات السيرفر لمدير النظام فقط)
     const [bulkDeleteAllowed, setBulkDeleteAllowed] = useState(false);
     const [selectMode, setSelectMode] = useState(false);
@@ -495,21 +497,20 @@ export default function StudentsPage() {
                                     جميع الحالات
                                 </MenuItem>
 
-                                <MenuItem value="ACTIVE">
-                                    نشط
-                                </MenuItem>
+                                <MenuItem value="PENDING_REGISTRATION">{STUDENT_STATUS_LABEL.PENDING_REGISTRATION}</MenuItem>
 
-                                <MenuItem value="SUSPENDED">
-                                    موقوف
-                                </MenuItem>
+                                <MenuItem value="CONTINUING">{STUDENT_STATUS_LABEL.CONTINUING}</MenuItem>
 
-                                <MenuItem value="LOCKED">
-                                    مقفل
-                                </MenuItem>
+                                <MenuItem value="DEFERRED">{STUDENT_STATUS_LABEL.DEFERRED}</MenuItem>
 
-                                <MenuItem value="DISABLED">
-                                    معطل
-                                </MenuItem>
+                                <MenuItem value="WITHDRAWN">{STUDENT_STATUS_LABEL.WITHDRAWN}</MenuItem>
+
+                                <MenuItem value="DISMISSED">{STUDENT_STATUS_LABEL.DISMISSED}</MenuItem>
+
+                                <MenuItem value="GRADUATED">{STUDENT_STATUS_LABEL.GRADUATED}</MenuItem>
+
+                                <MenuItem value="DEREGISTERED">{STUDENT_STATUS_LABEL.DEREGISTERED}</MenuItem>
+
                             </Select>
                         </FormControl>
 
@@ -752,9 +753,8 @@ export default function StudentsPage() {
 
                                                     <Chip
                                                         size="small"
-                                                        label={statusLabel(
-                                                            student.status,
-                                                        )}
+                                                        color={studentStatusColor(student.status)}
+                                                        label={studentStatusLabel(student.status)}
                                                     />
 
                                                     {(!student.nationalId || !student.birthPlace) && (
@@ -765,13 +765,6 @@ export default function StudentsPage() {
                                                         />
                                                     )}
 
-                                                    {!student.studyPlanId && (
-                                                        <Chip
-                                                            size="small"
-                                                            color="warning"
-                                                            label="بانتظار اعتماد التسجيل"
-                                                        />
-                                                    )}
                                                 </Stack>
 
                                                 <Typography
@@ -878,9 +871,10 @@ export default function StudentsPage() {
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     تفاصيل الطالب
                     {selectedStudent && <Stack direction="row" spacing={1}>
+                        {canManage && <Button onClick={() => { setDialogOpen(false); setStatusOpen(true); }}>تغيير الحالة</Button>}
                         {canManage && <Button color="warning" onClick={() => { setDialogOpen(false); setTransferOpen(true); }}>نقل إلى كلية أخرى</Button>}
                         {canManage && !selectedStudent.studyPlanId && <Button variant="contained" color="success" onClick={() => { setDialogOpen(false); setApproveTargets([toTarget(selectedStudent)]); }}>اعتماد التسجيل</Button>}
-                        {selectedStudent.studyPlanId && <Button variant="contained" startIcon={<MenuBookOutlinedIcon />} onClick={() => navigate(`/advisor/student-registration?universityId=${encodeURIComponent(selectedStudent.universityId)}`)}>تسجيل مقررات</Button>}
+                        {selectedStudent.studyPlanId && selectedStudent.status === 'CONTINUING' && <Button variant="contained" startIcon={<MenuBookOutlinedIcon />} onClick={() => navigate(`/advisor/student-registration?universityId=${encodeURIComponent(selectedStudent.universityId)}`)}>تسجيل مقررات</Button>}
                         {canManage && <>
                             <Button onClick={() => { setEditingStudent(selectedStudent); setDialogOpen(false); setFormOpen(true); }}>تعديل البيانات</Button>
                         </>}
@@ -1256,6 +1250,10 @@ export default function StudentsPage() {
                     </Button>
                 </DialogActions>
             </Dialog>
+            {canManage && <ChangeStudentStatusDialog open={statusOpen} role={user?.role}
+                student={selectedStudent ? { id: selectedStudent.id, universityId: selectedStudent.universityId, name: fullName(selectedStudent), status: selectedStudent.status } : null}
+                onClose={() => setStatusOpen(false)}
+                onDone={(message) => { setSuccess(message); setSelectedStudent(null); void loadStudents(); }} />}
             {canManage && <TransferCollegeDialog open={transferOpen}
                 student={selectedStudent ? { id: selectedStudent.id, universityId: selectedStudent.universityId, name: fullName(selectedStudent), collegeId: selectedStudent.collegeId } : null}
                 onClose={() => setTransferOpen(false)}

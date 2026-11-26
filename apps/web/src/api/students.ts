@@ -261,3 +261,46 @@ export async function bulkDeleteStudents(studentIds: string[], confirm: string) 
   const response = await apiClient.post<{ deleted: number }>('/students/bulk-delete', { studentIds, confirm });
   return response.data;
 }
+
+// حالات الطالب الأكاديمية/الإدارية (منفصلة عن حالة حساب الدخول). الخادم يفرض الانتقالات، وهذا للعرض فقط.
+export const STUDENT_STATUS_LABEL: Record<string, string> = {
+  PENDING_REGISTRATION: 'قيد استكمال التسجيل',
+  CONTINUING: 'مستمر',
+  DEFERRED: 'مؤجل',
+  WITHDRAWN: 'منسحب',
+  DISMISSED: 'مفصول',
+  GRADUATED: 'متخرج',
+  DEREGISTERED: 'ترقين قيد',
+};
+
+export function studentStatusLabel(status?: string | null) {
+  return (status && STUDENT_STATUS_LABEL[status]) || status || '—';
+}
+
+export function studentStatusColor(status?: string | null): 'default' | 'success' | 'warning' | 'error' | 'info' {
+  switch (status) {
+    case 'CONTINUING': return 'success';
+    case 'PENDING_REGISTRATION': return 'warning';
+    case 'DEFERRED': return 'info';
+    case 'WITHDRAWN': case 'DISMISSED': case 'DEREGISTERED': return 'error';
+    default: return 'default';
+  }
+}
+
+// الانتقالات التي تعرضها النافذة (adminOnly: مدير النظام فقط). نفس جدول الخادم.
+const STATUS_MOVES: Array<{ from: string; to: string; adminOnly?: boolean }> = [
+  { from: 'PENDING_REGISTRATION', to: 'CONTINUING' }, { from: 'PENDING_REGISTRATION', to: 'WITHDRAWN' }, { from: 'PENDING_REGISTRATION', to: 'DEREGISTERED' },
+  { from: 'CONTINUING', to: 'DEFERRED' }, { from: 'CONTINUING', to: 'WITHDRAWN' }, { from: 'CONTINUING', to: 'DISMISSED' }, { from: 'CONTINUING', to: 'DEREGISTERED' },
+  { from: 'CONTINUING', to: 'GRADUATED', adminOnly: true },
+  { from: 'DEFERRED', to: 'CONTINUING' }, { from: 'DEFERRED', to: 'WITHDRAWN' },
+  { from: 'DISMISSED', to: 'CONTINUING', adminOnly: true },
+];
+
+export function allowedStudentStatuses(from: string, role?: string) {
+  return STATUS_MOVES.filter((move) => move.from === from && (!move.adminOnly || role === 'SYSTEM_ADMIN')).map((move) => move.to);
+}
+
+export async function changeStudentStatus(id: string, data: { status: string; reason: string }) {
+  const response = await apiClient.post<{ id: string; status: string }>(`/students/${id}/status`, data);
+  return response.data;
+}
