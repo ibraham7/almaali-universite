@@ -339,17 +339,27 @@ export default function DashboardLayout() {
           if (!items.length) return null;
           const open = !closedGroups[group.key];
           return (
-            <Box key={group.key} sx={{ mt: 1 }}>
+            <Box key={group.key} sx={{ mt: 2 }}>
               <ListItemButton
                 onClick={() => setClosedGroups((current) => ({ ...current, [group.key]: open }))}
                 aria-expanded={open}
-                sx={{ minHeight: 36, px: 1.5, borderRadius: 2, color: 'rgba(255,255,255,0.5)', '&:hover': { bgcolor: 'rgba(255,255,255,0.05)', color: '#FFFFFF' } }}
+                sx={{
+                  minHeight: 42,
+                  mb: 0.5,
+                  px: 1.5,
+                  borderRadius: 2,
+                  bgcolor: 'rgba(255,255,255,0.07)',
+                  position: 'relative',
+                  '&::before': { content: '""', position: 'absolute', right: 0, top: 10, bottom: 10, width: 3, borderRadius: 10, bgcolor: universityColors.gold },
+                  color: '#FFFFFF',
+                  '&:hover': { bgcolor: 'rgba(255,255,255,0.13)' },
+                }}
               >
-                <ListItemText primary={group.label} sx={{ '& .MuiListItemText-primary': { fontSize: 12, fontWeight: 700 } }} />
-                <ExpandMoreRoundedIcon sx={{ fontSize: 20, transform: open ? 'none' : 'rotate(90deg)', transition: 'transform .2s' }} />
+                <ListItemText primary={group.label} sx={{ '& .MuiListItemText-primary': { fontSize: 14, fontWeight: 800, letterSpacing: 0.2 } }} />
+                <ExpandMoreRoundedIcon sx={{ fontSize: 24, color: universityColors.gold, transform: open ? 'none' : 'rotate(90deg)', transition: 'transform .2s' }} />
               </ListItemButton>
               <Collapse in={open} timeout="auto" unmountOnExit={false}>
-                {items.map(renderItem)}
+                <Box sx={{ pr: 1 }}>{items.map(renderItem)}</Box>
               </Collapse>
             </Box>
           );
@@ -485,7 +495,7 @@ export default function DashboardLayout() {
             fontWeight: 600,
 
             color:
-              'rgba(255,255,255,0.38)',
+              'rgba(255,255,255,0.6)',
           }}
         >
           القائمة الرئيسية
@@ -527,7 +537,7 @@ export default function DashboardLayout() {
 
                     color: selected
                       ? '#FFFFFF'
-                      : 'rgba(255,255,255,0.68)',
+                      : 'rgba(255,255,255,0.86)',
 
                     position:
                       'relative',
@@ -537,7 +547,7 @@ export default function DashboardLayout() {
                       color:
                         selected
                           ? universityColors.gold
-                          : 'rgba(255,255,255,0.55)',
+                          : 'rgba(255,255,255,0.72)',
                     },
 
                     '&.Mui-selected':
