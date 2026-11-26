@@ -125,3 +125,12 @@ export class BulkDeleteStudentsDto {
   @IsString() @IsNotEmpty()
   confirm!: string;
 }
+
+// تغيير حالة الطالب (أكاديمية/إدارية): السبب إلزامي.
+export class ChangeStudentStatusDto {
+  @IsString() @IsNotEmpty() @MaxLength(50)
+  status!: string;
+
+  @IsString() @IsNotEmpty() @MaxLength(500)
+  reason!: string;
+}

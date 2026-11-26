@@ -15,7 +15,7 @@ import type {
 } from 'express';
 
 import { StudentsService } from './students.service.js';
-import { ApproveRegistrationDto, BulkDeleteStudentsDto, StudentInputDto, TransferCollegeDto, UpdateStudentDto } from './dto/student-input.dto.js';
+import { ApproveRegistrationDto, BulkDeleteStudentsDto, ChangeStudentStatusDto, StudentInputDto, TransferCollegeDto, UpdateStudentDto } from './dto/student-input.dto.js';
 
 import { JwtGuard } from '../auth/guards/jwt/jwt.guard.js';
 
@@ -73,6 +73,12 @@ export class StudentsController {
   @Roles('REGISTRAR', 'SYSTEM_ADMIN')
   transferCollege(@Param('id') id: string, @Body() body: TransferCollegeDto, @Req() request: AuthenticatedRequest) {
     return this.studentsService.transferCollege(id, body, request.user.id);
+  }
+
+  @Post(':id/status')
+  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  changeStatus(@Param('id') id: string, @Body() body: ChangeStudentStatusDto, @Req() request: AuthenticatedRequest) {
+    return this.studentsService.changeStatus(id, body, request.user);
   }
 
   @Patch(':id')

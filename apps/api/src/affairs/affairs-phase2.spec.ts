@@ -60,6 +60,24 @@ describe('request source and status guards', () => {
     expect(((await svc.createForStudent('stu1', 's1', 'x', undefined, owner)) as any).channel).toBe('IN_PERSON');
   });
 
+  it('withdrawn, dismissed and deregistered students cannot submit requests from their account (view only); staff still can, others can', async () => {
+    for (const status of ['WITHDRAWN', 'DISMISSED', 'DEREGISTERED']) {
+      const a = mockPrisma();
+      a.student.findUnique = vi.fn().mockResolvedValue({ id: 'stu1', status });
+      a.studentRequest.create = vi.fn(async ({ data }: any) => ({ id: 'n', ...data }));
+      const svc = new AffairsService(a as unknown as PrismaService, fakeSettings());
+      await expect(svc.createForStudent('stu1', 's1', 'x', undefined, student)).rejects.toBeInstanceOf(ForbiddenException);
+      expect(a.studentRequest.create).not.toHaveBeenCalled();
+      await expect(svc.createForStudent('stu1', 's1', 'x', undefined, owner)).resolves.toBeDefined();
+    }
+    for (const status of ['PENDING_REGISTRATION', 'CONTINUING', 'DEFERRED', 'GRADUATED']) {
+      const a = mockPrisma();
+      a.student.findUnique = vi.fn().mockResolvedValue({ id: 'stu1', status });
+      a.studentRequest.create = vi.fn(async ({ data }: any) => ({ id: 'n', ...data }));
+      await expect(new AffairsService(a as unknown as PrismaService, fakeSettings()).createForStudent('stu1', 's1', 'x', undefined, student)).resolves.toBeDefined();
+    }
+  });
+
   it('students cannot submit an in-person-only service, staff can', async () => {
     const a = mockPrisma();
     a.affairsService.findUnique.mockResolvedValue({ id: 's1', isActive: true, expectedDays: 3, channel: 'IN_PERSON' });

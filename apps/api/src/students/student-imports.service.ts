@@ -525,13 +525,13 @@ export class StudentImportsService {
             nationality: nationality || existingStudent?.nationality || null, idOrPassport: idOrPassport || existingStudent?.idOrPassport || null,
             universityEmail: universityEmail || existingStudent?.universityEmail || null, phone: phone ? normalizeDigits(phone) : existingStudent?.phone || null,
             collegeId, departmentId, programId, studyPlanId, academicYearId,
-            semesterId, status: status || existingStudent?.status || 'ACTIVE', advisorId: matchingAdvisors[0]?.id ?? existingStudent?.advisorId ?? null,
+            semesterId, status: existingStudent?.status ?? 'PENDING_REGISTRATION', advisorId: matchingAdvisors[0]?.id ?? existingStudent?.advisorId ?? null,
             admissionDate };
         // مقارنة الطالب الموجود بالملف: فقط الأعمدة التي فيها قيمة بالملف، والفرق الفعلي بالقيمة
         const changes: ImportChange[] = [];
         if (existingStudent) {
           for (const [field, column] of Object.entries(IMPORT_COLUMN)) {
-            if (!providedColumns[column]) continue;
+            if (!providedColumns[column] || field === 'status') continue; // الحالة لا تتغير بالاستيراد بل من «تغيير الحالة»
             const before = (existingStudent as Record<string, unknown>)[field];
             const after = (data as Record<string, unknown>)[field];
             if (comparable(before) !== comparable(after)) changes.push({ field, label: IMPORT_LABEL[field], before: show(field, before), after: show(field, after) });

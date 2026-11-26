@@ -38,7 +38,7 @@ function mockPrisma(over: { request?: Record<string, unknown>; type?: Record<str
   const type = over.type === undefined ? { id: 't1', code: 'ENROLLMENT', nameAr: 'وثيقة قيد', titleAr: 'وثيقة قيد', issuingBody: 'دائرة شؤون الطلاب', bodyTemplate: 'الطالب {{studentName}}', footerNote: null, includesResults: false, isActive: true } : over.type;
   const req = {
     id: 'r1', number: 'SR-26-0001', status: 'ACCEPTED', assignedStaffId: 'st1', assignedStaff: { userId: 'u-staff' },
-    student: { id: 'stu1', userId: 'u-student', universityId: '27010001', firstName: 'سارة', middleName: null, familyName: 'علي', fullName: 'سارة علي', status: 'ACTIVE', collegeId: null, departmentId: null, programId: null },
+    student: { id: 'stu1', userId: 'u-student', universityId: '27010001', firstName: 'سارة', middleName: null, familyName: 'علي', fullName: 'سارة علي', status: 'CONTINUING', collegeId: null, departmentId: null, programId: null },
     service: { outcome: 'DOCUMENT', documentType: type }, ...over.request,
   };
   const prisma: any = {

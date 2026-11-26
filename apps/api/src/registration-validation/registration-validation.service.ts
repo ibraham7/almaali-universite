@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { REGISTER_BLOCKED_MESSAGE, canRegisterCourses } from '../students/student-status.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class RegistrationValidationService {
         select: {
           id: true,
           status: true,
+          student: { select: { status: true } },
         },
       });
 
@@ -21,6 +23,14 @@ export class RegistrationValidationService {
       return {
         valid: false,
         errors: ['Enrollment not found'],
+      };
+    }
+
+    // التسجيل لمن حالته «مستمر» فقط (المؤجل والمنسحب والمفصول والمرقّن قيده والمتخرج وقيد الاستكمال لا يسجّلون).
+    if (enrollment.student && !canRegisterCourses(enrollment.student.status)) {
+      return {
+        valid: false,
+        errors: [REGISTER_BLOCKED_MESSAGE(enrollment.student.status)],
       };
     }
 

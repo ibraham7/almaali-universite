@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Stack, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, Typography } from '@mui/material';
 import { downloadStaffAttachment, getStudentFile, type StudentFile } from '../../api/affairs';
+import { studentStatusLabel } from '../../api/students';
 import { StatusChip } from './AffairsBits';
 import { CHANNEL_LABEL, DOCUMENT_STATUS_LABEL, errorText, formatDate, formatSize, saveBlob } from './affairsUi';
 
@@ -55,7 +56,7 @@ export default function StudentFileDialog({ studentId, onClose }: { studentId: s
               <Stack spacing={2}>
                 <Box><Typography sx={{ fontWeight: 700, mb: 1 }}>البيانات الجامعية</Typography>
                   <Rows rows={[['الرقم الجامعي الحالي', file.university.universityId], ['الكلية', file.university.college], ['القسم', file.university.department], ['البرنامج', file.university.program],
-                    ['الوضع الدراسي', file.university.status], ['المشرف الأكاديمي', file.university.advisor], ['تاريخ القبول', file.university.admissionDate ? formatDate(file.university.admissionDate) : null]]} /></Box>
+                    ['الوضع الدراسي', studentStatusLabel(file.university.status)], ['المشرف الأكاديمي', file.university.advisor], ['تاريخ القبول', file.university.admissionDate ? formatDate(file.university.admissionDate) : null]]} /></Box>
                 <Box><Typography sx={{ fontWeight: 700, mb: 1 }}>البيانات الشخصية</Typography>
                   <Rows rows={PERSONAL_LABELS.map(([k, label]) => [label, k === 'dateOfBirth' && file.personal[k] ? formatDate(file.personal[k]) : file.personal[k]])} /></Box>
                 <Box><Typography sx={{ fontWeight: 700, mb: 1 }}>بيانات التواصل</Typography>

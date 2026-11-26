@@ -105,13 +105,14 @@ describe('Student management', () => {
     void [familyName, collegeId, programId, studyPlanId, academicYearId, semesterId];
     await new StudentsService(prisma).create({ ...ministry, meritNumber: '555123' }, 'registrar-1');
     expect(create).toHaveBeenCalledWith({ data: expect.objectContaining({
-      familyName: '', fullName: 'سارة عمر', meritNumber: '555123', studyPlanId: null, programId: null,
+      familyName: '', fullName: 'سارة عمر', meritNumber: '555123', studyPlanId: null, programId: null, status: 'PENDING_REGISTRATION',
     }) });
   });
 
   it('approves the registration of students without a plan and skips the ones that already have one', async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 1 });
     const audit = vi.fn().mockResolvedValue({});
+    const changes = vi.fn().mockResolvedValue({});
     const prisma = {
       ...catalog(),
       department: { findUnique: vi.fn().mockResolvedValue({ id: 'dep-1', collegeId: 'college-1' }) },
@@ -120,7 +121,7 @@ describe('Student management', () => {
         { id: 's1', universityId: '1', studyPlanId: null },
         { id: 's2', universityId: '2', studyPlanId: 'plan-9' },
       ]) },
-      $transaction: (fn: (tx: unknown) => Promise<unknown>) => fn({ student: { updateMany }, auditLog: { create: audit } }),
+      $transaction: (fn: (tx: unknown) => Promise<unknown>) => fn({ student: { updateMany, findMany: vi.fn().mockResolvedValue([{ id: 's1' }]) }, studentDataChange: { createMany: changes }, auditLog: { create: audit } }),
     } as unknown as PrismaService;
     const result = await new StudentsService(prisma).approveRegistration({
       studentIds: ['s1', 's2', 's3'], collegeId: 'college-1', departmentId: 'dep-1', programId: 'program-1',
@@ -130,6 +131,60 @@ describe('Student management', () => {
     expect(result.skipped.map((item) => item.reason)).toEqual(['مرتبط بخطة دراسية مسبقاً', 'الطالب غير موجود']);
     expect(updateMany).toHaveBeenCalledWith({ where: { id: { in: ['s1'] }, studyPlanId: null }, data: expect.objectContaining({ studyPlanId: 'plan-1', semesterId: 'semester-1' }) });
     expect(audit).toHaveBeenCalledWith({ data: expect.objectContaining({ action: 'STUDENTS_REGISTRATION_APPROVED', userId: 'registrar-1' }) });
+    // «قيد استكمال التسجيل» يصير «مستمر» ويُسجَّل التغيير بسجل الطالب
+    expect(updateMany).toHaveBeenCalledWith({ where: { id: { in: ['s1'] }, status: 'PENDING_REGISTRATION' }, data: { status: 'CONTINUING' } });
+    expect(changes).toHaveBeenCalledWith({ data: [expect.objectContaining({ studentId: 's1', field: 'status', oldValue: 'PENDING_REGISTRATION', newValue: 'CONTINUING' })] });
+  });
+
+  describe('student status', () => {
+    const setup = (status: string) => {
+      const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+      const change = vi.fn().mockResolvedValue({});
+      const audit = vi.fn().mockResolvedValue({});
+      const prisma = {
+        student: { findUnique: vi.fn().mockResolvedValue({ id: 's1', universityId: '2701001', status }) },
+        $transaction: (fn: (tx: unknown) => Promise<unknown>) => fn({ student: { updateMany }, studentDataChange: { create: change }, auditLog: { create: audit } }),
+      } as unknown as PrismaService;
+      return { service: new StudentsService(prisma), updateMany, change, audit };
+    };
+    const registrar = { id: 'u1', role: 'REGISTRAR' };
+    const admin = { id: 'u2', role: 'SYSTEM_ADMIN' };
+
+    it('refuses an empty reason and an unknown status without touching the student', async () => {
+      const { service, updateMany } = setup('CONTINUING');
+      await expect(service.changeStatus('s1', { status: 'DEFERRED', reason: '' }, registrar)).rejects.toThrow('سبب');
+      await expect(service.changeStatus('s1', { status: 'ACTIVE', reason: 'x' }, registrar)).rejects.toThrow('غير معروفة');
+      expect(updateMany).not.toHaveBeenCalled();
+    });
+
+    it('moves between allowed statuses with a reason, logging the change and the audit trail', async () => {
+      const { service, updateMany, change, audit } = setup('CONTINUING');
+      await expect(service.changeStatus('s1', { status: 'DEFERRED', reason: 'ظروف صحية' }, registrar)).resolves.toEqual({ id: 's1', status: 'DEFERRED' });
+      expect(updateMany).toHaveBeenCalledWith({ where: { id: 's1', status: 'CONTINUING' }, data: { status: 'DEFERRED' } });
+      expect(change).toHaveBeenCalledWith({ data: expect.objectContaining({ field: 'status', oldValue: 'CONTINUING', newValue: 'DEFERRED', changedByUserId: 'u1' }) });
+      expect(audit).toHaveBeenCalledWith({ data: expect.objectContaining({ action: 'STUDENT_STATUS_CHANGED', details: expect.stringContaining('ظروف صحية') }) });
+    });
+
+    it('refuses transitions that are not allowed (withdrawn returns as a new student, graduated and deregistered are final)', async () => {
+      for (const from of ['WITHDRAWN', 'GRADUATED', 'DEREGISTERED']) {
+        const { service, updateMany } = setup(from);
+        await expect(service.changeStatus('s1', { status: 'CONTINUING', reason: 'x' }, admin)).rejects.toThrow('لا يمكن نقل');
+        expect(updateMany).not.toHaveBeenCalled();
+      }
+      await expect(setup('CONTINUING').service.changeStatus('s1', { status: 'CONTINUING', reason: 'x' }, admin)).rejects.toThrow('أصلاً');
+    });
+
+    it('the exceptional decisions (return of a dismissed student, graduating) are for the system admin only', async () => {
+      await expect(setup('DISMISSED').service.changeStatus('s1', { status: 'CONTINUING', reason: 'قرار المجلس' }, registrar)).rejects.toThrow('مدير النظام');
+      await expect(setup('DISMISSED').service.changeStatus('s1', { status: 'CONTINUING', reason: 'قرار المجلس' }, admin)).resolves.toEqual({ id: 's1', status: 'CONTINUING' });
+      await expect(setup('CONTINUING').service.changeStatus('s1', { status: 'GRADUATED', reason: 'x' }, registrar)).rejects.toThrow('مدير النظام');
+    });
+
+    it('fails cleanly when someone else changed the status in the meantime', async () => {
+      const { service, updateMany } = setup('CONTINUING');
+      updateMany.mockResolvedValue({ count: 0 });
+      await expect(service.changeStatus('s1', { status: 'DEFERRED', reason: 'x' }, registrar)).rejects.toThrow('تغيّرت حالة');
+    });
   });
 
   describe('college transfer', () => {
