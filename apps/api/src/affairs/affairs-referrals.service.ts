@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { AffairsUser } from './affairs.service.js';
 import { AffairsSettingsService } from './affairs-settings.service.js';
@@ -37,6 +37,24 @@ export function outcomeAllowed(mode: string, outcome: string) {
 export class AffairsReferralsService {
   constructor(private readonly prisma: PrismaService, private readonly settings: AffairsSettingsService) {}
 
+  // A new, unassigned request may be referred straight away: a staff member covering the service takes it first (same rules
+  // as "take"), so the referral never leaves a request with nobody responsible. A system admin may refer it without taking it.
+  private async loadForReferral(tx: any, requestId: string, user: AffairsUser) {
+    const request = await tx.studentRequest.findUnique({ where: { id: requestId }, include: { assignedStaff: { select: { userId: true } } } });
+    if (request && request.status === 'NEW' && !request.assignedStaffId && user.role === 'REGISTRAR') {
+      await this.settings.assertCapability(user, 'capTakeNewRequests');
+      const me = await tx.affairsStaff.findUnique({ where: { userId: user.id }, include: { services: { where: { isActive: true } } } });
+      if (!me || !me.isActive) throw new ForbiddenException('حسابك غير مضاف كموظف في دائرة شؤون الطلاب.');
+      if (!me.services.some((s: { serviceId: string }) => s.serviceId === request.serviceId)) throw new ForbiddenException('هذه الخدمة ليست ضمن اختصاصك.');
+      const taken = await tx.studentRequest.updateMany({ where: { id: requestId, status: 'NEW', assignedStaffId: null }, data: { assignedStaffId: me.id, status: 'ASSIGNED' } });
+      if (taken.count !== 1) throw new ForbiddenException('لا يمكنك استلام هذا الطلب.');
+      await tx.studentRequestEvent.create({ data: { requestId, type: 'ASSIGNED', fromStatus: 'NEW', toStatus: 'ASSIGNED', visibleToStudent: true, actorUserId: user.id, staffId: me.id, note: 'استلم الموظف الطلب عند الإحالة' } });
+      await audit(tx, 'AFFAIRS_REQUEST_ASSIGNED', requestId, user.id, { number: request.number, to: me.id, viaReferral: true });
+      return { ...request, status: 'ASSIGNED', assignedStaffId: me.id };
+    }
+    return loadRequestForAction(tx, requestId, user);
+  }
+
   // Send a request to another body. The request becomes REFERRED and stays assigned to the original staff member.
   async create(requestId: string, dto: CreateReferralDto, user: AffairsUser) {
     await this.settings.assertCapability(user, 'capCreateReferrals');
@@ -45,9 +63,9 @@ export class AffairsReferralsService {
     const targetName = dto.targetName?.trim() || null;
     if ((dto.target === 'COLLEGE' || dto.target === 'OTHER') && !targetName) throw new BadRequestException('اكتب اسم الجهة المحال إليها.');
     return this.prisma.$transaction(async (tx) => {
-      const request = await loadRequestForAction(tx as never, requestId, user);
+      const request = await this.loadForReferral(tx, requestId, user);
       const from = request.status as RequestStatus;
-      if (!['ASSIGNED', 'IN_PROGRESS'].includes(from)) throw new BadRequestException('لا يمكن إحالة الطلب في حالته الحالية.');
+      if (!['NEW', 'ASSIGNED', 'IN_PROGRESS'].includes(from)) throw new BadRequestException('لا يمكن إحالة الطلب في حالته الحالية.');
       if ((await tx.requestReferral.count({ where: { requestId, status: 'PENDING' } })) > 0) throw new BadRequestException('للطلب إحالة معلّقة بالفعل.');
       const referral = await tx.requestReferral.create({
         data: {

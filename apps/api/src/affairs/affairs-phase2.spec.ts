@@ -161,10 +161,43 @@ describe('referrals', () => {
     await expect(svc.create('r1', { ...dto, reason: '  ' } as never, owner)).rejects.toBeInstanceOf(BadRequestException);
     await expect(svc.create('r1', { ...dto, target: 'COLLEGE' } as never, owner)).rejects.toBeInstanceOf(BadRequestException);
     await expect(svc.create('r1', dto as never, other)).rejects.toBeInstanceOf(ForbiddenException);
-    await expect(new AffairsReferralsService(mockPrisma({ status: 'NEW' }) as unknown as PrismaService, fakeSettings()).create('r1', dto as never, admin)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(new AffairsReferralsService(mockPrisma({ status: 'COMPLETED' }) as unknown as PrismaService, fakeSettings()).create('r1', dto as never, admin)).rejects.toBeInstanceOf(BadRequestException);
     const pending = mockPrisma();
     pending.requestReferral.count.mockResolvedValue(1);
     await expect(new AffairsReferralsService(pending as unknown as PrismaService, fakeSettings()).create('r1', dto as never, owner)).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('a new unassigned request can be referred: the staff member covering the service takes it first, an admin refers it as is', async () => {
+    const fresh = { status: 'NEW', assignedStaffId: null, assignedStaff: null };
+    const a = mockPrisma(fresh);
+    a.affairsStaff.findUnique = vi.fn().mockResolvedValue({ id: 'st-me', isActive: true, services: [{ serviceId: 's1' }] });
+    a.studentRequest.updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    await new AffairsReferralsService(a as unknown as PrismaService, fakeSettings()).create('r1', dto as never, owner);
+    expect(a.studentRequest.updateMany).toHaveBeenCalledWith({ where: { id: 'r1', status: 'NEW', assignedStaffId: null }, data: { assignedStaffId: 'st-me', status: 'ASSIGNED' } });
+    expect(a.studentRequest.update).toHaveBeenCalledWith({ where: { id: 'r1' }, data: { status: 'REFERRED' } });
+    const events = a.studentRequestEvent.create.mock.calls.map((c: any) => c[0].data);
+    expect(events.find((e: any) => e.type === 'ASSIGNED')).toMatchObject({ fromStatus: 'NEW', toStatus: 'ASSIGNED', staffId: 'st-me' });
+    expect(events.find((e: any) => e.type === 'STATUS_CHANGED')).toMatchObject({ fromStatus: 'ASSIGNED', toStatus: 'REFERRED' });
+
+    // not their service, or not an active staff member → refused, nothing referred
+    const wrongService = mockPrisma(fresh);
+    wrongService.affairsStaff.findUnique = vi.fn().mockResolvedValue({ id: 'st-me', isActive: true, services: [{ serviceId: 'other' }] });
+    await expect(new AffairsReferralsService(wrongService as unknown as PrismaService, fakeSettings()).create('r1', dto as never, owner)).rejects.toBeInstanceOf(ForbiddenException);
+    const noStaff = mockPrisma(fresh);
+    noStaff.affairsStaff.findUnique = vi.fn().mockResolvedValue(null);
+    await expect(new AffairsReferralsService(noStaff as unknown as PrismaService, fakeSettings()).create('r1', dto as never, owner)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(wrongService.requestReferral.create).not.toHaveBeenCalled();
+
+    // someone else took it between the page load and the click
+    const raced = mockPrisma(fresh);
+    raced.affairsStaff.findUnique = vi.fn().mockResolvedValue({ id: 'st-me', isActive: true, services: [{ serviceId: 's1' }] });
+    raced.studentRequest.updateMany = vi.fn().mockResolvedValue({ count: 0 });
+    await expect(new AffairsReferralsService(raced as unknown as PrismaService, fakeSettings()).create('r1', dto as never, owner)).rejects.toBeInstanceOf(ForbiddenException);
+
+    // admin: refers it without taking it
+    const adm = mockPrisma(fresh);
+    await new AffairsReferralsService(adm as unknown as PrismaService, fakeSettings()).create('r1', dto as never, admin);
+    expect(adm.studentRequest.update).toHaveBeenCalledWith({ where: { id: 'r1' }, data: { status: 'REFERRED' } });
   });
 
   it('an opinion answer returns the request to the original staff; an execution "done" completes it; a rejection needs a note', async () => {
