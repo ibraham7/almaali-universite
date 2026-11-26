@@ -133,4 +133,8 @@ export class ChangeStudentStatusDto {
 
   @IsString() @IsNotEmpty() @MaxLength(500)
   reason!: string;
+
+  // مطلوب عند التأجيل: تاريخ العودة (YYYY-MM-DD). يرجع الطالب «مستمر» تلقائيًا عند وصوله.
+  @IsOptional() @IsDateString()
+  returnDate?: string;
 }

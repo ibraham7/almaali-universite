@@ -316,6 +316,9 @@ model Student {
   advisorId     String?
   admissionDate DateTime?
 
+  // مؤجل: تاريخ العودة. عند الوصول إليه يرجع الطالب «مستمر» تلقائيًا.
+  deferredUntil DateTime?
+
   userId String? @unique
   user   User?   @relation(fields: [userId], references: [id])
 

@@ -4,6 +4,8 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  type OnModuleDestroy,
+  type OnModuleInit,
 } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -18,7 +20,9 @@ interface FindStudentsOptions {
 }
 
 @Injectable()
-export class StudentsService {
+export class StudentsService implements OnModuleInit, OnModuleDestroy {
+  private deferralTimer?: ReturnType<typeof setInterval>;
+
   constructor(
     private readonly prisma: PrismaService,
   ) {}
@@ -185,22 +189,64 @@ export class StudentsService {
     if (!to) throw new BadRequestException('حالة الطالب غير معروفة.');
     const reason = dto.reason?.trim();
     if (!reason) throw new BadRequestException('سبب تغيير الحالة مطلوب.');
-    const student = await this.prisma.student.findUnique({ where: { id }, select: { id: true, universityId: true, status: true } });
+    const student = await this.prisma.student.findUnique({ where: { id }, select: { id: true, universityId: true, status: true, deferredUntil: true } });
     if (!student) throw new NotFoundException('الطالب غير موجود.');
-    if (student.status === to) throw new BadRequestException('الطالب في هذه الحالة أصلاً.');
+    // التأجيل يحتاج تاريخ عودة مستقبليًا. ومن هو مؤجل أصلاً يستطيع تعديل التاريخ بنفس الإجراء.
+    let returnDate: Date | null = null;
+    if (to === 'DEFERRED') {
+      returnDate = dto.returnDate ? new Date(dto.returnDate) : null;
+      if (!returnDate || Number.isNaN(returnDate.getTime())) throw new BadRequestException('حدّد تاريخ عودة الطالب بعد التأجيل.');
+      if (returnDate.getTime() <= Date.now()) throw new BadRequestException('تاريخ العودة يجب أن يكون في المستقبل.');
+    }
+    const editingDate = to === 'DEFERRED' && student.status === 'DEFERRED';
+    if (student.status === to && !editingDate) throw new BadRequestException('الطالب في هذه الحالة أصلاً.');
     const rule = transitionRule(student.status, to);
     if (!rule) throw new BadRequestException(`لا يمكن نقل الطالب من «${STUDENT_STATUS_LABEL[student.status as StudentStatus] ?? student.status}» إلى «${STUDENT_STATUS_LABEL[to]}».`);
     if (rule.adminOnly && user.role !== 'SYSTEM_ADMIN') throw new ForbiddenException('هذا التغيير قرار استثنائي لا يقوم به إلا مدير النظام.');
+    const dateText = (value: Date | null) => (value ? value.toISOString().slice(0, 10) : null);
     return this.prisma.$transaction(async (tx) => {
-      const changed = await tx.student.updateMany({ where: { id, status: student.status }, data: { status: to } });
+      const changed = await tx.student.updateMany({ where: { id, status: student.status }, data: { status: to, deferredUntil: returnDate } });
       if (changed.count !== 1) throw new ConflictException('تغيّرت حالة الطالب أثناء العملية. حدّث الصفحة وأعد المحاولة.');
-      await tx.studentDataChange.create({ data: { studentId: id, field: 'status', oldValue: student.status, newValue: to, changedByUserId: user.id } });
+      if (!editingDate) await tx.studentDataChange.create({ data: { studentId: id, field: 'status', oldValue: student.status, newValue: to, changedByUserId: user.id } });
+      if (to === 'DEFERRED' || student.deferredUntil) {
+        await tx.studentDataChange.create({ data: { studentId: id, field: 'deferredUntil', oldValue: dateText(student.deferredUntil), newValue: dateText(returnDate), changedByUserId: user.id } });
+      }
       await tx.auditLog.create({ data: {
         action: 'STUDENT_STATUS_CHANGED', entity: 'Student', entityId: id, userId: user.id,
-        details: JSON.stringify({ universityId: student.universityId, from: student.status, to, reason }),
+        details: JSON.stringify({ universityId: student.universityId, from: student.status, to, reason, ...(to === 'DEFERRED' ? { returnDate: dateText(returnDate) } : {}) }),
       } });
-      return { id, status: to };
+      return { id, status: to, deferredUntil: dateText(returnDate) };
     });
+  }
+
+  // عودة المؤجلين الذين انتهت مدة تأجيلهم إلى «مستمر» تلقائيًا (تُستدعى دوريًا وعند فتح قوائم الطلاب وحساب الطالب).
+  async returnDueDeferred(now = new Date()) {
+    const due = await this.prisma.student.findMany({ where: { status: 'DEFERRED', deferredUntil: { lte: now } }, select: { id: true, universityId: true, deferredUntil: true } });
+    let returned = 0;
+    for (const student of due) {
+      await this.prisma.$transaction(async (tx) => {
+        const changed = await tx.student.updateMany({ where: { id: student.id, status: 'DEFERRED', deferredUntil: { lte: now } }, data: { status: 'CONTINUING', deferredUntil: null } });
+        if (changed.count !== 1) return;
+        await tx.studentDataChange.create({ data: { studentId: student.id, field: 'status', oldValue: 'DEFERRED', newValue: 'CONTINUING', changedByUserId: null } });
+        await tx.auditLog.create({ data: {
+          action: 'STUDENT_DEFERRAL_ENDED', entity: 'Student', entityId: student.id,
+          details: JSON.stringify({ universityId: student.universityId, from: 'DEFERRED', to: 'CONTINUING', reason: 'عودة تلقائية بعد انتهاء مدة التأجيل', returnDate: student.deferredUntil?.toISOString().slice(0, 10) }),
+        } });
+        returned += 1;
+      });
+    }
+    return returned;
+  }
+
+  onModuleInit() {
+    const run = () => this.returnDueDeferred().catch((error: unknown) => console.error('تعذر إرجاع المؤجلين المنتهية مدتهم', error));
+    void run();
+    this.deferralTimer = setInterval(run, 60 * 60 * 1000);
+    this.deferralTimer.unref();
+  }
+
+  onModuleDestroy() {
+    if (this.deferralTimer) clearInterval(this.deferralTimer);
   }
 
   // نقل طالب إلى كلية أخرى: يتغير رمز الكلية في رقمه الجامعي (السنة الأصلية تبقى) ويبقى الرقم القديم بالسجل.
@@ -377,6 +423,7 @@ export class StudentsService {
 
 
   async findMe(userId: string) {
+    await this.returnDueDeferred().catch(() => 0);
     const student =
       await this.prisma.student.findUnique({
         where: {
@@ -500,6 +547,7 @@ export class StudentsService {
     const status =
       options.status?.trim();
     const accountStatus = options.accountStatus?.trim();
+    await this.returnDueDeferred().catch(() => 0);
 
     return this.prisma.student.findMany({
       where: {
