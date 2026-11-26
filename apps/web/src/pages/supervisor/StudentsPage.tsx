@@ -880,7 +880,7 @@ export default function StudentsPage() {
                     {selectedStudent && <Stack direction="row" spacing={1}>
                         {canManage && <Button color="warning" onClick={() => { setDialogOpen(false); setTransferOpen(true); }}>نقل إلى كلية أخرى</Button>}
                         {canManage && !selectedStudent.studyPlanId && <Button variant="contained" color="success" onClick={() => { setDialogOpen(false); setApproveTargets([toTarget(selectedStudent)]); }}>اعتماد التسجيل</Button>}
-                        <Button variant="contained" startIcon={<MenuBookOutlinedIcon />} onClick={() => navigate(`/advisor/student-registration?universityId=${encodeURIComponent(selectedStudent.universityId)}`)}>تسجيل مقررات</Button>
+                        {selectedStudent.studyPlanId && <Button variant="contained" startIcon={<MenuBookOutlinedIcon />} onClick={() => navigate(`/advisor/student-registration?universityId=${encodeURIComponent(selectedStudent.universityId)}`)}>تسجيل مقررات</Button>}
                         {canManage && <>
                             <Button onClick={() => { setEditingStudent(selectedStudent); setDialogOpen(false); setFormOpen(true); }}>تعديل البيانات</Button>
                         </>}
