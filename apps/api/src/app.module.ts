@@ -31,6 +31,7 @@ import { CourseResultsModule } from './course-results/course-results.module.js';
 import { EnrollmentMessagesModule } from './enrollment-messages/enrollment-messages.module.js';
 import { SupportTicketsModule } from './support-tickets/support-tickets.module.js';
 import { AffairsModule } from './affairs/affairs.module.js';
+import { SiteModule } from './site/site.module.js';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { AffairsModule } from './affairs/affairs.module.js';
     EnrollmentMessagesModule,
     SupportTicketsModule,
     AffairsModule,
+    SiteModule,
   ],
 
   controllers: [AppController],
