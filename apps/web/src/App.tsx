@@ -13,6 +13,7 @@ import RegistrationCountdown from './components/RegistrationCountdown';
 import EnrollmentMessagesPanel from './components/EnrollmentMessagesPanel';
 import AdvisorEnrollmentMessagesDock from './components/AdvisorEnrollmentMessagesDock';
 
+const LandingPage = lazy(() => import('./pages/landing/LandingPage'));
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
 const StudentSignupPage = lazy(() => import('./pages/auth/StudentSignupPage'));
 const DashboardPage = lazy(() => import('./pages/shared/DashboardPage'));
@@ -51,6 +52,7 @@ function App() {
     <>
       <Suspense fallback={<div role="status" aria-live="polite" style={{ minHeight: '50vh', display: 'grid', placeItems: 'center', color: '#60758a' }}>جارٍ تحميل الصفحة...</div>}>
       <Routes>
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<StudentSignupPage />} />
         <Route path="/verify/:code?" element={<VerifyDocumentPage />} />
