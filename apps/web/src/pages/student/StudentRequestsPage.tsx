@@ -98,8 +98,9 @@ export default function StudentRequestsPage() {
             </TextField>
             <TextField label="الموضوع" value={subject} onChange={(e) => setSubject(e.target.value)} />
             <TextField label="التفاصيل" multiline minRows={3} value={details} onChange={(e) => setDetails(e.target.value)} />
-            {selectedService && (selectedService.attachmentsNote || selectedService.feeNote) && (
+            {selectedService && (selectedService.attachmentsNote || selectedService.feeNote || selectedService.requiredData) && (
               <Alert severity="info" icon={false}>
+                {selectedService.requiredData && <div><b>البيانات المطلوبة منك:</b> {selectedService.requiredData}</div>}
                 {selectedService.attachmentsNote && <div><b>المرفقات المطلوبة:</b> {selectedService.attachmentsNote}</div>}
                 {selectedService.feeNote && <div><b>الرسوم:</b> {selectedService.feeNote}</div>}
               </Alert>

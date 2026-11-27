@@ -52,6 +52,7 @@ import {
   type Semester,
   type StudyPlan,
 } from '../../api/studyPlan';
+import { useNavigate } from 'react-router-dom';
 
 function getErrorMessage(error: unknown) {
   if (axios.isAxiosError(error)) {
@@ -91,6 +92,7 @@ function requirementLabel(
 }
 
 export default function StudyPlanPage() {
+  const navigate = useNavigate();
   const [studyPlans, setStudyPlans] =
     useState<StudyPlan[]>([]);
 
@@ -685,6 +687,10 @@ export default function StudyPlanPage() {
           </Typography>
         </Box>
 
+        <Button variant="outlined" onClick={() => navigate('/supervisor/study-plan/new')} sx={{ me: 1 }}>
+          إنشاء خطة جديدة
+        </Button>
+
         <Button
           variant="contained"
           startIcon={
@@ -694,7 +700,8 @@ export default function StudyPlanPage() {
             !semesterId ||
             actionLoading ||
             availableCourses.length ===
-              0
+              0 ||
+            (selectedPlan?.status !== undefined && selectedPlan.status !== 'DRAFT')
           }
           onClick={
             handleOpenAddDialog
@@ -719,6 +726,12 @@ export default function StudyPlanPage() {
           sx={{ mb: 2 }}
         >
           {success}
+        </Alert>
+      )}
+
+      {selectedPlan?.status !== undefined && selectedPlan.status !== 'DRAFT' && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {`هذه الخطة ${selectedPlan.status === 'APPROVED' ? 'معتمدة' : 'إصدار قديم'} (إصدار ${selectedPlan.versionNumber ?? 1}) ومقفلة للتعديل، فلا يتأثر طلابها. لتعديلها أنشئ إصدارًا جديدًا من «الهيكل الأكاديمي» ← بطاقة الخطة ← «إصدار جديد».`}
         </Alert>
       )}
 

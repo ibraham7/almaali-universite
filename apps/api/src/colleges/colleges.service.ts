@@ -55,7 +55,9 @@ export class CollegesService {
       nameAr?: string;
       nameEn?: string;
       code?: string | null;
+      isActive?: boolean;
     },
+    actingUserId?: string,
   ) {
     const college =
       await this.prisma.college.findUnique({
@@ -70,11 +72,12 @@ export class CollegesService {
 
     const code = data.code !== undefined ? await this.validCode(data.code, college.universityId, id) : undefined;
 
-    return this.prisma.college.update({
+    const updated = await this.prisma.college.update({
       where: { id },
 
       data: {
         ...(code !== undefined ? { code } : {}),
+        ...(typeof data.isActive === 'boolean' ? { isActive: data.isActive } : {}),
         ...(data.nameAr !== undefined
           ? {
             nameAr:
@@ -91,6 +94,10 @@ export class CollegesService {
           : {}),
       },
     });
+    if (typeof data.isActive === 'boolean' && data.isActive !== college.isActive) {
+      await this.prisma.auditLog.create({ data: { action: data.isActive ? 'COLLEGE_ENABLED' : 'COLLEGE_DISABLED', entity: 'College', entityId: id, userId: actingUserId, details: JSON.stringify({ nameAr: college.nameAr }) } });
+    }
+    return updated;
   }
 
   async findAll() {

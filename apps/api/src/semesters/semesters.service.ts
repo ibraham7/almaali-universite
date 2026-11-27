@@ -10,6 +10,7 @@ import {
   getAdvisorAllowedProgramIds,
   isProgramAllowedForAdvisor,
 } from '../advisors/advisor-scope.js';
+import { assertPlanEditable } from '../study-plans/plan-status.js';
 
 @Injectable()
 export class SemestersService {
@@ -24,6 +25,11 @@ export class SemestersService {
     if (!(await isProgramAllowedForAdvisor(this.prisma, actor.id, level.studyPlan.programId))) {
       throw new ForbiddenException('لا تملك صلاحية إدارة هذا الفصل.');
     }
+  }
+
+  private async assertStructureEditable(academicYearId: string) {
+    const level = await this.prisma.academicYear.findUnique({ where: { id: academicYearId }, select: { studyPlanId: true } });
+    if (level) await assertPlanEditable(this.prisma, level.studyPlanId);
   }
 
   private async resolveSemesterNumber(
@@ -91,6 +97,7 @@ export class SemestersService {
     isActive?: boolean;
   }, actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
     await this.assertLevelAccess(data.academicYearId, actor);
+    await this.assertStructureEditable(data.academicYearId);
     const academicYear = await this.prisma.academicYear.findUnique({
       where: {
         id: data.academicYearId,
@@ -145,6 +152,9 @@ export class SemestersService {
       );
     }
     await this.assertLevelAccess(semester.academicYearId, actor);
+    // تفعيل/إيقاف الفصل (للتسجيل) إجراء تشغيلي مسموح حتى بعد الاعتماد، أما تغيير بنية الفصل فيتطلب مسودة.
+    const structural = data.nameAr !== undefined || data.nameEn !== undefined || data.semesterNumber !== undefined || data.requireMandatoryCourses !== undefined;
+    if (structural) await this.assertStructureEditable(semester.academicYearId);
 
     const semesterNumber =
       data.semesterNumber !== undefined

@@ -6,6 +6,7 @@ import { RegistrationValidationService } from '../registration-validation/regist
 import { DropEnrollmentItemDto } from './dto/drop-enrollment-item.dto.js';
 import { AuditLogsService } from '../audit-logs/audit-logs.service.js';
 import { findSoleAdvisorForStudent, isProgramAllowedForAdvisor } from '../advisors/advisor-scope.js';
+import { effectiveCredits, effectivePrerequisites } from '../study-plans/plan-course-rules.js';
 
 @Injectable()
 export class StudentEnrollmentsService {
@@ -90,7 +91,7 @@ export class StudentEnrollmentsService {
     const maxLevel = level.levelNumber + (planCollege.university.allowedFutureYears ?? 0);
     const courses = await this.prisma.studyPlanCourse.findMany({
       where: { studyPlanId: plan.id, status: 'ACTIVE', academicYear: { levelNumber: { gte: level.levelNumber, lte: maxLevel } }, course: { status: 'ACTIVE' } },
-      include: { academicYear: true, semester: true, course: { include: { prerequisites: { include: { prerequisite: true } }, sections: { include: { teacher: true, classroom: true, schedules: true } } } } },
+      include: { academicYear: true, semester: true, prerequisites: { where: { isActive: true }, include: { prerequisite: true } }, course: { include: { prerequisites: { include: { prerequisite: true } }, sections: { include: { teacher: true, classroom: true, schedules: true } } } } },
       orderBy: [{ academicYear: { levelNumber: 'asc' } }, { semester: { semesterNumber: 'asc' } }, { priority: 'asc' }],
     });
     // معلومات تُستخدم لتنبيه المشرف فور اختيار المقرر (الحد الأقصى للساعات والمتطلبات السابقة)
@@ -107,9 +108,11 @@ export class StudentEnrollmentsService {
         select: { semesterId: true, items: { where: { status: 'ACTIVE' }, select: { courseId: true, course: { select: { credits: true } } } } },
       }),
     ]);
+    // ساعات المقرر كما هي في خطة الطالب (creditsInPlan إن وُجدت)
+    const creditsByCourse = new Map(courses.map((item) => [item.courseId, effectiveCredits(item)]));
     const semesterLimits = Object.fromEntries(semesterIds.map((semesterId) => {
       const maxCredits = periods.find((period) => period.semesterId === semesterId)?.maxCredits ?? null;
-      const registeredCredits = enrollments.filter((e) => e.semesterId === semesterId).flatMap((e) => e.items).reduce((sum, item) => sum + item.course.credits, 0);
+      const registeredCredits = enrollments.filter((e) => e.semesterId === semesterId).flatMap((e) => e.items).reduce((sum, item) => sum + (creditsByCourse.get(item.courseId) ?? item.course.credits), 0);
       return [semesterId, { maxCredits, registeredCredits }];
     }));
     const missingFor = (courseId: string, semesterId: string, prerequisites: Array<{ prerequisiteId: string; prerequisite: { code: string; nameAr: string } }>) => {
@@ -120,7 +123,7 @@ export class StudentEnrollmentsService {
       student: { id: student.id, universityId: student.universityId, name: [student.firstName, student.middleName, student.familyName].filter(Boolean).join(' '), programId: student.programId },
       plan: { id: plan.id, nameAr: plan.nameAr, programName: plan.program.nameAr, departmentName: plan.program.department?.nameAr ?? null, collegeName: planCollege.nameAr },
       semesterLimits,
-      courses: courses.map((item) => ({ ...item, missingPrerequisites: missingFor(item.course.id, item.semesterId, item.course.prerequisites), course: { ...item.course, sections: item.course.sections.filter((section) => section.semesterId === item.semesterId) } })),
+      courses: courses.map((item) => ({ ...item, missingPrerequisites: missingFor(item.course.id, item.semesterId, effectivePrerequisites(item).map((prerequisite) => ({ prerequisiteId: prerequisite.id, prerequisite: { code: prerequisite.code ?? '', nameAr: prerequisite.nameAr } }))), course: { ...item.course, credits: effectiveCredits(item), sections: item.course.sections.filter((section) => section.semesterId === item.semesterId) } })),
     };
   }
 
@@ -360,6 +363,7 @@ export class StudentEnrollmentsService {
           },
           academicYear: true,
           semester: true,
+          prerequisites: { where: { isActive: true }, include: { prerequisite: true } },
         },
       });
 
@@ -392,6 +396,9 @@ export class StudentEnrollmentsService {
             : true,
           course: {
             ...planCourse.course,
+            // الساعات والمتطلبات السابقة كما هي في خطة الطالب (الخاصة بالخطة إن عُرّفت وإلا العامة)
+            credits: effectiveCredits(planCourse),
+            prerequisites: effectivePrerequisites(planCourse).map((prerequisite) => ({ prerequisiteId: prerequisite.id, prerequisite })),
             sections:
               planCourse.course.sections.filter(
                 (section) =>

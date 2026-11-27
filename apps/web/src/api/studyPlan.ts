@@ -9,6 +9,10 @@ export interface StudyPlan {
   programId: string;
   nameAr: string;
   nameEn?: string | null;
+  // إصدارات الخطة: المعتمدة والإصدار القديم مقفلان للتعديل.
+  status?: 'DRAFT' | 'APPROVED' | 'SUPERSEDED';
+  versionNumber?: number;
+  cohortYear?: number | null;
   program?: {
     nameAr: string;
     college?: { nameAr: string } | null;
@@ -208,6 +212,15 @@ export async function getPlanCourses(
   return data;
 }
 
+export type PlanCategory = 'UNIVERSITY' | 'COLLEGE' | 'PROGRAM';
+
+// نوع المتطلب داخل الخطة (جامعة / كلية / قسم-برنامج).
+export const PLAN_CATEGORY_LABEL: Record<PlanCategory, string> = {
+  UNIVERSITY: 'متطلب جامعة',
+  COLLEGE: 'متطلب كلية',
+  PROGRAM: 'متطلب قسم',
+};
+
 export async function addCourseToPlan(input: {
   studyPlanId: string;
   academicYearId: string;
@@ -215,6 +228,9 @@ export async function addCourseToPlan(input: {
   courseId: string;
   priority: number;
   requirement: CourseRequirement;
+  category?: PlanCategory;
+  creditsInPlan?: number;
+  prerequisiteCourseIds?: string[];
 }) {
   const { data } =
     await apiClient.post<MutationResponse>(
@@ -273,5 +289,55 @@ export async function addCoursePrerequisites(input: {
     `/courses/${input.courseId}/prerequisites/bulk`,
     { prerequisiteIds: input.prerequisiteIds },
   );
+  return data;
+}
+
+// تعديل خصائص مقرر داخل مسودة الخطة. null يمسح القيمة.
+export async function updatePlanCourse(id: string, input: {
+  requirement?: CourseRequirement;
+  category?: PlanCategory | null;
+  creditsInPlan?: number | null;
+  prerequisiteCourseIds?: string[];
+}) {
+  const { data } = await apiClient.patch(`/study-plan-courses/${id}`, input);
+  return data;
+}
+
+export interface PlanStructureCourse {
+  id: string;
+  courseId: string;
+  code: string;
+  nameAr: string;
+  priority: number;
+  requirement: CourseRequirement;
+  category: PlanCategory | null;
+  credits: number;
+  courseCredits: number;
+  creditsInPlan: number | null;
+  prerequisites: Array<{ courseId: string; code?: string; nameAr: string }>;
+}
+
+export interface PlanStructure {
+  id: string;
+  programId: string;
+  nameAr: string;
+  nameEn?: string | null;
+  status: 'DRAFT' | 'APPROVED' | 'SUPERSEDED';
+  versionNumber: number;
+  cohortYear: number | null;
+  effectiveFrom: string | null;
+  graduationCredits: number | null;
+  levels: Array<{
+    id: string;
+    nameAr: string;
+    levelNumber: number;
+    semesters: Array<{ id: string; nameAr: string; semesterNumber: number; credits: number; courses: PlanStructureCourse[] }>;
+  }>;
+  totals: { courses: number; credits: number; byCategory: Record<PlanCategory | 'UNSPECIFIED', number> };
+}
+
+// هيكل الخطة كاملًا (مستويات ← فصول ← مقررات بخصائصها ومجاميع الساعات).
+export async function getPlanStructure(id: string) {
+  const { data } = await apiClient.get<PlanStructure>(`/study-plans/${id}/structure`);
   return data;
 }

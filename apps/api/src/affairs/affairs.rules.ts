@@ -51,3 +51,23 @@ export function pickLeastLoaded(candidates: { id: string; open: number }[]): str
   if (candidates.length === 0) return null;
   return [...candidates].sort((a, b) => a.open - b.open || a.id.localeCompare(b.id))[0].id;
 }
+
+// تعريف الخدمة: ما هو إلزامي لتكون الخدمة صالحة للتفعيل. (القناة لها قيمة دائمًا، والبيانات المطلوبة ومسار المعالجة اختياريان.)
+const SERVICE_REQUIRED_FIELDS: Array<[keyof ServiceDraft, string]> = [
+  ['specialization', 'الجهة المسؤولة (الاختصاص)'],
+  ['attachmentsNote', 'المرفقات المطلوبة (اكتب «لا يوجد» إن لم يكن هناك)'],
+  ['feeNote', 'الرسوم (اكتب «بدون رسوم» إن لم يكن هناك)'],
+];
+
+export interface ServiceDraft {
+  specialization?: string | null;
+  attachmentsNote?: string | null;
+  feeNote?: string | null;
+}
+
+// يرجع أسماء الحقول الناقصة. activeStaff: عدد الموظفين الفعّالين المرتبطين بالخدمة (يُتحقق منه عند التفعيل فقط: pass undefined لتخطيه).
+export function serviceMissing(service: ServiceDraft, activeStaff?: number): string[] {
+  const missing = SERVICE_REQUIRED_FIELDS.filter(([key]) => !service[key]?.trim()).map(([, label]) => label);
+  if (activeStaff !== undefined && activeStaff < 1) missing.push('موظف مسؤول واحد على الأقل (اربطه من تبويب الموظفين)');
+  return missing;
+}

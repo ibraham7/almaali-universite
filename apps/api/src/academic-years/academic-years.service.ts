@@ -10,6 +10,7 @@ import {
   getAdvisorAllowedProgramIds,
   isProgramAllowedForAdvisor,
 } from '../advisors/advisor-scope.js';
+import { assertPlanEditable } from '../study-plans/plan-status.js';
 
 @Injectable()
 export class AcademicYearsService {
@@ -86,6 +87,7 @@ export class AcademicYearsService {
     levelNumber: number;
   }, actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
     await this.assertPlanAccess(data.studyPlanId, actor);
+    await assertPlanEditable(this.prisma, data.studyPlanId);
     const studyPlan = await this.prisma.studyPlan.findUnique({
       where: {
         id: data.studyPlanId,
@@ -135,6 +137,7 @@ export class AcademicYearsService {
       );
     }
     await this.assertPlanAccess(academicYear.studyPlanId, actor);
+    await assertPlanEditable(this.prisma, academicYear.studyPlanId);
 
     const levelNumber =
       data.levelNumber !== undefined

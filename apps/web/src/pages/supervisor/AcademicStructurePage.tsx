@@ -5,6 +5,7 @@ import {
     Card,
     CardContent,
     Checkbox,
+    Chip,
     CircularProgress,
     Dialog,
     DialogActions,
@@ -32,6 +33,7 @@ import {
 } from 'react';
 
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { getMyAdvisorPrograms } from '../../api/advisors';
 
@@ -42,6 +44,9 @@ import {
     createProgram,
     createSemester,
     createStudyPlan,
+    approveStudyPlan,
+    createStudyPlanVersion,
+    STUDY_PLAN_STATUS_LABEL,
     getAcademicLevels,
     getColleges,
     getDepartments,
@@ -86,6 +91,10 @@ interface DialogForm {
     requireMandatoryCourses: boolean;
 
     isActive: boolean;
+
+    cohortYear: string;
+
+    effectiveFrom: string;
 }
 
 const emptyForm: DialogForm = {
@@ -102,6 +111,10 @@ const emptyForm: DialogForm = {
     requireMandatoryCourses: false,
 
     isActive: true,
+
+    cohortYear: '',
+
+    effectiveFrom: '',
 };
 
 function getErrorMessage(
@@ -143,6 +156,7 @@ function getErrorMessage(
 }
 
 export default function AcademicStructurePage() {
+    const navigate = useNavigate();
     const { user } = useAuth();
     const isAdvisor = user?.role === 'ADVISOR';
     const [colleges, setColleges] =
@@ -465,6 +479,39 @@ export default function AcademicStructurePage() {
         setDialogOpen(true);
     }
 
+    // اعتماد مسودة الخطة، أو إنشاء إصدار جديد (مسودة) من المعتمدة. الإصدار الحالي لا يتأثر وطلابه يبقون عليه.
+    async function planAction(kind: 'approve' | 'version', id: string, name: string) {
+        const ask = kind === 'approve'
+            ? `اعتماد الخطة «${name}»؟\nتصبح مقفلة (لا تُعدَّل)، ويحل هذا الإصدار محل الإصدار المعتمد السابق للطلاب الجدد. الطلاب الحاليون يبقون على إصدارهم.`
+            : `إنشاء إصدار جديد من «${name}»؟\nتُنسخ الخطة كاملة كمسودة تعدّلها بحرية، والإصدار الحالي وطلابه لا يتأثرون.`;
+        if (!window.confirm(ask)) return;
+        try {
+            setError('');
+            if (kind === 'approve') await approveStudyPlan(id);
+            else await createStudyPlanVersion(id);
+            setSuccess(kind === 'approve' ? `تم اعتماد الخطة «${name}».` : `تم إنشاء إصدار جديد من «${name}» كمسودة.`);
+            await loadData();
+        } catch (cause) {
+            setError(getErrorMessage(cause));
+        }
+    }
+
+    // تعطيل/تفعيل كلية أو قسم أو برنامج (لا حذف). المعطّل لا يُختار لطلاب جدد ولا لخطط جديدة، وبياناته تبقى.
+    async function toggleActive(kind: 'college' | 'department' | 'program', id: string, name: string, enable: boolean) {
+        const label = kind === 'college' ? 'الكلية' : kind === 'department' ? 'القسم' : 'البرنامج';
+        if (!enable && !window.confirm(`تعطيل ${label} «${name}»؟\nيبقى طلابها وخططها كما هم، لكن لا تُختار لطلاب جدد أو خطط جديدة${kind !== 'program' ? '، ويشمل ذلك ما تحتها' : ''}. يمكنك تفعيلها لاحقًا.`)) return;
+        try {
+            setError('');
+            if (kind === 'college') await updateCollege(id, { isActive: enable });
+            else if (kind === 'department') await updateDepartment(id, { isActive: enable });
+            else await updateProgram(id, { isActive: enable });
+            setSuccess(`${enable ? 'تم تفعيل' : 'تم تعطيل'} ${label} «${name}».`);
+            await loadData();
+        } catch (cause) {
+            setError(axios.isAxiosError(cause) && typeof cause.response?.data?.message === 'string' ? cause.response.data.message : 'تعذر تنفيذ العملية.');
+        }
+    }
+
     function openEdit(
         type: EntityType,
 
@@ -515,10 +562,21 @@ export default function AcademicStructurePage() {
                     ? item.requireMandatoryCourses
                     : false,
 
+            // الفصل الدراسي يحمل isActive إلزاميًا، أما الكلية/القسم/البرنامج فاختياري وغيابه يعني فعّال.
             isActive:
                 'isActive' in item
-                    ? item.isActive
+                    ? item.isActive !== false
                     : true,
+
+            cohortYear:
+                'cohortYear' in item && item.cohortYear
+                    ? String(item.cohortYear)
+                    : '',
+
+            effectiveFrom:
+                'effectiveFrom' in item && item.effectiveFrom
+                    ? item.effectiveFrom.slice(0, 10)
+                    : '',
         });
 
         setError('');
@@ -712,6 +770,10 @@ export default function AcademicStructurePage() {
 
                             nameEn:
                                 form.nameEn.trim(),
+
+                            cohortYear: form.cohortYear.trim() ? Number(form.cohortYear) : null,
+
+                            effectiveFrom: form.effectiveFrom || null,
                         },
                     );
                 } else {
@@ -733,6 +795,10 @@ export default function AcademicStructurePage() {
                         nameEn:
                             form.nameEn.trim() ||
                             undefined,
+
+                        cohortYear: form.cohortYear.trim() ? Number(form.cohortYear) : null,
+
+                        effectiveFrom: form.effectiveFrom || null,
                     });
                 }
             }
@@ -977,6 +1043,8 @@ export default function AcademicStructurePage() {
                                     'college',
                                     college,
                                 ) : undefined}
+                            inactive={college.isActive === false}
+                            onToggleActive={!isAdvisor ? () => void toggleActive('college', college.id, college.nameAr, college.isActive === false) : undefined}
                         />
                     ),
                 )}
@@ -1025,6 +1093,8 @@ export default function AcademicStructurePage() {
                                     'department',
                                     department,
                                 ) : undefined}
+                            inactive={department.isActive === false}
+                            onToggleActive={!isAdvisor ? () => void toggleActive('department', department.id, department.nameAr, department.isActive === false) : undefined}
                         />
                     ),
                 )}
@@ -1069,6 +1139,8 @@ export default function AcademicStructurePage() {
                                     'program',
                                     program,
                                 ) : undefined}
+                            inactive={program.isActive === false}
+                            onToggleActive={!isAdvisor ? () => void toggleActive('program', program.id, program.nameAr, program.isActive === false) : undefined}
                         />
                     ),
                 )}
@@ -1096,8 +1168,16 @@ export default function AcademicStructurePage() {
                             key={plan.id}
                             title={plan.nameAr}
                             subtitle={
-                                plan.nameEn
+                                [
+                                    plan.versionNumber ? `إصدار ${plan.versionNumber}` : null,
+                                    plan.status ? STUDY_PLAN_STATUS_LABEL[plan.status] : null,
+                                    plan.cohortYear ? `دفعة ${plan.cohortYear}` : 'كل الدفعات',
+                                    plan.effectiveFrom ? `تبدأ ${plan.effectiveFrom.slice(0, 10)}` : null,
+                                    plan.studentsCount ? `${plan.studentsCount} طالب` : null,
+                                ].filter(Boolean).join(' • ')
                             }
+                            inactive={plan.status === 'SUPERSEDED'}
+                            inactiveLabel="إصدار قديم"
                             selected={
                                 plan.id ===
                                 selectedStudyPlanId
@@ -1107,12 +1187,16 @@ export default function AcademicStructurePage() {
                                     plan.id,
                                 )
                             }
-                            onEdit={() =>
+                            onEdit={plan.status === undefined || plan.status === 'DRAFT' ? () =>
                                 openEdit(
                                     'studyPlan',
                                     plan,
-                                )
-                            }
+                                ) : undefined}
+                            extraActions={!isAdvisor ? (<>
+                                {plan.status === 'DRAFT' && <Button size="small" onClick={(event) => { event.stopPropagation(); navigate(`/supervisor/study-plan/${plan.id}/edit`); }}>متابعة الإنشاء</Button>}
+                                {plan.status === 'DRAFT' && <Button size="small" color="success" onClick={(event) => { event.stopPropagation(); void planAction('approve', plan.id, plan.nameAr); }}>اعتماد</Button>}
+                                {plan.status === 'APPROVED' && <Button size="small" color="warning" onClick={(event) => { event.stopPropagation(); void planAction('version', plan.id, plan.nameAr); }}>إصدار جديد</Button>}
+                            </>) : undefined}
                         />
                     ),
                 )}
@@ -1287,6 +1371,26 @@ export default function AcademicStructurePage() {
                                 slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 2 } }}
                             />
                         )}
+
+                        {dialogType === 'studyPlan' && (<>
+                            <TextField
+                                label="الدفعة المستهدفة (سنة القبول، اختياري)"
+                                value={form.cohortYear}
+                                onChange={(event) => setForm((current) => ({ ...current, cohortYear: event.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                                fullWidth
+                                helperText="مثال 2026. تُربط الخطة بطلاب هذه الدفعة. اتركها فارغة لخطة عامة لكل الدفعات."
+                                slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 4 } }}
+                            />
+                            <TextField
+                                type="date"
+                                label="تاريخ بدء التطبيق (اختياري)"
+                                value={form.effectiveFrom}
+                                onChange={(event) => setForm((current) => ({ ...current, effectiveFrom: event.target.value }))}
+                                fullWidth
+                                slotProps={{ inputLabel: { shrink: true } }}
+                                helperText="الخطة الجديدة تُحفظ كمسودة، وتُعتمد بعد مراجعتها."
+                            />
+                        </>)}
 
                         {(dialogType ===
                             'level' ||
@@ -1529,6 +1633,16 @@ interface StructureCardProps {
     onClick?: () => void;
 
     onEdit?: () => void;
+
+    // معطّلة؟ (تظهر شارة، ويظهر زر التفعيل بدل التعطيل)
+    inactive?: boolean;
+
+    onToggleActive?: () => void;
+
+    extraActions?: React.ReactNode;
+
+    // نص الشارة عند "inactive" (الافتراضي «معطّلة»؛ الإصدار القديم من الخطة «إصدار قديم»).
+    inactiveLabel?: string;
 }
 
 function StructureCard({
@@ -1537,6 +1651,10 @@ function StructureCard({
     selected,
     onClick,
     onEdit,
+    inactive,
+    onToggleActive,
+    extraActions,
+    inactiveLabel,
 }: StructureCardProps) {
     return (
         <Box
@@ -1583,9 +1701,11 @@ function StructureCard({
                     <Typography
                         sx={{
                             fontWeight: 700,
+                            opacity: inactive ? 0.55 : 1,
                         }}
                     >
                         {title}
+                        {inactive && <Chip size="small" label={inactiveLabel ?? "معطّلة"} sx={{ ms: 1 }} />}
                     </Typography>
 
                     {subtitle && (
@@ -1602,8 +1722,12 @@ function StructureCard({
                 </Box>
 
                 <Stack direction="row" spacing={0.5}>
+                    {extraActions}
                     {onEdit && <Button size="small" startIcon={<EditOutlinedIcon />} onClick={(event) => { event.stopPropagation(); onEdit(); }}>
                         تعديل
+                    </Button>}
+                    {onToggleActive && <Button size="small" color={inactive ? 'success' : 'warning'} onClick={(event) => { event.stopPropagation(); onToggleActive(); }}>
+                        {inactive ? 'تفعيل' : 'تعطيل'}
                     </Button>}
                 </Stack>
             </Stack>

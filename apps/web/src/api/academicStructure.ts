@@ -9,6 +9,7 @@ export interface College {
     nameAr: string;
     nameEn?: string | null;
     code?: string | null;
+    isActive?: boolean;
 
     createdAt?: string;
     updatedAt?: string;
@@ -20,6 +21,7 @@ export interface Department {
 
     nameAr: string;
     nameEn?: string | null;
+    isActive?: boolean;
     college?: College;
 
     createdAt?: string;
@@ -43,6 +45,7 @@ export interface Program {
 
     nameAr: string;
     nameEn?: string | null;
+    isActive?: boolean;
     department?: Department;
     college?: College;
     departmentName?: string;
@@ -52,12 +55,30 @@ export interface Program {
     updatedAt?: string;
 }
 
+export type StudyPlanStatus = 'DRAFT' | 'APPROVED' | 'SUPERSEDED';
+
+export const STUDY_PLAN_STATUS_LABEL: Record<StudyPlanStatus, string> = {
+    DRAFT: 'مسودة',
+    APPROVED: 'معتمدة',
+    SUPERSEDED: 'إصدار قديم',
+};
+
 export interface StudyPlan {
     id: string;
     programId: string;
 
     nameAr: string;
     nameEn?: string | null;
+
+    // إصدارات الخطة: مسودة قابلة للتعديل، معتمدة مقفلة، أو إصدار قديم محفوظ.
+    status?: StudyPlanStatus;
+    planKey?: string;
+    versionNumber?: number;
+    cohortYear?: number | null;
+    effectiveFrom?: string | null;
+    approvedAt?: string | null;
+    coursesCount?: number;
+    studentsCount?: number;
 
     createdAt?: string;
     updatedAt?: string;
@@ -129,6 +150,7 @@ export async function updateCollege(
         nameAr?: string;
         nameEn?: string;
         code?: string;
+        isActive?: boolean;
     },
 ) {
     const response =
@@ -170,6 +192,7 @@ export async function updateDepartment(
     data: {
         nameAr?: string;
         nameEn?: string;
+        isActive?: boolean;
     },
 ) {
     const response =
@@ -208,7 +231,8 @@ export async function createProgram(
 export async function updateProgram(
     id: string,
     data: {
-        level: ProgramLevel;
+        level?: ProgramLevel;
+        isActive?: boolean;
     },
 ) {
     const response =
@@ -236,6 +260,10 @@ export async function createStudyPlan(
         nameAr: string;
 
         nameEn?: string;
+
+        cohortYear?: number | null;
+        effectiveFrom?: string | null;
+        graduationCredits?: number | null;
     },
 ) {
     const response =
@@ -252,6 +280,9 @@ export async function updateStudyPlan(
     data: {
         nameAr?: string;
         nameEn?: string;
+        cohortYear?: number | null;
+        effectiveFrom?: string | null;
+        graduationCredits?: number | null;
     },
 ) {
     const response =
@@ -365,4 +396,42 @@ export async function updateSemester(
         );
 
     return response.data;
+}
+
+// ما يصلح للاختيار عند إضافة طالب أو نقله أو استيراده: غير معطّل هو ولا ما فوقه.
+// (الكلية المعطّلة تعطّل أقسامها وبرامجها عند الاختيار. القيمة المختارة حاليًا تبقى ظاهرة عبر keepIds.)
+export function selectableStructure(
+    colleges: College[],
+    departments: Department[],
+    programs: Program[],
+    keepIds: Array<string | null | undefined> = [],
+) {
+    const keep = new Set(keepIds.filter(Boolean) as string[]);
+    const collegeOn = new Map(colleges.map((item) => [item.id, item.isActive !== false]));
+    const departmentOn = new Map(departments.map((item) => [item.id, item.isActive !== false && collegeOn.get(item.collegeId) !== false]));
+    return {
+        colleges: colleges.filter((item) => item.isActive !== false || keep.has(item.id)),
+        departments: departments.filter((item) => departmentOn.get(item.id) !== false || keep.has(item.id)),
+        programs: programs.filter((item) => {
+            const on = item.isActive !== false
+                && (!item.departmentId || departmentOn.get(item.departmentId) !== false)
+                && (!item.collegeId || collegeOn.get(item.collegeId) !== false);
+            return on || keep.has(item.id);
+        }),
+    };
+}
+
+export async function approveStudyPlan(id: string) {
+    const response = await apiClient.post<StudyPlan>(`/study-plans/${id}/approve`);
+    return response.data;
+}
+
+export async function createStudyPlanVersion(id: string) {
+    const response = await apiClient.post<StudyPlan>(`/study-plans/${id}/new-version`);
+    return response.data;
+}
+
+// الخطط التي تصلح لربط طالب جديد: المعتمدة فقط (المسودة والإصدار القديم لا). keepId: خطة الطالب الحالية تبقى ظاهرة.
+export function assignablePlans(plans: StudyPlan[], keepId?: string | null) {
+    return plans.filter((plan) => plan.status === undefined || plan.status === 'APPROVED' || plan.id === keepId);
 }

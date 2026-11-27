@@ -51,6 +51,12 @@ enum CurriculumCategory {
   PROGRAM
 }
 
+enum StudyPlanStatus {
+  DRAFT
+  APPROVED
+  SUPERSEDED
+}
+
 enum CourseStatus {
   ACTIVE
   INACTIVE
@@ -104,6 +110,8 @@ model College {
   nameEn       String?
   // رمز الكلية (رقمان): جزء من الرقم الجامعي = السنة + رمز الكلية + التسلسل
   code         String?
+  // معطّلة: تبقى بياناتها وطلابها كما هم، لكنها لا تُختار لطلاب جدد ولا لخطط جديدة.
+  isActive     Boolean @default(true)
 
   university  University   @relation(fields: [universityId], references: [id])
   departments Department[]
@@ -122,6 +130,7 @@ model Department {
   collegeId String
   nameAr    String
   nameEn    String?
+  isActive  Boolean @default(true)
 
   college  College   @relation(fields: [collegeId], references: [id])
   programs Program[]
@@ -140,6 +149,7 @@ model Program {
   nameEn       String?
   // نوع البرنامج: بكالوريوس / دبلوم / ماجستير / دكتوراه. الاسم العربي يُشتق منه.
   level        ProgramLevel @default(BACHELOR)
+  isActive     Boolean @default(true)
 
   department Department? @relation(fields: [departmentId], references: [id])
   college    College?    @relation(fields: [collegeId], references: [id])
@@ -160,6 +170,18 @@ model StudyPlan {
   nameEn            String?
   graduationCredits Int?
 
+  // إصدارات الخطة: كل إصدار صف مستقل (بمستوياته وفصوله ومقرراته) فلا يتأثر طلاب الإصدار القديم بالجديد.
+  // planKey يجمع إصدارات الخطة الواحدة. المسودة قابلة للتعديل، والمعتمدة مقفلة، والمستبدلة إصدار قديم محفوظ.
+  status            StudyPlanStatus @default(DRAFT)
+  planKey           String          @default(uuid())
+  versionNumber     Int             @default(1)
+  previousVersionId String?
+  // الدفعة المستهدفة (سنة القبول) وتاريخ بدء التطبيق.
+  cohortYear        Int?
+  effectiveFrom     DateTime?
+  approvedAt        DateTime?
+  approvedById      String?
+
   program           Program                     @relation(fields: [programId], references: [id])
   academicYears     AcademicYear[]
   planCourses       StudyPlanCourse[]
@@ -169,7 +191,8 @@ model StudyPlan {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([programId, nameAr])
+  @@unique([programId, nameAr, versionNumber])
+  @@unique([planKey, versionNumber])
 }
 
 // حاليًا يمثل المستوى داخل الخطة الدراسية.
@@ -399,6 +422,7 @@ model Course {
 
   prerequisites   CoursePrerequisite[] @relation("CoursePrerequisites")
   requiredFor     CoursePrerequisite[] @relation("RequiredFor")
+  planPrerequisites StudyPlanCoursePrerequisite[] @relation("PlanPrerequisiteCourse")
   sections        CourseSection[]
   enrollmentItems EnrollmentItem[]
   planCourses       StudyPlanCourse[]
@@ -420,6 +444,11 @@ model StudyPlanCourse {
 
   priority    Int
   requirement CourseRequirement
+  // نوع المتطلب داخل الخطة (جامعة/كلية/برنامج)، وساعات المقرر ضمن الخطة (الفارغ = ساعات المقرر العامة).
+  category      CurriculumCategory?
+  creditsInPlan Int?
+  // true: المتطلبات السابقة لهذا المقرر في هذه الخطة هي المعرّفة في prerequisites (حتى لو فارغة). false: متطلبات المقرر العامة.
+  ownPrerequisites Boolean @default(false)
 
   // إزالة المقرر من الخطة لا تحذفه (سياسة منع الحذف النهائي): تصبح حالته REMOVED مع من وكم وسبب.
   status       StudyPlanCourseStatus @default(ACTIVE)
@@ -431,6 +460,7 @@ model StudyPlanCourse {
   academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
   semester     Semester     @relation(fields: [semesterId], references: [id])
   course       Course       @relation(fields: [courseId], references: [id])
+  prerequisites StudyPlanCoursePrerequisite[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -442,6 +472,22 @@ model StudyPlanCourse {
 }
 
 
+
+// المتطلب السابق لمقرر داخل خطة محددة (إصدار محدد). الإزالة بتعطيل السطر لا بحذفه.
+model StudyPlanCoursePrerequisite {
+  id                   String  @id @default(uuid())
+  planCourseId         String
+  prerequisiteCourseId String
+  isActive             Boolean @default(true)
+
+  planCourse   StudyPlanCourse @relation(fields: [planCourseId], references: [id])
+  prerequisite Course          @relation("PlanPrerequisiteCourse", fields: [prerequisiteCourseId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([planCourseId, prerequisiteCourseId])
+}
 
 // Catalog courses are attached to a program plan before their semester
 // placement is decided. This keeps catalog data separate from student-visible
@@ -776,6 +822,8 @@ model AffairsService {
   attachmentsNote String?
   feeNote        String?
   workflowNote   String?
+  // البيانات المطلوبة من الطالب (نص يظهر للطالب، اختياري).
+  requiredData   String?
   // Document issued by this service (phase 3).
   documentTypeId String?
   documentType   DocumentType? @relation(fields: [documentTypeId], references: [id])

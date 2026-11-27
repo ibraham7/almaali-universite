@@ -65,7 +65,7 @@ try {
       }
       const studyPlan = existingPlans[0]
         ? await tx.studyPlan.update({ where: { id: existingPlans[0].id }, data: { graduationCredits: curriculum.graduationCredits } })
-        : await tx.studyPlan.create({ data: { programId: program.id, nameAr: curriculum.studyPlanNameAr, graduationCredits: curriculum.graduationCredits } });
+        : await tx.studyPlan.create({ data: { programId: program.id, nameAr: curriculum.studyPlanNameAr, graduationCredits: curriculum.graduationCredits, status: 'APPROVED', approvedAt: new Date() } });
 
       const ids = new Map<string, string>();
       let links = 0;

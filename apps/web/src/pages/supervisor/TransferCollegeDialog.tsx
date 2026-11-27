@@ -29,7 +29,7 @@ export default function TransferCollegeDialog({ open, student, onClose, onDone }
   useEffect(() => {
     if (!open) return;
     let active = true;
-    getColleges().then((items) => { if (active) setColleges(items); }).catch(() => { if (active) setError('تعذر تحميل الكليات.'); });
+    getColleges().then((items) => { if (active) setColleges(items.filter((item) => item.isActive !== false)); }).catch(() => { if (active) setError('تعذر تحميل الكليات.'); });
     return () => { active = false; };
   }, [open]);
 
