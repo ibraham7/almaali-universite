@@ -169,7 +169,8 @@ export class SiteAdminService {
     ]);
     const profile = (kind: string, refId: string) => {
       const row = profiles.find((item) => item.kind === kind && item.refId === refId);
-      return { summary: row?.summary ?? '', mediaId: row?.mediaId ?? null, sortOrder: row?.sortOrder ?? 0, isVisible: row?.isVisible ?? false, saved: Boolean(row) };
+      return { summary: row?.summary ?? '', mediaId: row?.mediaId ?? null, sortOrder: row?.sortOrder ?? 0, // الكلية لا تظهر إلا بقرار صريح، أما القسم والبرنامج فيظهران تحت كلية ظاهرة ما لم يُخفَيا
+      isVisible: row?.isVisible ?? kind !== 'COLLEGE', saved: Boolean(row) };
     };
     return colleges.map((college) => ({
       id: college.id, nameAr: college.nameAr, ...profile('COLLEGE', college.id),
@@ -192,7 +193,7 @@ export class SiteAdminService {
         ...(dto.summary !== undefined ? { summary: dto.summary.trim() } : {}), ...(mediaId !== undefined ? { mediaId } : {}),
         ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}), ...(dto.isVisible !== undefined ? { isVisible: dto.isVisible } : {}), updatedById: userId,
       };
-      const row = await tx.siteAcademicProfile.upsert({ where: { kind_refId: { kind: kind as 'COLLEGE', refId } }, update: data, create: { kind: kind as 'COLLEGE', refId, ...data } });
+      const row = await tx.siteAcademicProfile.upsert({ where: { kind_refId: { kind: kind as 'COLLEGE', refId } }, update: data, create: { kind: kind as 'COLLEGE', refId, isVisible: kind !== 'COLLEGE', ...data } });
       await this.audit(tx, 'SITE_PROFILE_UPDATED', 'SiteAcademicProfile', row.id, userId, { kind, refId, isVisible: row.isVisible });
       return row;
     });

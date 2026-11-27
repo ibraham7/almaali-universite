@@ -30,9 +30,14 @@ export class RateLimitGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request>();
     const rule = this.reflector.getAllAndOverride<{ limit: number; windowMs: number } | undefined>(RATE_LIMIT_KEY, [context.getHandler(), context.getClass()]) ?? DEFAULT;
     const now = Date.now();
-    const key = `${context.getHandler().name}:${clientIp(request)}`;
+    const ip = clientIp(request);
+    // طلب من وكيل داخلي بلا X-Forwarded-For: لا نعرف صاحبه الحقيقي، فكل الزوار يشتركون بهذا المفتاح. نوسّع الحد حتى لا يُحجب الجميع.
+    const direct = request.socket?.remoteAddress ?? '';
+    const unknownClient = isPrivate(direct) && ip === direct;
+    const limit = unknownClient ? rule.limit * 20 : rule.limit;
+    const key = `${context.getHandler().name}:${ip}`;
     const recent = (this.hits.get(key) ?? []).filter((time) => now - time < rule.windowMs);
-    if (recent.length >= rule.limit) throw new HttpException('طلبات كثيرة. حاول لاحقًا.', HttpStatus.TOO_MANY_REQUESTS);
+    if (recent.length >= limit) throw new HttpException('طلبات كثيرة. حاول لاحقًا.', HttpStatus.TOO_MANY_REQUESTS);
     recent.push(now);
     this.hits.set(key, recent);
     if (this.hits.size > 5000) for (const [stored, times] of this.hits) if (!times.some((time) => now - time < rule.windowMs)) this.hits.delete(stored);

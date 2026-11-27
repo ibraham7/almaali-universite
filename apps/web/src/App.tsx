@@ -14,6 +14,14 @@ import EnrollmentMessagesPanel from './components/EnrollmentMessagesPanel';
 import AdvisorEnrollmentMessagesDock from './components/AdvisorEnrollmentMessagesDock';
 
 const LandingPage = lazy(() => import('./pages/landing/LandingPage'));
+const AboutPage = lazy(() => import('./pages/site/AboutPage'));
+const CollegesPage = lazy(() => import('./pages/site/CollegesPage'));
+const AdmissionPage = lazy(() => import('./pages/site/AdmissionPage'));
+const NewsListPage = lazy(() => import('./pages/site/NewsPages').then((m) => ({ default: m.NewsListPage })));
+const NewsDetailPage = lazy(() => import('./pages/site/NewsPages').then((m) => ({ default: m.NewsDetailPage })));
+const TestimonialsPage = lazy(() => import('./pages/site/TestimonialsPage'));
+const ContactPage = lazy(() => import('./pages/site/ContactPage'));
+const SiteAdminPage = lazy(() => import('./pages/site-admin/SiteAdminPage'));
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
 const StudentSignupPage = lazy(() => import('./pages/auth/StudentSignupPage'));
 const DashboardPage = lazy(() => import('./pages/shared/DashboardPage'));
@@ -53,6 +61,13 @@ function App() {
       <Suspense fallback={<div role="status" aria-live="polite" style={{ minHeight: '50vh', display: 'grid', placeItems: 'center', color: '#60758a' }}>جارٍ تحميل الصفحة...</div>}>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/colleges" element={<CollegesPage />} />
+        <Route path="/admission" element={<AdmissionPage />} />
+        <Route path="/news" element={<NewsListPage />} />
+        <Route path="/news/:id" element={<NewsDetailPage />} />
+        <Route path="/testimonials" element={<TestimonialsPage />} />
+        <Route path="/contact" element={<ContactPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<StudentSignupPage />} />
         <Route path="/verify/:code?" element={<VerifyDocumentPage />} />
@@ -86,6 +101,12 @@ function App() {
               path="/student/requests"
               element={<StudentRequestsPage />}
             />
+          </Route>
+        </Route>
+
+        <Route element={<ProtectedRoute allowedRoles={['SYSTEM_ADMIN']} />}>
+          <Route element={<DashboardLayout />}>
+            <Route path="/site-admin" element={<SiteAdminPage />} />
           </Route>
         </Route>
 

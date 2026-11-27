@@ -95,6 +95,12 @@ describe('public rate limit', () => {
     expect(g.canActivate(ctx('9.9.9.9'))).toBe(true);
   });
 
+  it('a request from an internal proxy without a forwarded address gets a wider limit, so one shared key never blocks every visitor', () => {
+    const g = guard(1);
+    for (let i = 0; i < 20; i += 1) expect(g.canActivate(ctx('127.0.0.1'))).toBe(true);
+    expect(() => g.canActivate(ctx('127.0.0.1'))).toThrow(HttpException);
+  });
+
   it('trusts X-Forwarded-For only when the connection comes from an internal proxy', () => {
     expect(clientIp({ socket: { remoteAddress: '172.18.0.1' }, headers: { 'x-forwarded-for': '5.5.5.5, 10.0.0.1' } } as any)).toBe('5.5.5.5');
     expect(clientIp({ socket: { remoteAddress: '8.8.8.8' }, headers: { 'x-forwarded-for': '5.5.5.5' } } as any)).toBe('8.8.8.8');
@@ -189,6 +195,10 @@ describe('site administration', () => {
     prisma.college.findUnique.mockResolvedValue({ id: 'c1' });
     const row: any = await service.upsertProfile('COLLEGE', 'c1', { summary: ' نبذة ' }, admin);
     expect(row).toMatchObject({ kind: 'COLLEGE', refId: 'c1', summary: 'نبذة' });
-    expect(prisma.siteAcademicProfile.upsert.mock.calls[0][0].create.isVisible).toBeUndefined();
+    expect(prisma.siteAcademicProfile.upsert.mock.calls[0][0].create.isVisible).toBe(false);
+    // a department or program saved with only a summary stays visible (it is hidden only on purpose)
+    prisma.department.findUnique.mockResolvedValue({ id: 'd1' });
+    await service.upsertProfile('DEPARTMENT', 'd1', { summary: 'x' }, admin);
+    expect(prisma.siteAcademicProfile.upsert.mock.calls[1][0].create.isVisible).toBe(true);
   });
 });
