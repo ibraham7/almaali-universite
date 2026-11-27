@@ -55,12 +55,30 @@ export interface Program {
     updatedAt?: string;
 }
 
+export type StudyPlanStatus = 'DRAFT' | 'APPROVED' | 'SUPERSEDED';
+
+export const STUDY_PLAN_STATUS_LABEL: Record<StudyPlanStatus, string> = {
+    DRAFT: 'مسودة',
+    APPROVED: 'معتمدة',
+    SUPERSEDED: 'إصدار قديم',
+};
+
 export interface StudyPlan {
     id: string;
     programId: string;
 
     nameAr: string;
     nameEn?: string | null;
+
+    // إصدارات الخطة: مسودة قابلة للتعديل، معتمدة مقفلة، أو إصدار قديم محفوظ.
+    status?: StudyPlanStatus;
+    planKey?: string;
+    versionNumber?: number;
+    cohortYear?: number | null;
+    effectiveFrom?: string | null;
+    approvedAt?: string | null;
+    coursesCount?: number;
+    studentsCount?: number;
 
     createdAt?: string;
     updatedAt?: string;
@@ -242,6 +260,9 @@ export async function createStudyPlan(
         nameAr: string;
 
         nameEn?: string;
+
+        cohortYear?: number | null;
+        effectiveFrom?: string | null;
     },
 ) {
     const response =
@@ -258,6 +279,8 @@ export async function updateStudyPlan(
     data: {
         nameAr?: string;
         nameEn?: string;
+        cohortYear?: number | null;
+        effectiveFrom?: string | null;
     },
 ) {
     const response =
@@ -394,4 +417,19 @@ export function selectableStructure(
             return on || keep.has(item.id);
         }),
     };
+}
+
+export async function approveStudyPlan(id: string) {
+    const response = await apiClient.post<StudyPlan>(`/study-plans/${id}/approve`);
+    return response.data;
+}
+
+export async function createStudyPlanVersion(id: string) {
+    const response = await apiClient.post<StudyPlan>(`/study-plans/${id}/new-version`);
+    return response.data;
+}
+
+// الخطط التي تصلح لربط طالب جديد: المعتمدة فقط (المسودة والإصدار القديم لا). keepId: خطة الطالب الحالية تبقى ظاهرة.
+export function assignablePlans(plans: StudyPlan[], keepId?: string | null) {
+    return plans.filter((plan) => plan.status === undefined || plan.status === 'APPROVED' || plan.id === keepId);
 }

@@ -37,7 +37,7 @@ export class StudentsService implements OnModuleInit, OnModuleDestroy {
   }
 
   // current: القيم الحالية عند تعديل طالب موجود (التعطيل يمنع الاختيار الجديد فقط، ولا يمنع تعديل طالب بقي في كلية معطّلة).
-  private async validateStructure(data: StudentInputDto, current: { collegeId?: string | null; departmentId?: string | null; programId?: string | null } = {}) {
+  private async validateStructure(data: StudentInputDto, current: { collegeId?: string | null; departmentId?: string | null; programId?: string | null; studyPlanId?: string | null } = {}) {
     const { collegeId, departmentId, programId, studyPlanId, academicYearId, semesterId, advisorId } = data;
     const invalid = () => { throw new BadRequestException('Invalid academic structure or advisor'); };
 
@@ -58,6 +58,11 @@ export class StudentsService implements OnModuleInit, OnModuleDestroy {
     if (studyPlanId) {
       const plan = await this.prisma.studyPlan.findUnique({ where: { id: studyPlanId } });
       if (!programId || plan?.programId !== programId) invalid();
+      // الطالب يُربط بخطة معتمدة فقط. من بقي على إصدار قديم أو بقيت خطته كما هي لا يتأثر.
+      if (plan && studyPlanId !== current.studyPlanId) {
+        if (plan.status === 'DRAFT') throw new BadRequestException('هذه الخطة ما زالت مسودة. اعتمدها أولاً من صفحة الخطط الدراسية.');
+        if (plan.status === 'SUPERSEDED') throw new BadRequestException('هذا إصدار قديم من الخطة. اختر الإصدار المعتمد الحالي.');
+      }
     }
     if (academicYearId) {
       const year = await this.prisma.academicYear.findUnique({ where: { id: academicYearId } });

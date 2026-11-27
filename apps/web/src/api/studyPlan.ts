@@ -9,6 +9,10 @@ export interface StudyPlan {
   programId: string;
   nameAr: string;
   nameEn?: string | null;
+  // إصدارات الخطة: المعتمدة والإصدار القديم مقفلان للتعديل.
+  status?: 'DRAFT' | 'APPROVED' | 'SUPERSEDED';
+  versionNumber?: number;
+  cohortYear?: number | null;
   program?: {
     nameAr: string;
     college?: { nameAr: string } | null;

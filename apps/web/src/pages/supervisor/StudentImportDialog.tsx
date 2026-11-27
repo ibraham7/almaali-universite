@@ -9,7 +9,7 @@ import {
   type ImportDefaults, type ImportError, type ImportInspection, type StudentImportPreview, type UniversityIdSource,
 } from '../../api/studentImports';
 import {
-  getAcademicLevels, getColleges, getDepartments, getPrograms, getSemesters, getStudyPlans, selectableStructure,
+  getAcademicLevels, getColleges, getDepartments, getPrograms, getSemesters, getStudyPlans, selectableStructure, assignablePlans,
   type AcademicLevel, type College, type Department, type Program, type Semester, type StudyPlan,
 } from '../../api/academicStructure';
 import { studyPlanLabel } from '../../api/studyPlan';
@@ -105,7 +105,7 @@ export default function StudentImportDialog({ open, onClose, onImported }: {
     if (!open || catalog) return;
     let active = true;
     Promise.all([getColleges(), getDepartments(), getPrograms(), getStudyPlans(), getAcademicLevels(), getSemesters()])
-      .then(([colleges, departments, programs, plans, years, semesters]) => { const open = selectableStructure(colleges, departments, programs); if (active) setCatalog({ colleges: open.colleges, departments: open.departments, programs: open.programs, plans, years, semesters }); })
+      .then(([colleges, departments, programs, plans, years, semesters]) => { const open = selectableStructure(colleges, departments, programs); if (active) setCatalog({ colleges: open.colleges, departments: open.departments, programs: open.programs, plans: assignablePlans(plans), years, semesters }); })
       .catch(() => undefined);
     return () => { active = false; };
   }, [open, catalog]);

@@ -256,7 +256,7 @@ export class StudentImportsService {
     };
     const [colleges, departments, programs, plans, years, semesters, advisors, existing] = await Promise.all([
       this.prisma.college.findMany(), this.prisma.department.findMany(),
-      this.prisma.program.findMany(), this.prisma.studyPlan.findMany(),
+      this.prisma.program.findMany(), this.prisma.studyPlan.findMany({ where: { status: 'APPROVED' } }),
       this.prisma.academicYear.findMany(), this.prisma.semester.findMany(),
       this.prisma.user.findMany({ where: { role: { code: 'ADVISOR' }, status: 'ACTIVE' }, select: { id: true, email: true } }),
       this.prisma.student.findMany({ where: { OR: [

@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -39,6 +40,9 @@ export class StudyPlansController {
       programId: string;
       nameAr: string;
       nameEn?: string;
+      cohortYear?: number | null;
+      effectiveFrom?: string | null;
+      graduationCredits?: number | null;
     },
   ) {
     return this.studyPlansService.create(body, request.user);
@@ -53,10 +57,40 @@ export class StudyPlansController {
     body: {
       nameAr?: string;
       nameEn?: string;
+      cohortYear?: number | null;
+      effectiveFrom?: string | null;
+      graduationCredits?: number | null;
     },
     @Req() request: Request & { user: { id: string; role: string } },
   ) {
     return this.studyPlansService.update(id, body, request.user);
+  }
+
+  // الاعتماد وإنشاء إصدار جديد: للمسجّل ومدير النظام. المرشد يجهّز المسودات فقط.
+  @Post(':id/approve')
+  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  approve(
+    @Param('id') id: string,
+    @Req() request: Request & { user: { id: string; role: string } },
+  ) {
+    return this.studyPlansService.approve(id, request.user);
+  }
+
+  @Post(':id/new-version')
+  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  createVersion(
+    @Param('id') id: string,
+    @Req() request: Request & { user: { id: string; role: string } },
+  ) {
+    return this.studyPlansService.createVersion(id, request.user);
+  }
+
+  @Get('suggest')
+  suggest(
+    @Query('programId') programId: string,
+    @Query('admissionYear') admissionYear?: string,
+  ) {
+    return this.studyPlansService.suggestForAdmission(programId, admissionYear ? Number(admissionYear) : undefined);
   }
 
   @Get()

@@ -5,6 +5,7 @@ import { isProgramAllowedForAdvisor } from '../advisors/advisor-scope.js';
 import { CreateStudyPlanCourseDto } from './dto/create-study-plan-course.dto.js';
 import { ReorderStudyPlanCoursesDto } from './dto/reorder-study-plan-courses.dto.js';
 import { RemoveStudyPlanCourseDto } from './dto/remove-study-plan-course.dto.js';
+import { assertPlanEditable } from '../study-plans/plan-status.js';
 
 // أولويات المقررات المُزالة تبدأ من هنا نزولاً (بعيدة عن الأولويات الحقيقية وعن السالب المؤقت لإعادة الترتيب)
 const REMOVED_PRIORITY_BASE = -1_000_000;
@@ -24,6 +25,7 @@ export class StudyPlanCoursesService {
 
   async create(dto: CreateStudyPlanCourseDto, actor: { id: string; role: string }) {
     await this.assertPlanAccess(dto.studyPlanId, actor);
+    await assertPlanEditable(this.prisma, dto.studyPlanId);
     // ============================================================
     // 1. التحقق من الخطة الدراسية
     // ============================================================
@@ -231,6 +233,7 @@ export class StudyPlanCoursesService {
     });
     if (!planCourse) throw new NotFoundException('مقرر الخطة غير موجود');
     await this.assertPlanAccess(planCourse.studyPlanId, actor);
+    await assertPlanEditable(this.prisma, planCourse.studyPlanId);
     if (planCourse.status !== 'ACTIVE') {
       throw new ConflictException('هذا المقرر أُزيل من الخطة سابقاً.');
     }
@@ -400,6 +403,7 @@ export class StudyPlanCoursesService {
 
   async reorder(dto: ReorderStudyPlanCoursesDto, actor: { id: string; role: string }) {
     await this.assertPlanAccess(dto.studyPlanId, actor);
+    await assertPlanEditable(this.prisma, dto.studyPlanId);
     const academicYear =
       await this.prisma.academicYear.findUnique({
         where: {

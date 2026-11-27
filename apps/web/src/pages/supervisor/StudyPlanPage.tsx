@@ -694,7 +694,8 @@ export default function StudyPlanPage() {
             !semesterId ||
             actionLoading ||
             availableCourses.length ===
-              0
+              0 ||
+            (selectedPlan?.status !== undefined && selectedPlan.status !== 'DRAFT')
           }
           onClick={
             handleOpenAddDialog
@@ -719,6 +720,12 @@ export default function StudyPlanPage() {
           sx={{ mb: 2 }}
         >
           {success}
+        </Alert>
+      )}
+
+      {selectedPlan?.status !== undefined && selectedPlan.status !== 'DRAFT' && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {`هذه الخطة ${selectedPlan.status === 'APPROVED' ? 'معتمدة' : 'إصدار قديم'} (إصدار ${selectedPlan.versionNumber ?? 1}) ومقفلة للتعديل، فلا يتأثر طلابها. لتعديلها أنشئ إصدارًا جديدًا من «الهيكل الأكاديمي» ← بطاقة الخطة ← «إصدار جديد».`}
         </Alert>
       )}
 

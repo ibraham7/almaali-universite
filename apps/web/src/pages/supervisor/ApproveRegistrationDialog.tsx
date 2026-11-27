@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import axios from 'axios';
 import {
-  getAcademicLevels, getColleges, getDepartments, getPrograms, getSemesters, getStudyPlans, selectableStructure,
+  getAcademicLevels, getColleges, getDepartments, getPrograms, getSemesters, getStudyPlans, selectableStructure, assignablePlans,
   type AcademicLevel, type College, type Department, type Program, type Semester, type StudyPlan,
 } from '../../api/academicStructure';
 import { studyPlanLabel } from '../../api/studyPlan';
@@ -35,7 +35,7 @@ export default function ApproveRegistrationDialog({ open, students, onClose, onD
     if (!open || catalog) return;
     let active = true;
     Promise.all([getColleges(), getDepartments(), getPrograms(), getStudyPlans(), getAcademicLevels(), getSemesters()])
-      .then(([colleges, departments, programs, plans, years, semesters]) => { const open = selectableStructure(colleges, departments, programs); if (active) setCatalog({ colleges: open.colleges, departments: open.departments, programs: open.programs, plans, years, semesters }); })
+      .then(([colleges, departments, programs, plans, years, semesters]) => { const open = selectableStructure(colleges, departments, programs); if (active) setCatalog({ colleges: open.colleges, departments: open.departments, programs: open.programs, plans: assignablePlans(plans), years, semesters }); })
       .catch(() => { if (active) setError('تعذر تحميل الخيارات الأكاديمية.'); });
     return () => { active = false; };
   }, [open, catalog]);

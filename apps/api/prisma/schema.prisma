@@ -51,6 +51,12 @@ enum CurriculumCategory {
   PROGRAM
 }
 
+enum StudyPlanStatus {
+  DRAFT
+  APPROVED
+  SUPERSEDED
+}
+
 enum CourseStatus {
   ACTIVE
   INACTIVE
@@ -164,6 +170,18 @@ model StudyPlan {
   nameEn            String?
   graduationCredits Int?
 
+  // إصدارات الخطة: كل إصدار صف مستقل (بمستوياته وفصوله ومقرراته) فلا يتأثر طلاب الإصدار القديم بالجديد.
+  // planKey يجمع إصدارات الخطة الواحدة. المسودة قابلة للتعديل، والمعتمدة مقفلة، والمستبدلة إصدار قديم محفوظ.
+  status            StudyPlanStatus @default(DRAFT)
+  planKey           String          @default(uuid())
+  versionNumber     Int             @default(1)
+  previousVersionId String?
+  // الدفعة المستهدفة (سنة القبول) وتاريخ بدء التطبيق.
+  cohortYear        Int?
+  effectiveFrom     DateTime?
+  approvedAt        DateTime?
+  approvedById      String?
+
   program           Program                     @relation(fields: [programId], references: [id])
   academicYears     AcademicYear[]
   planCourses       StudyPlanCourse[]
@@ -173,7 +191,8 @@ model StudyPlan {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([programId, nameAr])
+  @@unique([programId, nameAr, versionNumber])
+  @@unique([planKey, versionNumber])
 }
 
 // حاليًا يمثل المستوى داخل الخطة الدراسية.

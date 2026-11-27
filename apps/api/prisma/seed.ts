@@ -199,9 +199,10 @@ async function main() {
 
   const studyPlan = await prisma.studyPlan.upsert({
     where: {
-      programId_nameAr: {
+      programId_nameAr_versionNumber: {
         programId: program.id,
         nameAr: 'الخطة التجريبية',
+        versionNumber: 1,
       },
     },
     update: {
@@ -211,6 +212,8 @@ async function main() {
       programId: program.id,
       nameAr: 'الخطة التجريبية',
       nameEn: 'Test Study Plan',
+      status: 'APPROVED',
+      approvedAt: new Date(),
     },
   });
 
