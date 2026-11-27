@@ -70,8 +70,9 @@ export default function AffairsRequestDialog({ requestId, role, onClose, onChang
               </Box>
             )}
             {data.decisionReason && <Alert severity="info">السبب: {data.decisionReason}</Alert>}
-            {(data.service.attachmentsNote || data.service.feeNote || data.service.workflowNote) && (
+            {(data.service.requiredData || data.service.attachmentsNote || data.service.feeNote || data.service.workflowNote) && (
               <Alert severity="info" icon={false} sx={{ '& .MuiAlert-message': { fontSize: 13 } }}>
+                {data.service.requiredData && <div><b>البيانات المطلوبة من الطالب:</b> {data.service.requiredData}</div>}
                 {data.service.attachmentsNote && <div><b>المرفقات المطلوبة:</b> {data.service.attachmentsNote}</div>}
                 {data.service.feeNote && <div><b>الرسوم:</b> {data.service.feeNote}</div>}
                 {data.service.workflowNote && <div><b>مسار المعالجة:</b> {data.service.workflowNote}</div>}

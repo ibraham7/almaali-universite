@@ -10,7 +10,7 @@ import {
   ProxyCreateRequestDto, StudentCreateRequestDto, UpdateServiceDto, UpdateStaffDto,
 } from './dto/affairs.dto.js';
 import {
-  OPEN_STATUSES, RequestStatus, TERMINAL_STATUSES, TRANSITIONS, canTransition, isTerminal, pickLeastLoaded, reasonRequired, requestNumber,
+  OPEN_STATUSES, RequestStatus, TERMINAL_STATUSES, TRANSITIONS, canTransition, isTerminal, pickLeastLoaded, reasonRequired, requestNumber, serviceMissing,
 } from './affairs.rules.js';
 
 export interface AffairsUser {
@@ -47,20 +47,27 @@ export class AffairsService {
   }
 
   // ---------- services ----------
-  listServices() {
-    return this.prisma.affairsService.findMany({ orderBy: { createdAt: 'asc' } });
+  // كل خدمة مع ما ينقصها من الحقول الإلزامية (missing) لتظهر علامة «ناقصة» في الجدول.
+  async listServices() {
+    const services = await this.prisma.affairsService.findMany({ orderBy: { createdAt: 'asc' }, include: { staff: { where: { isActive: true, staff: { isActive: true } }, select: { staffId: true } } } });
+    return services.map(({ staff, ...service }) => ({ ...service, missing: serviceMissing(service, (staff ?? []).length) }));
   }
 
   async createService(dto: CreateServiceDto, user: AffairsUser) {
     const exists = await this.prisma.affairsService.findUnique({ where: { code: dto.code } });
     if (exists) throw new ConflictException('رمز الخدمة مستخدم مسبقاً.');
+    const missing = serviceMissing(dto);
+    if (missing.length) throw new BadRequestException(`أكمل الحقول الإلزامية: ${missing.join('، ')}.`);
     const created = await this.prisma.affairsService.create({
       data: {
+        // تُنشأ متوقفة: لا تُفعَّل إلا بعد ربط موظف مسؤول واحد على الأقل.
+        isActive: false,
         code: dto.code, nameAr: dto.nameAr.trim(), description: dto.description?.trim() || null,
         expectedDays: dto.expectedDays ?? 5, specialization: dto.specialization?.trim() || null,
         channel: (dto.channel as 'ONLINE' | 'IN_PERSON' | 'BOTH' | undefined) ?? 'BOTH',
         outcome: (dto.outcome as 'NONE' | 'DOCUMENT' | 'ACTION' | 'BOTH' | undefined) ?? 'NONE',
         attachmentsNote: dto.attachmentsNote?.trim() || null, feeNote: dto.feeNote?.trim() || null, workflowNote: dto.workflowNote?.trim() || null,
+        requiredData: dto.requiredData?.trim() || null,
         documentTypeId: dto.documentTypeId ?? null,
       },
     });
@@ -82,9 +89,17 @@ export class AffairsService {
     if (dto.attachmentsNote !== undefined) data.attachmentsNote = dto.attachmentsNote.trim() || null;
     if (dto.feeNote !== undefined) data.feeNote = dto.feeNote.trim() || null;
     if (dto.workflowNote !== undefined) data.workflowNote = dto.workflowNote.trim() || null;
+    if (dto.requiredData !== undefined) data.requiredData = dto.requiredData.trim() || null;
     if (dto.documentTypeId !== undefined) {
       if (dto.documentTypeId && !(await this.prisma.documentType.findUnique({ where: { id: dto.documentTypeId } }))) throw new BadRequestException('نوع الوثيقة غير موجود.');
       data.documentTypeId = dto.documentTypeId;
+    }
+    // الخدمة الفعّالة لا تُحفظ ناقصة: الحقول الإلزامية وموظف فعّال واحد على الأقل. الإيقاف لا يتطلب شيئًا.
+    const result = { ...found, ...data } as typeof found;
+    if (result.isActive) {
+      const staffCount = await this.prisma.affairsStaffService.count({ where: { serviceId: id, isActive: true, staff: { isActive: true } } });
+      const missing = serviceMissing(result, staffCount);
+      if (missing.length) throw new BadRequestException(`أكمل الحقول الإلزامية قبل حفظ الخدمة الفعّالة: ${missing.join('، ')}. أو أوقف الخدمة.`);
     }
     const updated = await this.prisma.affairsService.update({ where: { id }, data });
     await this.prisma.auditLog.create({ data: { action: 'AFFAIRS_SERVICE_UPDATED', entity: 'AffairsService', entityId: id, userId: user.id, details: JSON.stringify(data) } });
@@ -318,7 +333,7 @@ export class AffairsService {
       where: { id },
       include: {
         student: { select: { id: true, userId: true, universityId: true, fullName: true, firstName: true, middleName: true, familyName: true, phone: true, status: true, universityEmail: true } },
-        service: { select: { id: true, code: true, nameAr: true, attachmentsNote: true, feeNote: true, workflowNote: true, documentType: { select: { nameAr: true, isActive: true } } } },
+        service: { select: { id: true, code: true, nameAr: true, attachmentsNote: true, feeNote: true, workflowNote: true, requiredData: true, documentType: { select: { nameAr: true, isActive: true } } } },
         assignedStaff: { select: { id: true, userId: true, user: { select: { displayName: true, username: true, email: true } } } },
         events: { orderBy: { createdAt: 'asc' } },
         attachments: { where: { isArchived: false }, orderBy: { createdAt: 'asc' }, select: { id: true, fileName: true, mimeType: true, sizeBytes: true, visibleToStudent: true, uploadedByUserId: true, createdAt: true } },
@@ -495,7 +510,7 @@ export class AffairsService {
   }
 
   myServices() {
-    return this.prisma.affairsService.findMany({ where: { isActive: true, channel: { not: 'IN_PERSON' } }, orderBy: { createdAt: 'asc' }, select: { id: true, code: true, nameAr: true, description: true, expectedDays: true, attachmentsNote: true, feeNote: true } });
+    return this.prisma.affairsService.findMany({ where: { isActive: true, channel: { not: 'IN_PERSON' } }, orderBy: { createdAt: 'asc' }, select: { id: true, code: true, nameAr: true, description: true, expectedDays: true, attachmentsNote: true, feeNote: true, requiredData: true } });
   }
 
   async myRequests(user: AffairsUser) {

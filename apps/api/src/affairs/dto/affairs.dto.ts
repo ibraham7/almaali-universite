@@ -21,6 +21,10 @@ class ServiceSetupDto {
   @IsOptional() @IsString() @MaxLength(1000)
   workflowNote?: string;
 
+  // البيانات المطلوبة من الطالب (نص يظهر له، اختياري).
+  @IsOptional() @IsString() @MaxLength(1000)
+  requiredData?: string;
+
   // Document this service issues (null removes the link).
   @IsOptional() @IsUUID()
   documentTypeId?: string | null;

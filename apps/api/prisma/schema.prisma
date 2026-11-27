@@ -776,6 +776,8 @@ model AffairsService {
   attachmentsNote String?
   feeNote        String?
   workflowNote   String?
+  // البيانات المطلوبة من الطالب (نص يظهر للطالب، اختياري).
+  requiredData   String?
   // Document issued by this service (phase 3).
   documentTypeId String?
   documentType   DocumentType? @relation(fields: [documentTypeId], references: [id])

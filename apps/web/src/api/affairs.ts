@@ -13,7 +13,10 @@ export type ReferralOutcome = 'APPROVED' | 'REJECTED' | 'NOTES' | 'DONE' | 'NOT_
 export interface AffairsServiceItem {
   id: string; code: string; nameAr: string; description: string | null; isActive: boolean; expectedDays: number; specialization: string | null;
   channel: ServiceChannel; outcome: ServiceOutcome; attachmentsNote: string | null; feeNote: string | null; workflowNote: string | null;
+  requiredData: string | null;
   documentTypeId: string | null;
+  // ما ينقص الخدمة من حقول إلزامية (فارغة إن كانت مكتملة).
+  missing?: string[];
 }
 export interface AffairsStaffItem {
   id: string; userId: string; name: string; email: string; specialization: string | null; isActive: boolean; isManager: boolean; serviceIds: string[]; open: number; done: number;
@@ -39,7 +42,7 @@ export interface ReferralItem {
 export interface RequestDetails extends Omit<RequestRow, 'student' | 'service'> {
   details: string | null; decisionReason: string | null;
   student: { id: string; universityId: string; name: string; phone: string | null; status: string; universityEmail: string | null };
-  service: { id: string; code: string; nameAr: string; attachmentsNote: string | null; feeNote: string | null; workflowNote: string | null };
+  service: { id: string; code: string; nameAr: string; attachmentsNote: string | null; feeNote: string | null; workflowNote: string | null; requiredData?: string | null };
   canAct: boolean; canTake: boolean; canAssign: boolean; allowedStatuses: RequestStatus[]; events: RequestEvent[];
   attachments: AttachmentItem[]; referrals: ReferralItem[]; pendingReferral: ReferralItem | null;
   documents: RequestDocument[]; documentTypeName: string | null; canIssueDocument: boolean;
@@ -116,7 +119,7 @@ export const getReferrals = (params: object) => get<{ items: ReferralRow[]; tota
 export const getStudentFiles = (params: object) => get<{ items: StudentFileRow[]; total: number; page: number; pageSize: number }>('/affairs/students', params);
 export const getStudentFile = (id: string) => get<StudentFile>(`/affairs/students/${id}/file`);
 
-export const getMyAffairsServices = () => get<Pick<AffairsServiceItem, 'id' | 'code' | 'nameAr' | 'description' | 'expectedDays' | 'attachmentsNote' | 'feeNote'>[]>('/affairs/my/services');
+export const getMyAffairsServices = () => get<Pick<AffairsServiceItem, 'id' | 'code' | 'nameAr' | 'description' | 'expectedDays' | 'attachmentsNote' | 'feeNote' | 'requiredData'>[]>('/affairs/my/services');
 export const getMyAffairsRequests = () => get<StudentMyRequest[]>('/affairs/my/requests');
 export const getMyAffairsRequest = (id: string) => get<StudentMyRequestDetails>(`/affairs/my/requests/${id}`);
 export const createMyAffairsRequest = (body: object) => post<{ id: string; number: string }>('/affairs/my/requests', body);
