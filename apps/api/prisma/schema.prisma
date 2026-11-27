@@ -1062,3 +1062,136 @@ model AffairsNotification {
 
   @@index([userId, isRead, createdAt])
 }
+
+// ============================================================
+// الموقع التعريفي للجامعة (المحتوى العام). لا حذف نهائي: الأرشفة بدل الحذف.
+// ============================================================
+
+enum SiteContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum SiteItemKind {
+  STAT
+  VALUE
+  GOAL
+  MILESTONE
+  ADMISSION_STEP
+  FAQ
+}
+
+enum SiteNewsType {
+  NEWS
+  ANNOUNCEMENT
+}
+
+enum SiteProfileKind {
+  COLLEGE
+  DEPARTMENT
+  PROGRAM
+}
+
+enum SiteMessageStatus {
+  NEW
+  READ
+  ARCHIVED
+}
+
+// قيم مفردة: الشعار النصي، نصوص من نحن، كلمة الرئيس، بيانات التواصل، نصوص القبول...
+model SiteSetting {
+  key         String   @id
+  value       String
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+}
+
+// عناصر متكررة: أرقام، قيم، أهداف، مراحل تاريخية، خطوات القبول، أسئلة شائعة.
+model SiteContentItem {
+  id          String            @id @default(uuid())
+  kind        SiteItemKind
+  title       String
+  text        String            @default("")
+  // قيمة الرقم (للأرقام) أو السنة (للمراحل التاريخية)
+  extra       String?
+  sortOrder   Int               @default(0)
+  status      SiteContentStatus @default(PUBLISHED)
+  updatedById String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([kind, status, sortOrder])
+}
+
+model SiteNews {
+  id           String            @id @default(uuid())
+  type         SiteNewsType      @default(NEWS)
+  title        String
+  summary      String            @default("")
+  body         String            @default("")
+  coverMediaId String?
+  publishedAt  DateTime?
+  status       SiteContentStatus @default(DRAFT)
+  updatedById  String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([status, publishedAt])
+}
+
+model SiteTestimonial {
+  id          String            @id @default(uuid())
+  text        String
+  name        String
+  role        String            @default("")
+  sortOrder   Int               @default(0)
+  status      SiteContentStatus @default(DRAFT)
+  updatedById String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+// ملفات الموقع (صور وPDF). تُخزَّن في القاعدة وتُخدم من مسار مضبوط، والأرشفة بدل الحذف.
+model SiteMedia {
+  id           String   @id @default(uuid())
+  fileName     String
+  mimeType     String
+  sizeBytes    Int
+  data         Bytes
+  altText      String?
+  isArchived   Boolean  @default(false)
+  uploadedById String?
+  createdAt    DateTime @default(now())
+}
+
+// نبذة وصورة وترتيب كلية/قسم/برنامج للعرض بالموقع. الأسماء نفسها تأتي من الهيكل الأكاديمي ولا تُكرَّر هنا.
+model SiteAcademicProfile {
+  id          String          @id @default(uuid())
+  kind        SiteProfileKind
+  refId       String
+  summary     String          @default("")
+  mediaId     String?
+  sortOrder   Int             @default(0)
+  // لا تظهر الكلية بالموقع إلا بقرار صريح من المدير
+  isVisible   Boolean         @default(false)
+  updatedById String?
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([kind, refId])
+}
+
+model SiteContactMessage {
+  id          String            @id @default(uuid())
+  name        String
+  contact     String
+  subject     String            @default("")
+  message     String
+  status      SiteMessageStatus @default(NEW)
+  ipHash      String?
+  handledById String?
+  handledAt   DateTime?
+  createdAt   DateTime          @default(now())
+
+  @@index([status, createdAt])
+}

@@ -44,6 +44,7 @@ import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import ChevronRightRoundedIcon from '@mui/icons-material/ChevronRightRounded';
 import AssignmentTurnedInRoundedIcon from '@mui/icons-material/AssignmentTurnedInRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
+import PublicRoundedIcon from '@mui/icons-material/PublicRounded';
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded';
 import ForumRoundedIcon from '@mui/icons-material/ForumRounded';
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
@@ -72,7 +73,7 @@ interface NavigationItem {
 const NAV_GROUPS: Array<{ key: string; label: string; paths: string[] }> = [
   { key: 'students', label: 'إدارة شؤون الطلاب', paths: ['/students', '/affairs'] },
   { key: 'academic', label: 'الإدارة الأكاديمية', paths: ['/academic-structure', '/supervisor/study-plan', '/courses', '/supervisor/sections', '/supervisor/registration-periods'] },
-  { key: 'system', label: 'إدارة النظام', paths: ['/users', '/settings'] },
+  { key: 'system', label: 'إدارة النظام', paths: ['/users', '/settings', '/site-admin'] },
   { key: 'support', label: 'التواصل والدعم', paths: ['/support-tickets'] },
   { key: 'audit', label: 'المتابعة والرقابة', paths: ['/audit-logs'] },
 ];
@@ -222,6 +223,12 @@ const navigationItems: NavigationItem[] = [
     roles: ['SYSTEM_ADMIN'],
   },
 
+  {
+    label: 'لوحة الموقع',
+    path: '/site-admin',
+    icon: <PublicRoundedIcon />,
+    roles: ['SYSTEM_ADMIN'],
+  },
   {
     label: 'إعدادات النظام',
     path: '/settings',
