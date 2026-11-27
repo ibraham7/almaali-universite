@@ -52,6 +52,7 @@ import {
   type Semester,
   type StudyPlan,
 } from '../../api/studyPlan';
+import { useNavigate } from 'react-router-dom';
 
 function getErrorMessage(error: unknown) {
   if (axios.isAxiosError(error)) {
@@ -91,6 +92,7 @@ function requirementLabel(
 }
 
 export default function StudyPlanPage() {
+  const navigate = useNavigate();
   const [studyPlans, setStudyPlans] =
     useState<StudyPlan[]>([]);
 
@@ -684,6 +686,10 @@ export default function StudyPlanPage() {
             الأولوية.
           </Typography>
         </Box>
+
+        <Button variant="outlined" onClick={() => navigate('/supervisor/study-plan/new')} sx={{ me: 1 }}>
+          إنشاء خطة جديدة
+        </Button>
 
         <Button
           variant="contained"

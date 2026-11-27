@@ -33,6 +33,7 @@ import {
 } from 'react';
 
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { getMyAdvisorPrograms } from '../../api/advisors';
 
@@ -155,6 +156,7 @@ function getErrorMessage(
 }
 
 export default function AcademicStructurePage() {
+    const navigate = useNavigate();
     const { user } = useAuth();
     const isAdvisor = user?.role === 'ADVISOR';
     const [colleges, setColleges] =
@@ -1191,6 +1193,7 @@ export default function AcademicStructurePage() {
                                     plan,
                                 ) : undefined}
                             extraActions={!isAdvisor ? (<>
+                                {plan.status === 'DRAFT' && <Button size="small" onClick={(event) => { event.stopPropagation(); navigate(`/supervisor/study-plan/${plan.id}/edit`); }}>متابعة الإنشاء</Button>}
                                 {plan.status === 'DRAFT' && <Button size="small" color="success" onClick={(event) => { event.stopPropagation(); void planAction('approve', plan.id, plan.nameAr); }}>اعتماد</Button>}
                                 {plan.status === 'APPROVED' && <Button size="small" color="warning" onClick={(event) => { event.stopPropagation(); void planAction('version', plan.id, plan.nameAr); }}>إصدار جديد</Button>}
                             </>) : undefined}

@@ -263,6 +263,7 @@ export async function createStudyPlan(
 
         cohortYear?: number | null;
         effectiveFrom?: string | null;
+        graduationCredits?: number | null;
     },
 ) {
     const response =
@@ -281,6 +282,7 @@ export async function updateStudyPlan(
         nameEn?: string;
         cohortYear?: number | null;
         effectiveFrom?: string | null;
+        graduationCredits?: number | null;
     },
 ) {
     const response =
