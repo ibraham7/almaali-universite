@@ -102,13 +102,13 @@ describe('study plan versions', () => {
 
   it('picks the plan for a new student by cohort, then the general plan, never a draft', async () => {
     const prisma = db(null);
-    const plans = [plan({ id: 'a', cohortYear: 2025, versionNumber: 2 }), plan({ id: 'b', cohortYear: 2026, versionNumber: 3 }), plan({ id: 'g', cohortYear: null })];
+    const plans = [plan({ id: 'a', cohortYear: 2025, versionNumber: 2, status: 'APPROVED' }), plan({ id: 'b', cohortYear: 2026, versionNumber: 3, status: 'APPROVED' }), plan({ id: 'g', cohortYear: null, status: 'APPROVED' })];
     prisma.studyPlan.findMany.mockResolvedValue(plans);
     const service = new StudyPlansService(prisma as PrismaService);
     expect((await service.suggestForAdmission('prog1', 2026))?.id).toBe('b');
     expect((await service.suggestForAdmission('prog1', 2030))?.id).toBe('g');
     expect(prisma.studyPlan.findMany).toHaveBeenCalledWith({ where: { programId: 'prog1', status: 'APPROVED' }, orderBy: expect.anything() });
-    prisma.studyPlan.findMany.mockResolvedValue([plan({ id: 'a', cohortYear: 2025 })]);
+    prisma.studyPlan.findMany.mockResolvedValue([plan({ id: 'a', cohortYear: 2025, status: 'APPROVED' })]);
     expect(await service.suggestForAdmission('prog1', 2026)).toBeNull();
   });
 });

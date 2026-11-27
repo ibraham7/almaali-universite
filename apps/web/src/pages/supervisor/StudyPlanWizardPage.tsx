@@ -15,6 +15,7 @@ import {
   type Course, type PlanCategory, type PlanStructure, type PlanStructureCourse,
 } from '../../api/studyPlan';
 import { useAuth } from '../../auth/AuthContext';
+import PlanStructureTables from './PlanStructureTables';
 
 const STEPS = ['بيانات الخطة', 'المستويات', 'الفصول', 'المقررات', 'المراجعة والاعتماد'];
 
@@ -477,28 +478,7 @@ function ReviewStep({ structure }: { structure: PlanStructure }) {
         {structure.effectiveFrom && <Chip variant="outlined" label={`تبدأ ${structure.effectiveFrom.slice(0, 10)}`} />}
       </Stack>
       {problems.length > 0 ? <Alert severity="warning">{problems.map((item) => <div key={item}>{item}</div>)}</Alert> : <Alert severity="success">الخطة مكتملة وجاهزة للاعتماد.</Alert>}
-      {structure.levels.map((level) => level.semesters.map((semester) => (
-        <Box key={semester.id}>
-          <Typography sx={{ fontWeight: 700, mb: 0.5 }}>{level.nameAr} ← {semester.nameAr} <Typography component="span" color="text.secondary">({semester.credits} ساعة)</Typography></Typography>
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead><TableRow><TableCell>الرمز</TableCell><TableCell>المقرر</TableCell><TableCell>نوع المتطلب</TableCell><TableCell>إجباري/اختياري</TableCell><TableCell>الساعات</TableCell><TableCell>المتطلبات السابقة</TableCell></TableRow></TableHead>
-              <TableBody>
-                {semester.courses.map((course) => (
-                  <TableRow key={course.id}>
-                    <TableCell>{course.code}</TableCell><TableCell>{course.nameAr}</TableCell>
-                    <TableCell>{course.category ? PLAN_CATEGORY_LABEL[course.category] : '—'}</TableCell>
-                    <TableCell>{course.requirement === 'MANDATORY' ? 'إجباري' : 'اختياري'}</TableCell>
-                    <TableCell>{course.credits}</TableCell>
-                    <TableCell>{course.prerequisites.length ? course.prerequisites.map((item) => item.nameAr).join('، ') : '—'}</TableCell>
-                  </TableRow>
-                ))}
-                {semester.courses.length === 0 && <TableRow><TableCell colSpan={6} align="center" sx={{ color: 'text.secondary' }}>بلا مقررات</TableCell></TableRow>}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Box>
-      )))}
+      <PlanStructureTables structure={structure} />
     </Stack>
   );
 }

@@ -15,7 +15,7 @@ import type {
 } from 'express';
 
 import { StudentsService } from './students.service.js';
-import { ApproveRegistrationDto, BulkDeleteStudentsDto, ChangeStudentStatusDto, StudentInputDto, TransferCollegeDto, UpdateStudentDto } from './dto/student-input.dto.js';
+import { ApproveRegistrationAutoDto, ApproveRegistrationDto, BulkDeleteStudentsDto, ChangeStudentStatusDto, StudentInputDto, TransferCollegeDto, UpdateStudentDto } from './dto/student-input.dto.js';
 
 import { JwtGuard } from '../auth/guards/jwt/jwt.guard.js';
 
@@ -54,6 +54,13 @@ export class StudentsController {
   @Roles('REGISTRAR', 'SYSTEM_ADMIN')
   approveRegistration(@Body() body: ApproveRegistrationDto, @Req() request: AuthenticatedRequest) {
     return this.studentsService.approveRegistration(body, request.user.id);
+  }
+
+  // الربط التلقائي بالخطة المناسبة لبرنامج الطالب ودفعته (مع معاينة dryRun).
+  @Post('approve-registration-auto')
+  @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  approveRegistrationAuto(@Body() body: ApproveRegistrationAutoDto, @Req() request: AuthenticatedRequest) {
+    return this.studentsService.approveRegistrationAuto(body, request.user.id);
   }
 
   // هل الحذف الجماعي (مرحلة التجريب) مفعَّل لهذا المستخدم؟

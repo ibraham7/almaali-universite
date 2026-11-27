@@ -11,6 +11,7 @@ import { getAdvisorAllowedProgramIds } from '../advisors/advisor-scope.js';
 import { assertSelectable } from '../academic-structure/active-structure.js';
 import { assertPlanEditable, planLabel } from './plan-status.js';
 import { effectiveCredits, effectivePrerequisites } from './plan-course-rules.js';
+import { pickPlanForAdmission } from './plan-selection.js';
 
 @Injectable()
 export class StudyPlansService {
@@ -240,8 +241,7 @@ export class StudyPlansService {
   // الخطة المناسبة لطالب جديد: آخر إصدار معتمد لدفعته، وإلا الخطة العامة (بلا دفعة) للبرنامج.
   async suggestForAdmission(programId: string, admissionYear?: number) {
     const plans = await this.prisma.studyPlan.findMany({ where: { programId, status: 'APPROVED' }, orderBy: [{ versionNumber: 'desc' }, { createdAt: 'desc' }] });
-    const exact = admissionYear ? plans.find((plan) => plan.cohortYear === admissionYear) : undefined;
-    return exact ?? plans.find((plan) => plan.cohortYear === null) ?? null;
+    return pickPlanForAdmission(plans, admissionYear);
   }
 
   async findAll(actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
@@ -262,9 +262,33 @@ export class StudyPlansService {
         createdAt: 'asc',
       },
     });
-    const students = await this.prisma.student.groupBy({ by: ['studyPlanId'], where: { studyPlanId: { in: plans.map((plan) => plan.id) } }, _count: { _all: true } });
+    const planIds = plans.map((plan) => plan.id);
+    const [students, planCourses] = await Promise.all([
+      this.prisma.student.groupBy({ by: ['studyPlanId'], where: { studyPlanId: { in: planIds } }, _count: { _all: true } }),
+      this.prisma.studyPlanCourse.findMany({ where: { studyPlanId: { in: planIds }, status: 'ACTIVE' }, select: { studyPlanId: true, creditsInPlan: true, course: { select: { credits: true } } } }),
+    ]);
     const byPlan = new Map(students.map((row) => [row.studyPlanId, row._count._all]));
-    return plans.map(({ _count, ...plan }) => ({ ...plan, coursesCount: _count.planCourses, studentsCount: byPlan.get(plan.id) ?? 0 }));
+    const credits = new Map<string, number>();
+    for (const row of planCourses) credits.set(row.studyPlanId, (credits.get(row.studyPlanId) ?? 0) + effectiveCredits(row));
+    return plans.map(({ _count, ...plan }) => ({ ...plan, coursesCount: _count.planCourses, studentsCount: byPlan.get(plan.id) ?? 0, totalCredits: credits.get(plan.id) ?? 0 }));
+  }
+
+  // سجل إصدارات الخطة: كل الإصدارات (المسودة والمعتمدة والقديمة) بتواريخها وعدد طلابها.
+  async versions(id: string, actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
+    const plan = await this.assertPlanAccess(id, actor);
+    const found = await this.prisma.studyPlan.findUnique({ where: { id: plan.id }, select: { planKey: true } });
+    const versions = await this.prisma.studyPlan.findMany({
+      where: { planKey: found!.planKey }, orderBy: { versionNumber: 'asc' },
+      select: { id: true, nameAr: true, status: true, versionNumber: true, cohortYear: true, effectiveFrom: true, approvedAt: true, approvedById: true, createdAt: true },
+    });
+    const [students, approvers] = await Promise.all([
+      this.prisma.student.groupBy({ by: ['studyPlanId'], where: { studyPlanId: { in: versions.map((item) => item.id) } }, _count: { _all: true } }),
+      this.prisma.user.findMany({ where: { id: { in: versions.map((item) => item.approvedById).filter((value): value is string => Boolean(value)) } }, select: { id: true, displayName: true, username: true, email: true } }),
+    ]);
+    return versions.map((item) => {
+      const approver = approvers.find((user) => user.id === item.approvedById);
+      return { ...item, approvedByName: approver ? (approver.displayName ?? approver.username ?? approver.email) : null, studentsCount: students.find((row) => row.studyPlanId === item.id)?._count._all ?? 0 };
+    });
   }
 
   async findById(id: string, actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {

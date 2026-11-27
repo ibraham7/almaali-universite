@@ -28,6 +28,7 @@ const AdvisorRegistrationsPage = lazy(() => import('./pages/advisor/AdvisorRegis
 const AdvisorStudentRegistrationPage = lazy(() => import('./pages/advisor/AdvisorStudentRegistrationPage'));
 const StudyPlanPage = lazy(() => import('./pages/supervisor/StudyPlanPage'));
 const StudyPlanWizardPage = lazy(() => import('./pages/supervisor/StudyPlanWizardPage'));
+const StudyPlansListPage = lazy(() => import('./pages/supervisor/StudyPlansListPage'));
 const SectionsPage = lazy(() => import('./pages/supervisor/SectionsPage'));
 const RegistrationPeriodsPage = lazy(() => import('./pages/supervisor/RegistrationPeriodsPage'));
 const StudentsPage = lazy(() => import('./pages/supervisor/StudentsPage'));
@@ -121,6 +122,10 @@ function App() {
             <Route path="/students" element={<StudentsPage />} />
             <Route
               path="/supervisor/study-plan"
+              element={<StudyPlansListPage />}
+            />
+            <Route
+              path="/supervisor/study-plan/manage"
               element={<StudyPlanPage />}
             />
             <Route

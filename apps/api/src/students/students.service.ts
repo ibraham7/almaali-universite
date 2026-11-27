@@ -9,8 +9,10 @@ import {
 } from '@nestjs/common';
 
 import { PrismaService } from '../prisma/prisma.service.js';
-import { ApproveRegistrationDto, BulkDeleteStudentsDto, ChangeStudentStatusDto, StudentInputDto, TransferCollegeDto } from './dto/student-input.dto.js';
+import { ApproveRegistrationAutoDto, ApproveRegistrationDto, BulkDeleteStudentsDto, ChangeStudentStatusDto, StudentInputDto, TransferCollegeDto } from './dto/student-input.dto.js';
 import { assertSelectable } from '../academic-structure/active-structure.js';
+import { pickPlanForAdmission } from '../study-plans/plan-selection.js';
+import { admissionYearOf } from './student-admission.js';
 import { STUDENT_STATUS_LABEL, parseStudentStatus, transitionRule, type StudentStatus } from './student-status.js';
 import { digitVariants, isDigitsOnly, isPersonName, isPlaceName, isSyrianMobile, isSyrianNationalId, normalizeDigits, normalizeGender, normalizeText } from './student-data-validation.js';
 
@@ -255,6 +257,73 @@ export class StudentsService implements OnModuleInit, OnModuleDestroy {
 
   onModuleDestroy() {
     if (this.deferralTimer) clearInterval(this.deferralTimer);
+  }
+
+  // اعتماد التسجيل تلقائيًا: يُربط كل طالب بالخطة (والإصدار) المعتمدة المناسبة لبرنامجه ودفعة قبوله، في أول مستوى وأول فصل منها.
+  // من لا يُحدَّد له ربط مناسب يُتخطى مع السبب. dryRun: معاينة بلا كتابة. الإصدارات الجديدة لاحقًا لا تنقل من رُبط سابقًا.
+  async approveRegistrationAuto(dto: ApproveRegistrationAutoDto, actingUserId: string) {
+    const students = await this.prisma.student.findMany({
+      where: { id: { in: dto.studentIds } },
+      select: { id: true, universityId: true, firstName: true, middleName: true, familyName: true, admissionDate: true, collegeId: true, departmentId: true, programId: true, studyPlanId: true, status: true },
+    });
+    const found = new Map(students.map((student) => [student.id, student]));
+    const programIds = [...new Set(students.map((student) => student.programId).filter((id): id is string => Boolean(id)))];
+    const [programs, plans] = await Promise.all([
+      this.prisma.program.findMany({ where: { id: { in: programIds } }, select: { id: true, nameAr: true, departmentId: true, collegeId: true, department: { select: { collegeId: true } } } }),
+      this.prisma.studyPlan.findMany({
+        where: { programId: { in: programIds }, status: 'APPROVED' },
+        select: {
+          id: true, programId: true, nameAr: true, status: true, versionNumber: true, cohortYear: true,
+          academicYears: { orderBy: { levelNumber: 'asc' }, take: 1, select: { id: true, nameAr: true, semesters: { orderBy: { semesterNumber: 'asc' }, take: 1, select: { id: true, nameAr: true } } } },
+        },
+      }),
+    ]);
+    type Row = { studentId: string; universityId: string; name: string; admissionYear: number | null; plan: { id: string; nameAr: string; versionNumber: number; cohortYear: number | null } | null; level: string | null; semester: string | null; reason: string | null };
+    const rows: Row[] = [];
+    const placements: Array<{ studentId: string; collegeId: string | null; departmentId: string | null; programId: string; studyPlanId: string; academicYearId: string; semesterId: string; status: string }> = [];
+    for (const id of dto.studentIds) {
+      const student = found.get(id);
+      if (!student) { rows.push({ studentId: id, universityId: '', name: '', admissionYear: null, plan: null, level: null, semester: null, reason: 'الطالب غير موجود' }); continue; }
+      const name = [student.firstName, student.middleName, student.familyName].filter(Boolean).join(' ');
+      const admissionYear = admissionYearOf(student);
+      const base = { studentId: id, universityId: student.universityId, name, admissionYear, plan: null, level: null, semester: null };
+      if (student.studyPlanId) { rows.push({ ...base, reason: 'مرتبط بخطة دراسية مسبقاً' }); continue; }
+      const program = programs.find((item) => item.id === student.programId);
+      if (!program) { rows.push({ ...base, reason: 'البرنامج غير محدد للطالب (حدّده من تعديل البيانات أو اعتمد يدويًا)' }); continue; }
+      try { await assertSelectable(this.prisma, { programId: program.id }); } catch (error) { rows.push({ ...base, reason: error instanceof BadRequestException ? 'البرنامج أو قسمه أو كليته معطّل' : 'تعذر التحقق من البرنامج' }); continue; }
+      const plan = pickPlanForAdmission(plans.filter((item) => item.programId === program.id), admissionYear);
+      if (!plan) { rows.push({ ...base, reason: `لا توجد خطة معتمدة مناسبة${admissionYear ? ` لدفعة ${admissionYear}` : ''} لهذا البرنامج` }); continue; }
+      const level = plan.academicYears[0];
+      const semester = level?.semesters[0];
+      if (!level || !semester) { rows.push({ ...base, reason: 'الخطة المختارة بلا مستويات أو فصول' }); continue; }
+      rows.push({ ...base, plan: { id: plan.id, nameAr: plan.nameAr, versionNumber: plan.versionNumber, cohortYear: plan.cohortYear }, level: level.nameAr, semester: semester.nameAr, reason: null });
+      placements.push({
+        studentId: id, collegeId: student.collegeId ?? program.collegeId ?? program.department?.collegeId ?? null, departmentId: student.departmentId ?? program.departmentId ?? null,
+        programId: program.id, studyPlanId: plan.id, academicYearId: level.id, semesterId: semester.id, status: student.status,
+      });
+    }
+    if (!dto.dryRun && placements.length) {
+      await this.prisma.$transaction(async (tx) => {
+        for (const item of placements) {
+          const done = await tx.student.updateMany({
+            where: { id: item.studentId, studyPlanId: null },
+            data: {
+              collegeId: item.collegeId, departmentId: item.departmentId, programId: item.programId, studyPlanId: item.studyPlanId, academicYearId: item.academicYearId, semesterId: item.semesterId,
+              ...(item.status === 'PENDING_REGISTRATION' ? { status: 'CONTINUING' } : {}),
+            },
+          });
+          if (done.count !== 1) continue;
+          if (item.status === 'PENDING_REGISTRATION') {
+            await tx.studentDataChange.create({ data: { studentId: item.studentId, field: 'status', oldValue: 'PENDING_REGISTRATION', newValue: 'CONTINUING', changedByUserId: actingUserId } });
+          }
+        }
+        await tx.auditLog.create({ data: {
+          action: 'STUDENTS_REGISTRATION_APPROVED_AUTO', entity: 'Student', userId: actingUserId,
+          details: JSON.stringify({ count: placements.length, plans: [...new Set(placements.map((item) => item.studyPlanId))], studentIds: placements.map((item) => item.studentId) }),
+        } });
+      });
+    }
+    return { dryRun: Boolean(dto.dryRun), approved: dto.dryRun ? 0 : placements.length, matched: placements.length, rows, skipped: rows.filter((row) => row.reason).map((row) => ({ studentId: row.studentId, universityId: row.universityId, reason: row.reason as string })) };
   }
 
   // نقل طالب إلى كلية أخرى: يتغير رمز الكلية في رقمه الجامعي (السنة الأصلية تبقى) ويبقى الرقم القديم بالسجل.

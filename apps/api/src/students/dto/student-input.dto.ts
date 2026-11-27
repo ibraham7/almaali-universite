@@ -1,4 +1,4 @@
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsDateString, IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsDateString, IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 export class StudentInputDto {
   @IsString() @IsNotEmpty() @MaxLength(50)
@@ -102,6 +102,16 @@ export class ApproveRegistrationDto {
 
   @IsString() @IsNotEmpty()
   semesterId!: string;
+}
+
+// اعتماد التسجيل تلقائيًا: لكل طالب الخطة المعتمدة المناسبة لبرنامجه ودفعة قبوله، في أول مستوى وفصل منها.
+// dryRun: معاينة الربط دون كتابة.
+export class ApproveRegistrationAutoDto {
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(5000) @IsString({ each: true })
+  studentIds!: string[];
+
+  @IsOptional() @IsBoolean()
+  dryRun?: boolean;
 }
 
 // نقل الطالب إلى كلية أخرى: رقم جامعي جديد برمز الكلية الجديدة (السنة الأصلية نفسها)، والرقم القديم يُحفظ.

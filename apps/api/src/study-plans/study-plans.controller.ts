@@ -110,6 +110,14 @@ export class StudyPlansController {
     );
   }
 
+  @Get(':id/versions')
+  versions(
+    @Param('id') id: string,
+    @Req() request: Request & { user: { id: string; role: string } },
+  ) {
+    return this.studyPlansService.versions(id, request.user);
+  }
+
   @Get(':id/structure')
   structure(
     @Param('id') id: string,

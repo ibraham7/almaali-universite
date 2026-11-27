@@ -305,3 +305,16 @@ export async function changeStudentStatus(id: string, data: { status: string; re
   const response = await apiClient.post<{ id: string; status: string; deferredUntil: string | null }>(`/students/${id}/status`, data);
   return response.data;
 }
+
+export interface AutoApprovalRow {
+  studentId: string; universityId: string; name: string; admissionYear: number | null;
+  plan: { id: string; nameAr: string; versionNumber: number; cohortYear: number | null } | null;
+  level: string | null; semester: string | null; reason: string | null;
+}
+
+// اعتماد التسجيل تلقائيًا بالخطة المناسبة لبرنامج الطالب ودفعته. dryRun: معاينة بلا كتابة.
+export async function approveStudentRegistrationAuto(studentIds: string[], dryRun: boolean) {
+  const response = await apiClient.post<{ dryRun: boolean; approved: number; matched: number; rows: AutoApprovalRow[]; skipped: Array<{ studentId: string; universityId: string; reason: string }> }>(
+    '/students/approve-registration-auto', { studentIds, dryRun });
+  return response.data;
+}
