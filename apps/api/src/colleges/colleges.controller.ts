@@ -74,11 +74,14 @@ export class CollegesController {
       nameAr?: string;
       nameEn?: string;
       code?: string | null;
+      isActive?: boolean;
     },
+    @Req() request: Request & { user: { id: string } },
   ) {
     return this.collegesService.update(
       id,
       body,
+      request.user.id,
     );
   }
 

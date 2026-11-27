@@ -357,6 +357,10 @@ export class StudentImportsService {
       }
     });
     const defaults = options.defaults ?? {};
+    for (const [label, list, id] of [['الكلية', colleges, defaults.collegeId], ['القسم', departments, defaults.departmentId], ['البرنامج', programs, defaults.programId]] as const) {
+      const item = (list as Array<{ id: string; nameAr: string; isActive?: boolean }>).find((entry) => entry.id === id);
+      if (item && item.isActive === false) errors.push({ rowNumber: 0, universityId: '', message: `${label} «${item.nameAr}» معطّلة. فعّلها أو اختر غيرها.` });
+    }
     const ignored = new Map<string, number>();
     const defaultNames = {
       college: colleges.find((item) => item.id === defaults.collegeId)?.nameAr ?? '',
@@ -500,6 +504,16 @@ export class StudentImportsService {
       let programId: string | null = null;
       if (departmentId) programId = resolve(programName, programs, departmentId, 'departmentId', 'البرنامج', existingStudent?.programId, false, true);
       else if (programName) ignored.set('البرنامج', (ignored.get('البرنامج') ?? 0) + 1);
+      // الكلية/القسم/البرنامج المعطّلة لا تُعتمد لطلاب جدد (الطالب الموجود الباقي فيها لا يتأثر).
+      const offCollege = (id: string | null) => colleges.find((item) => item.id === id && item.isActive === false);
+      const checkActive = (label: string, id: string | null, current: string | null | undefined, name: string | undefined) => {
+        if (id && id !== current && name) problems.push(`${label}: «${name}» معطّلة ولا يمكن الاستيراد إليها`);
+      };
+      const dep = departments.find((item) => item.id === departmentId);
+      const prog = programs.find((item) => item.id === programId);
+      checkActive('الكلية', collegeId, existingStudent?.collegeId, offCollege(collegeId)?.nameAr);
+      checkActive('القسم', departmentId, existingStudent?.departmentId, dep && (dep.isActive === false || offCollege(dep.collegeId)) ? dep.nameAr : undefined);
+      checkActive('البرنامج', programId, existingStudent?.programId, prog && (prog.isActive === false || (prog.departmentId && departments.find((item) => item.id === prog.departmentId)?.isActive === false) || offCollege(prog.collegeId ?? dep?.collegeId ?? null)) ? prog.nameAr : undefined);
       const studyPlanId = resolve(planName, plans, programId, 'programId', 'الخطة الدراسية', existingStudent?.studyPlanId, false, true);
       const academicYearId = resolve(yearName, years, studyPlanId, 'studyPlanId', 'المستوى الأكاديمي', existingStudent?.academicYearId, true, true);
       const semesterId = resolve(semesterName, semesters, academicYearId, 'academicYearId', 'الفصل الدراسي', existingStudent?.semesterId, true, true);

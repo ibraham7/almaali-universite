@@ -6,6 +6,7 @@ import {
 
 import { PrismaService } from '../prisma/prisma.service.js';
 import { getAdvisorAllowedProgramIds } from '../advisors/advisor-scope.js';
+import { assertSelectable } from '../academic-structure/active-structure.js';
 
 @Injectable()
 export class StudyPlansService {
@@ -38,6 +39,7 @@ export class StudyPlansService {
     nameEn?: string;
   }, actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
     await this.assertProgramAccess(data.programId, actor);
+    await assertSelectable(this.prisma, { programId: data.programId });
     return this.prisma.studyPlan.create({
       data: {
         programId:

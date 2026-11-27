@@ -6,6 +6,7 @@ import {
 
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { ProgramLevel } from '../generated/prisma/client.js';
+import { assertSelectable } from '../academic-structure/active-structure.js';
 
 export const PROGRAM_LEVELS: Record<ProgramLevel, { nameAr: string; nameEn: string }> = {
   BACHELOR: { nameAr: 'بكالوريوس', nameEn: 'Bachelor' },
@@ -33,6 +34,7 @@ export class ProgramsService {
       select: { collegeId: true },
     });
     if (!department) throw new NotFoundException('القسم المحدد غير موجود.');
+    await assertSelectable(this.prisma, { departmentId: data.departmentId });
     const exists = await this.prisma.program.findFirst({
       where: { departmentId: data.departmentId, level },
       select: { id: true },
@@ -51,22 +53,37 @@ export class ProgramsService {
 
   async update(
     id: string,
-    data: { level?: string },
+    data: { level?: string; isActive?: boolean },
+    actingUserId?: string,
   ) {
-    const program = await this.prisma.program.findUnique({ where: { id } });
+    const program = await this.prisma.program.findUnique({ where: { id }, include: { department: { include: { college: true } }, college: true } });
     if (!program) throw new NotFoundException('Program not found');
-    if (data.level === undefined) return program;
-    const level = this.parseLevel(data.level);
-    if (level === program.level) return program;
-    const exists = await this.prisma.program.findFirst({
-      where: { departmentId: program.departmentId, level, NOT: { id } },
-      select: { id: true },
-    });
-    if (exists) throw new BadRequestException(`برنامج ${PROGRAM_LEVELS[level].nameAr} موجود مسبقًا لهذا القسم.`);
-    return this.prisma.program.update({
-      where: { id },
-      data: { level, nameAr: PROGRAM_LEVELS[level].nameAr, nameEn: PROGRAM_LEVELS[level].nameEn },
-    });
+    const patch: { level?: ProgramLevel; nameAr?: string; nameEn?: string; isActive?: boolean } = {};
+    if (data.level !== undefined) {
+      const level = this.parseLevel(data.level);
+      if (level !== program.level) {
+        const exists = await this.prisma.program.findFirst({
+          where: { departmentId: program.departmentId, level, NOT: { id } },
+          select: { id: true },
+        });
+        if (exists) throw new BadRequestException(`برنامج ${PROGRAM_LEVELS[level].nameAr} موجود مسبقًا لهذا القسم.`);
+        Object.assign(patch, { level, nameAr: PROGRAM_LEVELS[level].nameAr, nameEn: PROGRAM_LEVELS[level].nameEn });
+      }
+    }
+    if (typeof data.isActive === 'boolean' && data.isActive !== program.isActive) {
+      // لا يُفعَّل برنامج داخل قسم أو كلية معطّلة.
+      if (data.isActive) {
+        const parent = program.department && !program.department.isActive ? `قسم «${program.department.nameAr}»` : (program.department?.college ?? program.college)?.isActive === false ? `كلية «${(program.department?.college ?? program.college)!.nameAr}»` : null;
+        if (parent) throw new BadRequestException(`فعّل ${parent} أولاً.`);
+      }
+      patch.isActive = data.isActive;
+    }
+    if (Object.keys(patch).length === 0) return program;
+    const updated = await this.prisma.program.update({ where: { id }, data: patch });
+    if (patch.isActive !== undefined) {
+      await this.prisma.auditLog.create({ data: { action: patch.isActive ? 'PROGRAM_ENABLED' : 'PROGRAM_DISABLED', entity: 'Program', entityId: id, userId: actingUserId, details: JSON.stringify({ nameAr: program.nameAr }) } });
+    }
+    return updated;
   }
 
   private parseLevel(value?: string): ProgramLevel {

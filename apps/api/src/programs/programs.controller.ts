@@ -5,8 +5,10 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 
 import { ProgramsService } from './programs.service.js';
 
@@ -58,11 +60,14 @@ export class ProgramsController {
     @Body()
     body: {
       level?: string;
+      isActive?: boolean;
     },
+    @Req() request: Request & { user: { id: string } },
   ) {
     return this.programsService.update(
       id,
       body,
+      request.user.id,
     );
   }
 

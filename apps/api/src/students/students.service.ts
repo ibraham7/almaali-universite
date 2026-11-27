@@ -10,6 +10,7 @@ import {
 
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ApproveRegistrationDto, BulkDeleteStudentsDto, ChangeStudentStatusDto, StudentInputDto, TransferCollegeDto } from './dto/student-input.dto.js';
+import { assertSelectable } from '../academic-structure/active-structure.js';
 import { STUDENT_STATUS_LABEL, parseStudentStatus, transitionRule, type StudentStatus } from './student-status.js';
 import { digitVariants, isDigitsOnly, isPersonName, isPlaceName, isSyrianMobile, isSyrianNationalId, normalizeDigits, normalizeGender, normalizeText } from './student-data-validation.js';
 
@@ -35,11 +36,13 @@ export class StudentsService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  private async validateStructure(data: StudentInputDto) {
+  // current: القيم الحالية عند تعديل طالب موجود (التعطيل يمنع الاختيار الجديد فقط، ولا يمنع تعديل طالب بقي في كلية معطّلة).
+  private async validateStructure(data: StudentInputDto, current: { collegeId?: string | null; departmentId?: string | null; programId?: string | null } = {}) {
     const { collegeId, departmentId, programId, studyPlanId, academicYearId, semesterId, advisorId } = data;
     const invalid = () => { throw new BadRequestException('Invalid academic structure or advisor'); };
 
     if (collegeId && !await this.prisma.college.findUnique({ where: { id: collegeId } })) invalid();
+    await assertSelectable(this.prisma, { collegeId, departmentId, programId }, current);
     if (departmentId) {
       const department = await this.prisma.department.findUnique({ where: { id: departmentId } });
       if (!collegeId || department?.collegeId !== collegeId) invalid();
@@ -259,8 +262,9 @@ export class StudentsService implements OnModuleInit, OnModuleDestroy {
     });
     if (!student) throw new NotFoundException('الطالب غير موجود.');
     if (student.collegeId === dto.collegeId) throw new BadRequestException('الطالب مسجل في هذه الكلية أصلاً.');
-    const college = await this.prisma.college.findUnique({ where: { id: dto.collegeId }, select: { id: true, nameAr: true, code: true } });
+    const college = await this.prisma.college.findUnique({ where: { id: dto.collegeId }, select: { id: true, nameAr: true, code: true, isActive: true } });
     if (!college) throw new NotFoundException('الكلية المحددة غير موجودة.');
+    if (college.isActive === false) throw new BadRequestException(`كلية «${college.nameAr}» معطّلة ولا يمكن النقل إليها.`);
     if (!college.code) throw new BadRequestException(`كلية «${college.nameAr}» ليس لها رمز. أضف رمز الكلية من شاشة الهيكل الأكاديمي أولاً.`);
     const open = await this.prisma.studentEnrollment.count({ where: { studentId: id, status: { in: ['DRAFT', 'PENDING', 'APPROVED'] } } });
     if (open > 0) throw new ConflictException('لدى الطالب تسجيل غير منتهٍ (مسودة أو قيد الموافقة أو معتمد). أنهِه أو ألغِه قبل النقل.');
@@ -395,7 +399,7 @@ export class StudentsService implements OnModuleInit, OnModuleDestroy {
     const normalized = this.normalize(data);
     const existing = await this.prisma.student.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Student not found');
-    await this.validateStructure(data);
+    await this.validateStructure(data, existing);
     await this.ensureUniqueNationalId(normalized.nationalId, id);
     try {
       return await this.prisma.$transaction(async (tx) => {

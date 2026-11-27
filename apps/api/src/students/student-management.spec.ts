@@ -46,6 +46,7 @@ describe('Student management', () => {
     const prisma = {
       college: { findUnique: vi.fn().mockResolvedValue({ id: 'college-1' }) },
       department: { findUnique: vi.fn().mockResolvedValue({ id: 'department-1', collegeId: 'college-2' }) },
+      program: { findUnique: vi.fn().mockResolvedValue({ id: 'program-1', departmentId: 'department-1' }) },
       $transaction: vi.fn(),
     } as unknown as PrismaService;
     await expect(new StudentsService(prisma).create({ ...data, collegeId: 'college-1', departmentId: 'department-1' }, 'registrar-1'))

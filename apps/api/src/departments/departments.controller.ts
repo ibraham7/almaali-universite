@@ -5,8 +5,10 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import type { Request } from 'express';
 
 import { DepartmentsService } from './departments.service.js';
 
@@ -60,11 +62,14 @@ export class DepartmentsController {
     body: {
       nameAr?: string;
       nameEn?: string;
+      isActive?: boolean;
     },
+    @Req() request: Request & { user: { id: string } },
   ) {
     return this.departmentsService.update(
       id,
       body,
+      request.user.id,
     );
   }
 

@@ -104,6 +104,8 @@ model College {
   nameEn       String?
   // رمز الكلية (رقمان): جزء من الرقم الجامعي = السنة + رمز الكلية + التسلسل
   code         String?
+  // معطّلة: تبقى بياناتها وطلابها كما هم، لكنها لا تُختار لطلاب جدد ولا لخطط جديدة.
+  isActive     Boolean @default(true)
 
   university  University   @relation(fields: [universityId], references: [id])
   departments Department[]
@@ -122,6 +124,7 @@ model Department {
   collegeId String
   nameAr    String
   nameEn    String?
+  isActive  Boolean @default(true)
 
   college  College   @relation(fields: [collegeId], references: [id])
   programs Program[]
@@ -140,6 +143,7 @@ model Program {
   nameEn       String?
   // نوع البرنامج: بكالوريوس / دبلوم / ماجستير / دكتوراه. الاسم العربي يُشتق منه.
   level        ProgramLevel @default(BACHELOR)
+  isActive     Boolean @default(true)
 
   department Department? @relation(fields: [departmentId], references: [id])
   college    College?    @relation(fields: [collegeId], references: [id])

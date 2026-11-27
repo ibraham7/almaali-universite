@@ -5,6 +5,7 @@ import {
     Card,
     CardContent,
     Checkbox,
+    Chip,
     CircularProgress,
     Dialog,
     DialogActions,
@@ -465,6 +466,22 @@ export default function AcademicStructurePage() {
         setDialogOpen(true);
     }
 
+    // تعطيل/تفعيل كلية أو قسم أو برنامج (لا حذف). المعطّل لا يُختار لطلاب جدد ولا لخطط جديدة، وبياناته تبقى.
+    async function toggleActive(kind: 'college' | 'department' | 'program', id: string, name: string, enable: boolean) {
+        const label = kind === 'college' ? 'الكلية' : kind === 'department' ? 'القسم' : 'البرنامج';
+        if (!enable && !window.confirm(`تعطيل ${label} «${name}»؟\nيبقى طلابها وخططها كما هم، لكن لا تُختار لطلاب جدد أو خطط جديدة${kind !== 'program' ? '، ويشمل ذلك ما تحتها' : ''}. يمكنك تفعيلها لاحقًا.`)) return;
+        try {
+            setError('');
+            if (kind === 'college') await updateCollege(id, { isActive: enable });
+            else if (kind === 'department') await updateDepartment(id, { isActive: enable });
+            else await updateProgram(id, { isActive: enable });
+            setSuccess(`${enable ? 'تم تفعيل' : 'تم تعطيل'} ${label} «${name}».`);
+            await loadData();
+        } catch (cause) {
+            setError(axios.isAxiosError(cause) && typeof cause.response?.data?.message === 'string' ? cause.response.data.message : 'تعذر تنفيذ العملية.');
+        }
+    }
+
     function openEdit(
         type: EntityType,
 
@@ -515,9 +532,10 @@ export default function AcademicStructurePage() {
                     ? item.requireMandatoryCourses
                     : false,
 
+            // الفصل الدراسي يحمل isActive إلزاميًا، أما الكلية/القسم/البرنامج فاختياري وغيابه يعني فعّال.
             isActive:
                 'isActive' in item
-                    ? item.isActive
+                    ? item.isActive !== false
                     : true,
         });
 
@@ -977,6 +995,8 @@ export default function AcademicStructurePage() {
                                     'college',
                                     college,
                                 ) : undefined}
+                            inactive={college.isActive === false}
+                            onToggleActive={!isAdvisor ? () => void toggleActive('college', college.id, college.nameAr, college.isActive === false) : undefined}
                         />
                     ),
                 )}
@@ -1025,6 +1045,8 @@ export default function AcademicStructurePage() {
                                     'department',
                                     department,
                                 ) : undefined}
+                            inactive={department.isActive === false}
+                            onToggleActive={!isAdvisor ? () => void toggleActive('department', department.id, department.nameAr, department.isActive === false) : undefined}
                         />
                     ),
                 )}
@@ -1069,6 +1091,8 @@ export default function AcademicStructurePage() {
                                     'program',
                                     program,
                                 ) : undefined}
+                            inactive={program.isActive === false}
+                            onToggleActive={!isAdvisor ? () => void toggleActive('program', program.id, program.nameAr, program.isActive === false) : undefined}
                         />
                     ),
                 )}
@@ -1529,6 +1553,11 @@ interface StructureCardProps {
     onClick?: () => void;
 
     onEdit?: () => void;
+
+    // معطّلة؟ (تظهر شارة، ويظهر زر التفعيل بدل التعطيل)
+    inactive?: boolean;
+
+    onToggleActive?: () => void;
 }
 
 function StructureCard({
@@ -1537,6 +1566,8 @@ function StructureCard({
     selected,
     onClick,
     onEdit,
+    inactive,
+    onToggleActive,
 }: StructureCardProps) {
     return (
         <Box
@@ -1583,9 +1614,11 @@ function StructureCard({
                     <Typography
                         sx={{
                             fontWeight: 700,
+                            opacity: inactive ? 0.55 : 1,
                         }}
                     >
                         {title}
+                        {inactive && <Chip size="small" label="معطّلة" sx={{ ms: 1 }} />}
                     </Typography>
 
                     {subtitle && (
@@ -1604,6 +1637,9 @@ function StructureCard({
                 <Stack direction="row" spacing={0.5}>
                     {onEdit && <Button size="small" startIcon={<EditOutlinedIcon />} onClick={(event) => { event.stopPropagation(); onEdit(); }}>
                         تعديل
+                    </Button>}
+                    {onToggleActive && <Button size="small" color={inactive ? 'success' : 'warning'} onClick={(event) => { event.stopPropagation(); onToggleActive(); }}>
+                        {inactive ? 'تفعيل' : 'تعطيل'}
                     </Button>}
                 </Stack>
             </Stack>

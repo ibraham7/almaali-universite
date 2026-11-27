@@ -9,6 +9,7 @@ export interface College {
     nameAr: string;
     nameEn?: string | null;
     code?: string | null;
+    isActive?: boolean;
 
     createdAt?: string;
     updatedAt?: string;
@@ -20,6 +21,7 @@ export interface Department {
 
     nameAr: string;
     nameEn?: string | null;
+    isActive?: boolean;
     college?: College;
 
     createdAt?: string;
@@ -43,6 +45,7 @@ export interface Program {
 
     nameAr: string;
     nameEn?: string | null;
+    isActive?: boolean;
     department?: Department;
     college?: College;
     departmentName?: string;
@@ -129,6 +132,7 @@ export async function updateCollege(
         nameAr?: string;
         nameEn?: string;
         code?: string;
+        isActive?: boolean;
     },
 ) {
     const response =
@@ -170,6 +174,7 @@ export async function updateDepartment(
     data: {
         nameAr?: string;
         nameEn?: string;
+        isActive?: boolean;
     },
 ) {
     const response =
@@ -208,7 +213,8 @@ export async function createProgram(
 export async function updateProgram(
     id: string,
     data: {
-        level: ProgramLevel;
+        level?: ProgramLevel;
+        isActive?: boolean;
     },
 ) {
     const response =
@@ -365,4 +371,27 @@ export async function updateSemester(
         );
 
     return response.data;
+}
+
+// ما يصلح للاختيار عند إضافة طالب أو نقله أو استيراده: غير معطّل هو ولا ما فوقه.
+// (الكلية المعطّلة تعطّل أقسامها وبرامجها عند الاختيار. القيمة المختارة حاليًا تبقى ظاهرة عبر keepIds.)
+export function selectableStructure(
+    colleges: College[],
+    departments: Department[],
+    programs: Program[],
+    keepIds: Array<string | null | undefined> = [],
+) {
+    const keep = new Set(keepIds.filter(Boolean) as string[]);
+    const collegeOn = new Map(colleges.map((item) => [item.id, item.isActive !== false]));
+    const departmentOn = new Map(departments.map((item) => [item.id, item.isActive !== false && collegeOn.get(item.collegeId) !== false]));
+    return {
+        colleges: colleges.filter((item) => item.isActive !== false || keep.has(item.id)),
+        departments: departments.filter((item) => departmentOn.get(item.id) !== false || keep.has(item.id)),
+        programs: programs.filter((item) => {
+            const on = item.isActive !== false
+                && (!item.departmentId || departmentOn.get(item.departmentId) !== false)
+                && (!item.collegeId || collegeOn.get(item.collegeId) !== false);
+            return on || keep.has(item.id);
+        }),
+    };
 }

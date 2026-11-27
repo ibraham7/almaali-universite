@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, TextField, Typography } from '@mui/material';
 import axios from 'axios';
 import {
-  getColleges, getDepartments, getPrograms, getStudyPlans, getAcademicLevels, getSemesters,
+  getColleges, getDepartments, getPrograms, getStudyPlans, getAcademicLevels, getSemesters, selectableStructure,
   type College, type Department, type Program, type StudyPlan, type AcademicLevel, type Semester,
 } from '../../api/academicStructure';
 import { createStudent, updateStudent, getStudentAdvisors, type StudentInput, type StudentListItem } from '../../api/students';
@@ -94,7 +94,9 @@ export default function StudentFormDialog({ open, student, onClose, onSaved }: {
       getColleges(), getDepartments(), getPrograms(), getStudyPlans(),
       getAcademicLevels(), getSemesters(), getStudentAdvisors(),
     ]).then(([colleges, departments, programs, plans, years, semesters, advisors]) => {
-      if (active) setCatalog({ colleges, departments, programs, plans, years, semesters, advisors });
+      // المعطّلة لا تُعرض للاختيار، ما عدا القيم الحالية للطالب المعدَّل حتى لا تختفي من نموذجه.
+      const open = selectableStructure(colleges, departments, programs, [student?.collegeId, student?.departmentId, student?.programId]);
+      if (active) setCatalog({ colleges: open.colleges, departments: open.departments, programs: open.programs, plans, years, semesters, advisors });
     }).catch(() => { if (active) setError('تعذر تحميل الخيارات الأكاديمية.'); });
     return () => { active = false; };
   }, [open, student]);
