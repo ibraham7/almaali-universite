@@ -1,14 +1,21 @@
 // All the words on the public landing page live here, so they can be changed without touching the design.
-// A section with no entries (colleges, news) or a contact line left empty is simply not shown.
+// A section with no entries (stats, colleges, news, testimonials, president's word) or a contact line left
+// empty is simply not shown, so nothing invented ever appears on the public site.
 
 export interface LandingItem { title: string; text: string }
+export interface LandingStat { label: string; value: string }
 export interface LandingNews { tag: string; title: string; text: string }
+export interface LandingTestimonial { text: string; name: string; role: string }
 
 export const landingContent = {
   universityName: 'جامعة المعالي',
-  heroTitle: 'علمٌ يرتقي بك، ومستقبلٌ تبنيه بيدك',
+  universitySuffix: 'الخاصة',
+  tagline: 'علمٌ يبني الإنسان، وجامعةٌ تصنع المستقبل',
   heroText:
-    'جامعة المعالي تقدّم برامج أكاديمية حديثة وبيئة تعليمية داعمة، مع نظام إلكتروني يتيح للطالب التسجيل ومتابعة وضعه الأكاديمي وتقديم الطلبات دون مراجعة الدوائر.',
+    'برامج أكاديمية حديثة وبيئة تعليمية داعمة، مع نظام إلكتروني يتيح للطالب التسجيل ومتابعة وضعه الأكاديمي وتقديم الطلبات دون مراجعة الدوائر.',
+
+  // Official figures, e.g. { label: 'كلية', value: '6' }. Empty = the strip is hidden.
+  stats: [] as LandingStat[],
 
   about: {
     intro: 'رؤيتنا أن يتخرج طالب يجمع بين المعرفة والمهارة والقيم.',
@@ -18,6 +25,9 @@ export const landingContent = {
       { title: 'القيم', text: 'النزاهة، الشفافية، الاحترام، والتعلّم المستمر.' },
     ] as LandingItem[],
   },
+
+  // The president's word. Both empty = the section is hidden.
+  president: { name: '', word: '' },
 
   // Official colleges and programmes. Empty = the section is hidden.
   colleges: [] as LandingItem[],
@@ -35,6 +45,9 @@ export const landingContent = {
 
   // Announcements. Empty = the section is hidden.
   news: [] as LandingNews[],
+
+  // Real opinions of students, graduates or staff. Empty = the section is hidden.
+  testimonials: [] as LandingTestimonial[],
 
   // Contact lines. An empty string = the line is hidden.
   contact: {
