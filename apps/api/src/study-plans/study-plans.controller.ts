@@ -110,6 +110,14 @@ export class StudyPlansController {
     );
   }
 
+  @Get(':id/structure')
+  structure(
+    @Param('id') id: string,
+    @Req() request: Request & { user: { id: string; role: string } },
+  ) {
+    return this.studyPlansService.structure(id, request.user);
+  }
+
   @Get(':id')
   findById(
     @Param('id')

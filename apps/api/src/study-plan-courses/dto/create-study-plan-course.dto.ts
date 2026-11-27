@@ -1,11 +1,15 @@
 import {
+  ArrayMaxSize,
+  IsArray,
   IsEnum,
   IsInt,
+  IsOptional,
   IsUUID,
+  Max,
   Min,
 } from 'class-validator';
 
-import { CourseRequirement } from '../../generated/prisma/enums.js';
+import { CourseRequirement, CurriculumCategory } from '../../generated/prisma/enums.js';
 
 export class CreateStudyPlanCourseDto {
   @IsUUID()
@@ -26,4 +30,23 @@ export class CreateStudyPlanCourseDto {
 
   @IsEnum(CourseRequirement)
   requirement!: CourseRequirement;
+
+  // نوع المتطلب: جامعة / كلية / برنامج.
+  @IsOptional()
+  @IsEnum(CurriculumCategory)
+  category?: CurriculumCategory;
+
+  // الساعات المعتمدة ضمن الخطة (الفارغ = ساعات المقرر العامة).
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(30)
+  creditsInPlan?: number;
+
+  // المتطلبات السابقة ضمن الخطة (مقررات من الخطة نفسها وفصول أبكر). إن أُرسلت (حتى فارغة) تصبح هي المعتمدة لهذه الخطة.
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsUUID('all', { each: true })
+  prerequisiteCourseIds?: string[];
 }

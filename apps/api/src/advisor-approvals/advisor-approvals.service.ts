@@ -340,7 +340,7 @@ export class AdvisorApprovalsService {
         id: planCourse.course.id,
         code: planCourse.course.code,
         nameAr: planCourse.course.nameAr,
-        credits: planCourse.course.credits,
+        credits: planCourse.creditsInPlan ?? planCourse.course.credits,
         academicYear: planCourse.academicYear,
         semester: planCourse.semester,
         sections: planCourse.course.sections.filter(

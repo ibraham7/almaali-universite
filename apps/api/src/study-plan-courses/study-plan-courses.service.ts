@@ -6,6 +6,7 @@ import { CreateStudyPlanCourseDto } from './dto/create-study-plan-course.dto.js'
 import { ReorderStudyPlanCoursesDto } from './dto/reorder-study-plan-courses.dto.js';
 import { RemoveStudyPlanCourseDto } from './dto/remove-study-plan-course.dto.js';
 import { assertPlanEditable } from '../study-plans/plan-status.js';
+import { UpdateStudyPlanCourseDto } from './dto/update-study-plan-course.dto.js';
 
 // أولويات المقررات المُزالة تبدأ من هنا نزولاً (بعيدة عن الأولويات الحقيقية وعن السالب المؤقت لإعادة الترتيب)
 const REMOVED_PRIORITY_BASE = -1_000_000;
@@ -197,6 +198,8 @@ export class StudyPlanCoursesService {
             status: 'ACTIVE',
             priority: dto.priority,
             requirement: dto.requirement,
+            category: dto.category ?? null,
+            creditsInPlan: dto.creditsInPlan ?? null,
             removedAt: null,
             removedById: null,
             removeReason: null,
@@ -211,14 +214,70 @@ export class StudyPlanCoursesService {
             courseId: dto.courseId,
             priority: dto.priority,
             requirement: dto.requirement,
+            category: dto.category ?? null,
+            creditsInPlan: dto.creditsInPlan ?? null,
           },
           include,
         });
+
+    if (dto.prerequisiteCourseIds !== undefined) {
+      await this.setPlanPrerequisites(planCourse.id, dto.prerequisiteCourseIds);
+    }
 
     return {
       success: true,
       planCourse,
     };
+  }
+
+  // المتطلبات السابقة داخل الخطة: مقررات من الخطة نفسها وفي فصل أبكر. الاستبدال بتعطيل القديم لا بحذفه.
+  private async setPlanPrerequisites(planCourseId: string, courseIds: string[]) {
+    const target = await this.prisma.studyPlanCourse.findUnique({
+      where: { id: planCourseId },
+      select: { id: true, studyPlanId: true, courseId: true, academicYear: { select: { levelNumber: true } }, semester: { select: { semesterNumber: true } } },
+    });
+    if (!target) throw new NotFoundException('مقرر الخطة غير موجود');
+    const unique = [...new Set(courseIds)];
+    if (unique.includes(target.courseId)) throw new BadRequestException('لا يمكن أن يكون المقرر متطلبًا سابقًا لنفسه.');
+    const inPlan = unique.length
+      ? await this.prisma.studyPlanCourse.findMany({
+          where: { studyPlanId: target.studyPlanId, courseId: { in: unique }, status: 'ACTIVE' },
+          select: { courseId: true, course: { select: { code: true, nameAr: true } }, academicYear: { select: { levelNumber: true } }, semester: { select: { semesterNumber: true } } },
+        })
+      : [];
+    for (const id of unique) {
+      const found = inPlan.find((item) => item.courseId === id);
+      if (!found) throw new BadRequestException('المتطلب السابق يجب أن يكون مقررًا مضافًا إلى هذه الخطة.');
+      const earlier = found.academicYear.levelNumber < target.academicYear.levelNumber
+        || (found.academicYear.levelNumber === target.academicYear.levelNumber && found.semester.semesterNumber < target.semester.semesterNumber);
+      if (!earlier) throw new BadRequestException(`المتطلب السابق «${found.course.nameAr}» يجب أن يكون في فصل أبكر من المقرر.`);
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.studyPlanCourse.update({ where: { id: planCourseId }, data: { ownPrerequisites: true } });
+      await tx.studyPlanCoursePrerequisite.updateMany({ where: { planCourseId, prerequisiteCourseId: { notIn: unique } }, data: { isActive: false } });
+      for (const prerequisiteCourseId of unique) {
+        await tx.studyPlanCoursePrerequisite.upsert({
+          where: { planCourseId_prerequisiteCourseId: { planCourseId, prerequisiteCourseId } },
+          update: { isActive: true },
+          create: { planCourseId, prerequisiteCourseId },
+        });
+      }
+    });
+  }
+
+  // تعديل خصائص المقرر داخل مسودة الخطة (نوع المتطلب، إجباري/اختياري، الساعات، المتطلبات السابقة).
+  async update(id: string, dto: UpdateStudyPlanCourseDto, actor: { id: string; role: string }) {
+    const planCourse = await this.prisma.studyPlanCourse.findUnique({ where: { id }, select: { id: true, studyPlanId: true, status: true } });
+    if (!planCourse || planCourse.status !== 'ACTIVE') throw new NotFoundException('مقرر الخطة غير موجود');
+    await this.assertPlanAccess(planCourse.studyPlanId, actor);
+    await assertPlanEditable(this.prisma, planCourse.studyPlanId);
+    const data: Record<string, unknown> = {};
+    if (dto.requirement !== undefined) data.requirement = dto.requirement;
+    if (dto.category !== undefined) data.category = dto.category;
+    if (dto.creditsInPlan !== undefined) data.creditsInPlan = dto.creditsInPlan;
+    if (Object.keys(data).length) await this.prisma.studyPlanCourse.update({ where: { id }, data });
+    if (dto.prerequisiteCourseIds !== undefined) await this.setPlanPrerequisites(id, dto.prerequisiteCourseIds);
+    return this.prisma.studyPlanCourse.findUnique({ where: { id }, include: { course: true, prerequisites: { where: { isActive: true }, include: { prerequisite: true } } } });
   }
 
   // ============================================================

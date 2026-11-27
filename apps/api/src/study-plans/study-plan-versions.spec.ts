@@ -18,7 +18,8 @@ function db(found: Record<string, unknown> | null, extra: Record<string, any> = 
     },
     academicYear: { create: vi.fn(async ({ data }: any) => ({ id: `new-${data.levelNumber}`, ...data })) },
     semester: { create: vi.fn(async ({ data }: any) => ({ id: `new-s${data.semesterNumber}`, ...data })) },
-    studyPlanCourse: { create: vi.fn().mockResolvedValue({}) },
+    studyPlanCourse: { create: vi.fn(async ({ data }: any) => ({ id: data.courseId === 'c1' ? 'new-pc1' : 'new-pc', ...data })) },
+    studyPlanCoursePrerequisite: { create: vi.fn().mockResolvedValue({}) },
     studyPlanCurriculumCourse: { create: vi.fn().mockResolvedValue({}) },
     studyPlanCurriculumQuota: { create: vi.fn().mockResolvedValue({}) },
     auditLog: { create: vi.fn().mockResolvedValue({}) },
@@ -70,7 +71,10 @@ describe('study plan versions', () => {
     const source = plan({
       status: 'APPROVED', id: 'p1',
       academicYears: [{ id: 'l1', nameAr: 'المستوى الأول', nameEn: null, levelNumber: 1, semesters: [{ id: 's1', nameAr: 'الفصل الأول', nameEn: null, semesterNumber: 1, requireMandatoryCourses: true, isActive: true }] }],
-      planCourses: [{ academicYearId: 'l1', semesterId: 's1', courseId: 'c1', priority: 1, requirement: 'MANDATORY' }],
+      planCourses: [
+        { id: 'pc1', academicYearId: 'l1', semesterId: 's1', courseId: 'c1', priority: 1, requirement: 'MANDATORY', category: 'UNIVERSITY', creditsInPlan: 2, ownPrerequisites: false, prerequisites: [] },
+        { id: 'pc2', academicYearId: 'l1', semesterId: 's1', courseId: 'c2', priority: 2, requirement: 'ELECTIVE', category: 'PROGRAM', creditsInPlan: null, ownPrerequisites: true, prerequisites: [{ isActive: true, prerequisiteCourseId: 'c1' }, { isActive: false, prerequisiteCourseId: 'cX' }] },
+      ],
       curriculumEntries: [{ courseId: 'c1', category: 'UNIVERSITY', requirement: 'MANDATORY', sourceFile: 'f.xlsx', sourceRow: 4 }],
       curriculumQuotas: [{ category: 'UNIVERSITY', requirement: 'MANDATORY', requiredCredits: 12, offeredPoolCredits: 12 }],
     });
@@ -78,7 +82,10 @@ describe('study plan versions', () => {
     prisma.studyPlan.findFirst.mockImplementation(async ({ where }: any) => (where.status === 'DRAFT' ? null : { versionNumber: 1 }));
     const created: any = await new StudyPlansService(prisma as PrismaService).createVersion('p1', admin);
     expect(created).toMatchObject({ status: 'DRAFT', versionNumber: 2, planKey: 'k1', previousVersionId: 'p1', cohortYear: 2026, effectiveFrom: null });
-    expect(prisma.studyPlanCourse.create).toHaveBeenCalledWith({ data: expect.objectContaining({ studyPlanId: 'new-plan', academicYearId: 'new-1', semesterId: 'new-s1', courseId: 'c1', priority: 1 }) });
+    expect(prisma.studyPlanCourse.create).toHaveBeenCalledWith({ data: expect.objectContaining({ studyPlanId: 'new-plan', academicYearId: 'new-1', semesterId: 'new-s1', courseId: 'c1', priority: 1, category: 'UNIVERSITY', creditsInPlan: 2, ownPrerequisites: false }) });
+    // خصائص المقرر ومتطلباته السابقة الخاصة بالخطة تُنسخ (النشطة فقط) إلى مقرر الخطة الجديد
+    expect(prisma.studyPlanCoursePrerequisite.create).toHaveBeenCalledTimes(1);
+    expect(prisma.studyPlanCoursePrerequisite.create).toHaveBeenCalledWith({ data: { planCourseId: 'new-pc', prerequisiteCourseId: 'c1' } });
     expect(prisma.studyPlanCurriculumCourse.create).toHaveBeenCalledTimes(1);
     expect(prisma.studyPlanCurriculumQuota.create).toHaveBeenCalledTimes(1);
     expect(prisma.studyPlan.update).not.toHaveBeenCalled();

@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -17,6 +18,8 @@ import { CreateStudyPlanCourseDto } from './dto/create-study-plan-course.dto.js'
 import { ReorderStudyPlanCoursesDto } from './dto/reorder-study-plan-courses.dto.js';
 
 import { RemoveStudyPlanCourseDto } from './dto/remove-study-plan-course.dto.js';
+
+import { UpdateStudyPlanCourseDto } from './dto/update-study-plan-course.dto.js';
 
 import { JwtGuard } from '../auth/guards/jwt/jwt.guard.js';
 
@@ -49,6 +52,18 @@ export class StudyPlanCoursesController {
       dto,
       request.user,
     );
+  }
+
+  // تعديل خصائص المقرر داخل مسودة الخطة.
+  @Patch(':id')
+  update(
+    @Param('id')
+    id: string,
+    @Body()
+    dto: UpdateStudyPlanCourseDto,
+    @Req() request: Request & { user: { id: string; role: string } },
+  ) {
+    return this.studyPlanCoursesService.update(id, dto, request.user);
   }
 
   @Get()

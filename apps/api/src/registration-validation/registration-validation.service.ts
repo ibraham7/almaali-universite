@@ -418,6 +418,20 @@ export class RegistrationValidationService {
     };
   }
 
+  // ساعات المقررات كما هي في خطة الطالب: creditsInPlan إن وُجدت وإلا ساعات المقرر العامة.
+  private async creditsInStudentPlan(enrollmentId: string, courses: Array<{ id: string; credits: number }>) {
+    const credits = new Map(courses.map((course) => [course.id, course.credits]));
+    const enrollment = await this.prisma.studentEnrollment.findUnique({ where: { id: enrollmentId }, select: { student: { select: { studyPlanId: true } } } });
+    const studyPlanId = enrollment?.student?.studyPlanId;
+    if (!studyPlanId || courses.length === 0) return credits;
+    const overrides = await this.prisma.studyPlanCourse.findMany({
+      where: { studyPlanId, courseId: { in: courses.map((course) => course.id) }, status: 'ACTIVE', creditsInPlan: { not: null } },
+      select: { courseId: true, creditsInPlan: true },
+    });
+    for (const row of overrides) credits.set(row.courseId, row.creditsInPlan!);
+    return credits;
+  }
+
   async validatePrerequisites(
     enrollmentId: string,
     courseId: string,
@@ -430,6 +444,7 @@ export class RegistrationValidationService {
         select: {
           id: true,
           studentId: true,
+          student: { select: { studyPlanId: true } },
         },
       });
 
@@ -440,15 +455,24 @@ export class RegistrationValidationService {
       };
     }
 
-    const prerequisites =
-      await this.prisma.coursePrerequisite.findMany({
-        where: {
-          courseId,
-        },
-        include: {
-          prerequisite: true,
-        },
-      });
+    // متطلبات الخطة الخاصة (إن عُرّفت لهذا المقرر في خطة الطالب) وإلا متطلبات المقرر العامة.
+    const planCourse = enrollment.student?.studyPlanId
+      ? await this.prisma.studyPlanCourse.findFirst({
+          where: { studyPlanId: enrollment.student.studyPlanId, courseId, status: 'ACTIVE' },
+          select: { ownPrerequisites: true, prerequisites: { where: { isActive: true }, include: { prerequisite: true } } },
+        })
+      : null;
+
+    const prerequisites = planCourse?.ownPrerequisites
+      ? planCourse.prerequisites.map((item) => ({ courseId, prerequisiteId: item.prerequisiteCourseId, prerequisite: item.prerequisite }))
+      : await this.prisma.coursePrerequisite.findMany({
+          where: {
+            courseId,
+          },
+          include: {
+            prerequisite: true,
+          },
+        });
 
     if (prerequisites.length === 0) {
       return {
@@ -838,21 +862,24 @@ export class RegistrationValidationService {
         },
       });
 
+    const planCredits = await this.creditsInStudentPlan(enrollmentId, [course, ...registeredItems.map((item) => item.course)]);
+    const creditsOf = (item: { id: string; credits: number }) => planCredits.get(item.id) ?? item.credits;
+
     const currentCredits =
       registeredItems.reduce(
         (total, item) =>
-          total + item.course.credits,
+          total + creditsOf(item.course),
         0,
       );
 
     if (
-      currentCredits + course.credits >
+      currentCredits + creditsOf(course) >
       registrationPeriod.maxCredits
     ) {
       return {
         valid: false,
         errors: [
-          `لا يمكنك إضافة هذا المقرر لأنك ستتجاوز الحد الأقصى المسموح من الساعات (${registrationPeriod.maxCredits} ساعة). مجموع ساعاتك الحالي ${currentCredits} ساعة، وهذا المقرر ${course.credits} ساعات.`,
+          `لا يمكنك إضافة هذا المقرر لأنك ستتجاوز الحد الأقصى المسموح من الساعات (${registrationPeriod.maxCredits} ساعة). مجموع ساعاتك الحالي ${currentCredits} ساعة، وهذا المقرر ${creditsOf(course)} ساعات.`,
         ],
       };
     }
@@ -899,10 +926,12 @@ export class RegistrationValidationService {
         },
       });
 
+    const planCredits = await this.creditsInStudentPlan(enrollmentId, registeredItems.map((item) => item.course));
+
     const currentCredits =
       registeredItems.reduce(
         (total, item) =>
-          total + item.course.credits,
+          total + (planCredits.get(item.course.id) ?? item.course.credits),
         0,
       );
 

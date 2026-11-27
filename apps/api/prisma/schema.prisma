@@ -422,6 +422,7 @@ model Course {
 
   prerequisites   CoursePrerequisite[] @relation("CoursePrerequisites")
   requiredFor     CoursePrerequisite[] @relation("RequiredFor")
+  planPrerequisites StudyPlanCoursePrerequisite[] @relation("PlanPrerequisiteCourse")
   sections        CourseSection[]
   enrollmentItems EnrollmentItem[]
   planCourses       StudyPlanCourse[]
@@ -443,6 +444,11 @@ model StudyPlanCourse {
 
   priority    Int
   requirement CourseRequirement
+  // نوع المتطلب داخل الخطة (جامعة/كلية/برنامج)، وساعات المقرر ضمن الخطة (الفارغ = ساعات المقرر العامة).
+  category      CurriculumCategory?
+  creditsInPlan Int?
+  // true: المتطلبات السابقة لهذا المقرر في هذه الخطة هي المعرّفة في prerequisites (حتى لو فارغة). false: متطلبات المقرر العامة.
+  ownPrerequisites Boolean @default(false)
 
   // إزالة المقرر من الخطة لا تحذفه (سياسة منع الحذف النهائي): تصبح حالته REMOVED مع من وكم وسبب.
   status       StudyPlanCourseStatus @default(ACTIVE)
@@ -454,6 +460,7 @@ model StudyPlanCourse {
   academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
   semester     Semester     @relation(fields: [semesterId], references: [id])
   course       Course       @relation(fields: [courseId], references: [id])
+  prerequisites StudyPlanCoursePrerequisite[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -465,6 +472,22 @@ model StudyPlanCourse {
 }
 
 
+
+// المتطلب السابق لمقرر داخل خطة محددة (إصدار محدد). الإزالة بتعطيل السطر لا بحذفه.
+model StudyPlanCoursePrerequisite {
+  id                   String  @id @default(uuid())
+  planCourseId         String
+  prerequisiteCourseId String
+  isActive             Boolean @default(true)
+
+  planCourse   StudyPlanCourse @relation(fields: [planCourseId], references: [id])
+  prerequisite Course          @relation("PlanPrerequisiteCourse", fields: [prerequisiteCourseId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([planCourseId, prerequisiteCourseId])
+}
 
 // Catalog courses are attached to a program plan before their semester
 // placement is decided. This keeps catalog data separate from student-visible

@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { getAdvisorAllowedProgramIds } from '../advisors/advisor-scope.js';
 import { assertSelectable } from '../academic-structure/active-structure.js';
 import { assertPlanEditable, planLabel } from './plan-status.js';
+import { effectiveCredits, effectivePrerequisites } from './plan-course-rules.js';
 
 @Injectable()
 export class StudyPlansService {
@@ -137,7 +138,7 @@ export class StudyPlansService {
       where: { id },
       include: {
         academicYears: { include: { semesters: true } },
-        planCourses: { where: { status: 'ACTIVE' } },
+        planCourses: { where: { status: 'ACTIVE' }, include: { prerequisites: true } },
         curriculumEntries: true,
         curriculumQuotas: true,
       },
@@ -166,11 +167,19 @@ export class StudyPlansService {
           semesterIds.set(semester.id, copy.id);
         }
       }
+      const planCourseIds = new Map<string, string>();
       for (const row of source.planCourses) {
-        await tx.studyPlanCourse.create({ data: {
+        const copy = await tx.studyPlanCourse.create({ data: {
           studyPlanId: plan.id, academicYearId: levelIds.get(row.academicYearId)!, semesterId: semesterIds.get(row.semesterId)!,
           courseId: row.courseId, priority: row.priority, requirement: row.requirement,
+          category: row.category, creditsInPlan: row.creditsInPlan, ownPrerequisites: row.ownPrerequisites,
         } });
+        planCourseIds.set(row.id, copy.id);
+      }
+      for (const row of source.planCourses) {
+        for (const item of row.prerequisites.filter((entry) => entry.isActive)) {
+          await tx.studyPlanCoursePrerequisite.create({ data: { planCourseId: planCourseIds.get(row.id)!, prerequisiteCourseId: item.prerequisiteCourseId } });
+        }
       }
       for (const entry of source.curriculumEntries) {
         await tx.studyPlanCurriculumCourse.create({ data: { studyPlanId: plan.id, courseId: entry.courseId, category: entry.category, requirement: entry.requirement, sourceFile: entry.sourceFile, sourceRow: entry.sourceRow } });
@@ -181,6 +190,51 @@ export class StudyPlansService {
       await tx.auditLog.create({ data: { action: 'STUDY_PLAN_VERSION_CREATED', entity: 'StudyPlan', entityId: plan.id, userId: actor.id || null, details: JSON.stringify({ from: source.id, plan: planLabel({ ...source, versionNumber }) }) } });
       return plan;
     });
+  }
+
+  // هيكل الخطة كاملًا للعرض والمراجعة: مستويات ← فصول ← مقررات بخصائصها (نوع المتطلب، الساعات، المتطلبات السابقة) ومجاميع الساعات.
+  async structure(id: string, actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
+    await this.assertPlanAccess(id, actor);
+    const plan = await this.prisma.studyPlan.findUnique({
+      where: { id },
+      include: {
+        program: { select: { nameAr: true, college: { select: { nameAr: true } }, department: { select: { nameAr: true, college: { select: { nameAr: true } } } } } },
+        academicYears: { orderBy: { levelNumber: 'asc' }, include: { semesters: { orderBy: { semesterNumber: 'asc' } } } },
+        planCourses: {
+          where: { status: 'ACTIVE' },
+          orderBy: { priority: 'asc' },
+          include: {
+            course: { include: { prerequisites: { include: { prerequisite: true } } } },
+            prerequisites: { where: { isActive: true }, include: { prerequisite: true } },
+          },
+        },
+      },
+    });
+    if (!plan) throw new NotFoundException('الخطة الدراسية غير موجودة');
+    const rows = plan.planCourses.map((row) => ({
+      id: row.id, courseId: row.courseId, code: row.course.code, nameAr: row.course.nameAr, priority: row.priority,
+      academicYearId: row.academicYearId, semesterId: row.semesterId,
+      requirement: row.requirement, category: row.category, credits: effectiveCredits(row), courseCredits: row.course.credits, creditsInPlan: row.creditsInPlan,
+      ownPrerequisites: row.ownPrerequisites,
+      prerequisites: effectivePrerequisites(row).map((item) => ({ courseId: item.id, code: item.code, nameAr: item.nameAr })),
+    }));
+    const sum = (list: typeof rows) => list.reduce((total, row) => total + row.credits, 0);
+    const { academicYears, planCourses: _planCourses, ...header } = plan;
+    void _planCourses;
+    return {
+      ...header,
+      levels: academicYears.map((level) => ({
+        id: level.id, nameAr: level.nameAr, nameEn: level.nameEn, levelNumber: level.levelNumber,
+        semesters: level.semesters.map((semester) => {
+          const courses = rows.filter((row) => row.semesterId === semester.id);
+          return { id: semester.id, nameAr: semester.nameAr, nameEn: semester.nameEn, semesterNumber: semester.semesterNumber, isActive: semester.isActive, courses, credits: sum(courses) };
+        }),
+      })),
+      totals: {
+        courses: rows.length, credits: sum(rows),
+        byCategory: { UNIVERSITY: sum(rows.filter((row) => row.category === 'UNIVERSITY')), COLLEGE: sum(rows.filter((row) => row.category === 'COLLEGE')), PROGRAM: sum(rows.filter((row) => row.category === 'PROGRAM')), UNSPECIFIED: sum(rows.filter((row) => !row.category)) },
+      },
+    };
   }
 
   // الخطة المناسبة لطالب جديد: آخر إصدار معتمد لدفعته، وإلا الخطة العامة (بلا دفعة) للبرنامج.
