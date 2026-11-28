@@ -51,11 +51,28 @@ export default function StudyPlansListPage() {
   const [structure, setStructure] = useState<PlanStructure | null>(null);
   const [versions, setVersions] = useState<VersionRow[]>([]);
   const [viewLoading, setViewLoading] = useState(false);
+  // حذف الخطط (مرحلة التجريب): يظهر لمدير النظام فقط عند تفعيله من السيرفر
+  const [canDelete, setCanDelete] = useState(false);
+  const [deleting, setDeleting] = useState<PlanRow | null>(null);
+  const [deleteWord, setDeleteWord] = useState('');
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  useEffect(() => { apiClient.get<{ deletePlans: boolean }>('/study-plans/capabilities').then((response) => setCanDelete(response.data.deletePlans)).catch(() => setCanDelete(false)); }, []);
 
   const load = useCallback(async () => {
     try { setPlans((await apiClient.get<PlanRow[]>('/study-plans')).data); setError(''); } catch (cause) { setError(errorText(cause, 'تعذر تحميل الخطط.')); } finally { setLoading(false); }
   }, []);
   useEffect(() => { void load(); }, [load]);
+
+  async function confirmDelete() {
+    if (!deleting) return;
+    setDeleteBusy(true); setDeleteError('');
+    try {
+      const result = await apiClient.delete<{ unlinkedStudents: number }>(`/study-plans/${deleting.id}`, { data: { confirm: deleteWord } });
+      setNotice(`تم حذف الخطة «${deleting.nameAr}»${result.data.unlinkedStudents ? ` وفك ارتباط ${result.data.unlinkedStudents} طالب بها` : ''}.`);
+      setDeleting(null); setDeleteWord(''); await load();
+    } catch (cause) { setDeleteError(errorText(cause)); } finally { setDeleteBusy(false); }
+  }
 
   const rows = useMemo(() => plans
     .filter((plan) => !status || plan.status === status)
@@ -137,6 +154,7 @@ export default function StudyPlansListPage() {
                     {plan.status === 'DRAFT' && <Button size="small" onClick={() => navigate(`/supervisor/study-plan/${plan.id}/edit`)}>متابعة الإنشاء</Button>}
                     {plan.status === 'DRAFT' && canApprove && <Button size="small" color="success" onClick={() => void act('approve', plan)}>اعتماد</Button>}
                     {plan.status === 'APPROVED' && canApprove && <Button size="small" color="warning" onClick={() => void act('version', plan)}>إصدار جديد</Button>}
+                    {canDelete && <Button size="small" color="error" onClick={() => { setDeleting(plan); setDeleteWord(''); setDeleteError(''); }}>حذف</Button>}
                   </TableCell>
                 </TableRow>
               ))}
@@ -145,6 +163,18 @@ export default function StudyPlansListPage() {
           </Table>
         </TableContainer>
       )}
+
+      <Dialog open={Boolean(deleting)} onClose={deleteBusy ? undefined : () => setDeleting(null)} fullWidth maxWidth="xs">
+        <DialogTitle>حذف الخطة (مرحلة التجريب)</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Alert severity="warning">سيُحذف «{deleting?.nameAr}» (إصدار {deleting?.versionNumber}) بكل مستوياتها وفصولها ومقرراتها نهائيًا، ويُفك ارتباط طلابها ({deleting?.studentsCount ?? 0}) بها. لا يمكن التراجع. يُرفض الحذف إن كان لفصولها شعب أو تسجيلات أو نتائج.</Alert>
+            {deleteError && <Alert severity="error">{deleteError}</Alert>}
+            <TextField label="اكتب كلمة «حذف» للتأكيد" value={deleteWord} onChange={(event) => setDeleteWord(event.target.value)} autoFocus />
+          </Stack>
+        </DialogContent>
+        <DialogActions><Button onClick={() => setDeleting(null)} disabled={deleteBusy}>إلغاء</Button><Button color="error" variant="contained" disabled={deleteBusy || deleteWord.trim() !== 'حذف'} onClick={() => void confirmDelete()}>حذف نهائيًا</Button></DialogActions>
+      </Dialog>
 
       <Dialog open={Boolean(viewing)} onClose={() => setViewing(null)} fullWidth maxWidth="lg">
         <DialogTitle>{viewing ? `${viewing.nameAr} — إصدار ${viewing.versionNumber}` : ''}</DialogTitle>

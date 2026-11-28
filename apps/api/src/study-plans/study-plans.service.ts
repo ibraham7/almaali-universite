@@ -311,4 +311,43 @@ export class StudyPlansService {
       },
     });
   }
+
+  // مرحلة التجريب فقط: يُفعَّل بالإعداد ALLOW_TEST_DELETE=true على السيرفر، ويُغلَق بإزالته (كحذف الطلاب).
+  static deleteEnabled() {
+    return process.env.ALLOW_TEST_DELETE === 'true';
+  }
+
+  // حذف خطة بكل محتواها (مستويات، فصول، مقررات، متطلبات). الحذف النهائي ممنوع عادةً بقاعدة البيانات؛ يُسمح به هنا فقط.
+  // يُرفض إن كانت لفصول الخطة شعب أو تسجيلات أو نتائج أو فترات تسجيل (بياناتها حقيقية). الطلاب المرتبطون يُفك ارتباطهم فقط.
+  async deleteForTest(id: string, confirm: string, user: { id: string; role: string }) {
+    if (!StudyPlansService.deleteEnabled()) throw new ForbiddenException('حذف الخطط مغلق. يُفعَّل لمرحلة التجريب فقط من إعدادات السيرفر.');
+    if (user.role !== 'SYSTEM_ADMIN') throw new ForbiddenException('حذف الخطط لمدير النظام فقط.');
+    if ((confirm ?? '').trim() !== 'حذف') throw new BadRequestException('اكتب كلمة «حذف» للتأكيد.');
+    const plan = await this.prisma.studyPlan.findUnique({ where: { id }, select: { id: true, nameAr: true, versionNumber: true, status: true, academicYears: { select: { id: true, semesters: { select: { id: true } } } } } });
+    if (!plan) throw new NotFoundException('الخطة غير موجودة.');
+    const semesterIds = plan.academicYears.flatMap((year) => year.semesters.map((semester) => semester.id));
+    const [sections, enrollments, results, periods] = await Promise.all([
+      this.prisma.courseSection.count({ where: { semesterId: { in: semesterIds } } }),
+      this.prisma.studentEnrollment.count({ where: { semesterId: { in: semesterIds } } }),
+      this.prisma.courseResult.count({ where: { semesterId: { in: semesterIds } } }),
+      this.prisma.registrationPeriod.count({ where: { semesterId: { in: semesterIds } } }),
+    ]);
+    if (sections || enrollments || results || periods) {
+      throw new ConflictException(`لا يمكن حذف الخطة لأن لفصولها بيانات مرتبطة: ${sections} شعبة، ${enrollments} تسجيل، ${results} نتيجة، ${periods} فترة تسجيل.`);
+    }
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.allow_hard_delete', 'on', true)`;
+      const unlinked = await tx.student.updateMany({ where: { studyPlanId: id }, data: { studyPlanId: null, academicYearId: null, semesterId: null } });
+      await tx.studyPlan.updateMany({ where: { previousVersionId: id }, data: { previousVersionId: null } });
+      await tx.studyPlanCoursePrerequisite.deleteMany({ where: { planCourse: { studyPlanId: id } } });
+      await tx.studyPlanCourse.deleteMany({ where: { studyPlanId: id } });
+      await tx.studyPlanCurriculumCourse.deleteMany({ where: { studyPlanId: id } });
+      await tx.studyPlanCurriculumQuota.deleteMany({ where: { studyPlanId: id } });
+      await tx.semester.deleteMany({ where: { id: { in: semesterIds } } });
+      await tx.academicYear.deleteMany({ where: { studyPlanId: id } });
+      await tx.studyPlan.delete({ where: { id } });
+      await tx.auditLog.create({ data: { action: 'TEST_PHASE_DELETE_STUDY_PLAN', entity: 'StudyPlan', entityId: id, userId: user.id, details: JSON.stringify({ name: plan.nameAr, version: plan.versionNumber, status: plan.status, unlinkedStudents: unlinked.count }) } });
+      return { deleted: true, unlinkedStudents: unlinked.count };
+    });
+  }
 }

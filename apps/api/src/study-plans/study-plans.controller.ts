@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -76,6 +77,17 @@ export class StudyPlansController {
     return this.studyPlansService.approve(id, request.user);
   }
 
+  // مرحلة التجريب: حذف خطة بكل محتواها (مدير النظام فقط، ويحتاج ALLOW_TEST_DELETE على السيرفر).
+  @Delete(':id')
+  @Roles('SYSTEM_ADMIN')
+  remove(
+    @Param('id') id: string,
+    @Body() body: { confirm?: string },
+    @Req() request: Request & { user: { id: string; role: string } },
+  ) {
+    return this.studyPlansService.deleteForTest(id, body?.confirm ?? '', request.user);
+  }
+
   @Post(':id/new-version')
   @Roles('REGISTRAR', 'SYSTEM_ADMIN')
   createVersion(
@@ -83,6 +95,12 @@ export class StudyPlansController {
     @Req() request: Request & { user: { id: string; role: string } },
   ) {
     return this.studyPlansService.createVersion(id, request.user);
+  }
+
+  // هل حذف الخطط (مرحلة التجريب) مفعَّل لهذا المستخدم؟
+  @Get('capabilities')
+  capabilities(@Req() request: Request & { user: { id: string; role: string } }) {
+    return { deletePlans: StudyPlansService.deleteEnabled() && request.user.role === 'SYSTEM_ADMIN' };
   }
 
   @Get('suggest')

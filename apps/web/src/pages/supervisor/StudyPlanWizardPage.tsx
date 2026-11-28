@@ -210,7 +210,7 @@ export default function StudyPlanWizardPage() {
 
       <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, mb: 2 }}>
         {step === 0 && (
-          <Stack spacing={2} sx={{ maxWidth: 640 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' }, gap: 2.5, alignItems: 'start', maxWidth: 900 }}>
             <TextField select required label="الكلية" value={info.collegeId} disabled={Boolean(planId)}
               onChange={(event) => setInfo({ ...info, collegeId: event.target.value, departmentId: '', programId: '' })}>
               {open.colleges.map((item) => <MenuItem key={item.id} value={item.id}>{item.nameAr}</MenuItem>)}
@@ -224,18 +224,14 @@ export default function StudyPlanWizardPage() {
               {programOptions.map((item) => <MenuItem key={item.id} value={item.id}>{item.nameAr}</MenuItem>)}
             </TextField>
             <TextField required label="اسم الخطة" value={info.nameAr} onChange={(event) => setInfo({ ...info, nameAr: event.target.value })} disabled={locked} />
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField label="الدفعة المستهدفة (سنة القبول)" value={info.cohortYear} sx={{ flex: 1 }} disabled={locked}
+              <TextField label="الدفعة المستهدفة (سنة القبول)" value={info.cohortYear} disabled={locked}
                 onChange={(event) => setInfo({ ...info, cohortYear: event.target.value.replace(/\D/g, '').slice(0, 4) })} helperText="اتركها فارغة لخطة عامة لكل الدفعات" />
-              <TextField label="رقم الإصدار" value={structure?.versionNumber ?? 1} sx={{ flex: 1 }} disabled helperText="الإصدارات الجديدة تُنشأ من الخطة المعتمدة" />
-            </Stack>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-              <TextField type="date" label="تاريخ بدء التطبيق" value={info.effectiveFrom} sx={{ flex: 1 }} disabled={locked}
+              <TextField label="رقم الإصدار" value={structure?.versionNumber ?? 1} disabled helperText="الإصدارات الجديدة تُنشأ من الخطة المعتمدة" />
+              <TextField type="date" label="تاريخ بدء التطبيق" value={info.effectiveFrom} disabled={locked}
                 onChange={(event) => setInfo({ ...info, effectiveFrom: event.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
-              <TextField label="ساعات التخرج (اختياري)" value={info.graduationCredits} sx={{ flex: 1 }} disabled={locked}
+              <TextField label="ساعات التخرج (اختياري)" value={info.graduationCredits} disabled={locked}
                 onChange={(event) => setInfo({ ...info, graduationCredits: event.target.value.replace(/\D/g, '').slice(0, 3) })} />
-            </Stack>
-          </Stack>
+          </Box>
         )}
 
         {step === 1 && (
