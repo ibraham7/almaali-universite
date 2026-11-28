@@ -16,11 +16,12 @@ export class SitePublicService {
   }
 
   async content() {
-    const [settings, items, testimonials, news, profiles, colleges] = await Promise.all([
+    const [settings, items, testimonials, news, announcements, profiles, colleges] = await Promise.all([
       this.prisma.siteSetting.findMany(),
       this.prisma.siteContentItem.findMany({ where: { status: 'PUBLISHED' }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }], select: { kind: true, title: true, text: true, extra: true } }),
       this.prisma.siteTestimonial.findMany({ where: { status: 'PUBLISHED' }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }], select: { text: true, name: true, role: true } }),
-      this.prisma.siteNews.findMany({ where: { status: 'PUBLISHED' }, orderBy: { publishedAt: 'desc' }, take: 3, select: { id: true, type: true, title: true, summary: true, coverMediaId: true, publishedAt: true } }),
+      this.prisma.siteNews.findMany({ where: { status: 'PUBLISHED', type: 'NEWS' }, orderBy: { publishedAt: 'desc' }, take: 3, select: { id: true, type: true, title: true, summary: true, coverMediaId: true, publishedAt: true } }),
+      this.prisma.siteNews.findMany({ where: { status: 'PUBLISHED', type: 'ANNOUNCEMENT' }, orderBy: { publishedAt: 'desc' }, take: 5, select: { id: true, type: true, title: true, summary: true, coverMediaId: true, publishedAt: true } }),
       this.prisma.siteAcademicProfile.findMany(),
       this.prisma.college.findMany({
         where: { isActive: true }, orderBy: { createdAt: 'asc' },
@@ -45,14 +46,20 @@ export class SitePublicService {
       settings: values,
       stats: this.items(items, 'STAT'), values: this.items(items, 'VALUE'), goals: this.items(items, 'GOAL'), milestones: this.items(items, 'MILESTONE'),
       admissionSteps: this.items(items, 'ADMISSION_STEP'), faq: this.items(items, 'FAQ'),
-      colleges: visibleColleges, testimonials, latestNews: news,
+      colleges: visibleColleges, testimonials, latestNews: news, latestAnnouncements: announcements,
     };
   }
 
-  async newsList(page = 1, pageSize = 9) {
+  // type: خبر أو إعلان. q: بحث بالعنوان والملخص (حد أقصى 80 حرفًا).
+  async newsList(page = 1, pageSize = 9, type?: string, q?: string) {
     const take = Math.min(Math.max(pageSize, 1), 24);
     const skip = (Math.max(page, 1) - 1) * take;
-    const where = { status: 'PUBLISHED' as const };
+    const term = q?.trim().slice(0, 80);
+    const where = {
+      status: 'PUBLISHED' as const,
+      ...(type === 'NEWS' || type === 'ANNOUNCEMENT' ? { type: type as 'NEWS' | 'ANNOUNCEMENT' } : {}),
+      ...(term ? { OR: [{ title: { contains: term, mode: 'insensitive' as const } }, { summary: { contains: term, mode: 'insensitive' as const } }] } : {}),
+    };
     const [total, rows] = await Promise.all([
       this.prisma.siteNews.count({ where }),
       this.prisma.siteNews.findMany({ where, orderBy: { publishedAt: 'desc' }, skip, take, select: { id: true, type: true, title: true, summary: true, coverMediaId: true, publishedAt: true } }),

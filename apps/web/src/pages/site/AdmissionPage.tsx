@@ -19,13 +19,13 @@ export default function AdmissionPage() {
     <SitePage title="القبول والتسجيل" subtitle={s.admissionIntro}>
       {empty && <EmptyNote>سيتم نشر معلومات القبول والتسجيل قريبًا.</EmptyNote>}
       {SECTIONS.filter(([key]) => s[key]).map(([key, title]) => (
-        <Block key={key} title={title}><Box sx={{ ...goldCard, p: { xs: 2.5, md: 3.5 }, borderInlineStart: `5px solid ${T.gold}`, '&:hover': { transform: 'none' } }}><Prose text={s[key]} /></Box></Block>
+        <Block key={key} title={title}><Box data-rv="" sx={{ ...goldCard, p: { xs: 2.5, md: 3.5 }, borderInlineStart: `5px solid ${T.gold}`, '&:hover': { transform: 'none' } }}><Prose text={s[key]} /></Box></Block>
       ))}
       {steps.length > 0 && (
         <Block title="خطوات التقديم">
           <Box component="ol" sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(auto-fit, minmax(220px, 1fr))' }, gap: 2.25 }}>
             {steps.map((step, index) => (
-              <Box component="li" key={step.title} sx={{ ...goldCard, p: 2.75, borderTop: `4px solid ${T.gold}` }}>
+              <Box data-rv="" data-tilt="" component="li" key={step.title} sx={{ ...goldCard, p: 2.75, borderTop: `4px solid ${T.gold}` }}>
                 <Box sx={{ width: 36, height: 36, borderRadius: '50%', display: 'grid', placeItems: 'center', mb: 1.25, fontWeight: 800, background: T.navyGrad, color: T.goldText, boxShadow: `0 0 0 2px ${T.gold}` }}>{index + 1}</Box>
                 <Typography component="h3" sx={{ fontSize: 17.5, fontWeight: 700, color: T.navy }}>{step.title}</Typography>
                 {step.text && <Typography sx={{ fontSize: 14.5, color: T.muted }}>{step.text}</Typography>}
@@ -38,7 +38,7 @@ export default function AdmissionPage() {
         <Block title="الأسئلة الشائعة">
           <Box sx={{ display: 'grid', gap: 1.25 }}>
             {faq.map((item) => (
-              <Box component="details" key={item.title} sx={{ ...goldCard, p: 0, '&:hover': { transform: 'none' }, '& summary': { cursor: 'pointer', p: 2.25, fontWeight: 700, color: T.navy, listStyle: 'none', '&::-webkit-details-marker': { display: 'none' }, '&::after': { content: '"+"', float: 'inline-end', color: T.goldDark, fontSize: 22, lineHeight: 1 } }, '&[open] summary::after': { content: '"−"' } }}>
+              <Box data-rv="" component="details" key={item.title} sx={{ ...goldCard, p: 0, '&:hover': { transform: 'none' }, '& summary': { cursor: 'pointer', p: 2.25, fontWeight: 700, color: T.navy, listStyle: 'none', '&::-webkit-details-marker': { display: 'none' }, '&::after': { content: '"+"', float: 'inline-end', color: T.goldDark, fontSize: 22, lineHeight: 1 } }, '&[open] summary::after': { content: '"−"' } }}>
                 <summary>{item.title}</summary>
                 <Typography sx={{ px: 2.25, pb: 2.25, color: T.muted, lineHeight: 1.9, whiteSpace: 'pre-line' }}>{item.text}</Typography>
               </Box>

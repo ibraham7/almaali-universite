@@ -13,7 +13,7 @@ export default function CollegesPage() {
       {colleges.length > 0 && (
         <Wrap sx={{ py: { xs: 4, md: 6 }, display: 'grid', gap: 3 }}>
           {colleges.map((college) => (
-            <Box component="article" key={college.nameAr} sx={{ ...goldCard, overflow: 'hidden', borderTop: `4px solid ${T.gold}`, '&:hover': { transform: 'none' } }}>
+            <Box data-rv="" component="article" key={college.nameAr} sx={{ ...goldCard, overflow: 'hidden', borderTop: `4px solid ${T.gold}`, '&:hover': { transform: 'none' } }}>
               {college.mediaId && <Box component="img" src={siteMediaUrl(college.mediaId)} alt={`صورة ${college.nameAr}`} loading="lazy" sx={{ width: '100%', height: { xs: 160, md: 220 }, objectFit: 'cover', display: 'block' }} />}
               <Box sx={{ p: { xs: 2.5, md: 3.5 } }}>
                 <Typography component="h2" sx={{ fontSize: { xs: 22, md: 26 }, fontWeight: 800, color: T.navy }}>{college.nameAr}</Typography>

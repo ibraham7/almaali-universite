@@ -115,10 +115,11 @@ describe('public site content', () => {
   it('returns only published content with a minimal field set, and nothing invented when empty', async () => {
     const prisma = db();
     const empty: any = await new SitePublicService(prisma as PrismaService).content();
-    expect(empty).toMatchObject({ settings: {}, stats: [], colleges: [], testimonials: [], latestNews: [], faq: [] });
+    expect(empty).toMatchObject({ settings: {}, stats: [], colleges: [], testimonials: [], latestNews: [], latestAnnouncements: [], faq: [] });
     expect(prisma.siteContentItem.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { status: 'PUBLISHED' } }));
     expect(prisma.siteTestimonial.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { status: 'PUBLISHED' } }));
-    expect(prisma.siteNews.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { status: 'PUBLISHED' } }));
+    expect(prisma.siteNews.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { status: 'PUBLISHED', type: 'NEWS' } }));
+    expect(prisma.siteNews.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { status: 'PUBLISHED', type: 'ANNOUNCEMENT' } }));
   });
 
   it('exposes only whitelisted, non-empty settings; a college appears only when the admin made it visible', async () => {
@@ -144,6 +145,16 @@ describe('public site content', () => {
     expect(prisma.siteNews.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'n1', status: 'PUBLISHED' } }));
     await new SitePublicService(prisma as PrismaService).newsList(1, 500);
     expect(prisma.siteNews.findMany).toHaveBeenCalledWith(expect.objectContaining({ take: 24 }));
+    // the home page lists news and announcements separately; the list filters by type and searches title and summary
+    await new SitePublicService(prisma as PrismaService).content();
+    const wheres = prisma.siteNews.findMany.mock.calls.map((call: any) => call[0].where.type);
+    expect(wheres).toEqual(expect.arrayContaining(['NEWS', 'ANNOUNCEMENT']));
+    await new SitePublicService(prisma as PrismaService).newsList(1, 9, 'ANNOUNCEMENT', '  تسجيل  ');
+    const filtered = prisma.siteNews.findMany.mock.calls.at(-1)[0].where;
+    expect(filtered).toMatchObject({ status: 'PUBLISHED', type: 'ANNOUNCEMENT' });
+    expect(filtered.OR[0].title.contains).toBe('تسجيل');
+    await new SitePublicService(prisma as PrismaService).newsList(1, 9, 'HACK', 'x');
+    expect(prisma.siteNews.findMany.mock.calls.at(-1)[0].where.type).toBeUndefined();
   });
 
   it('a contact message needs a valid email or phone, ignores bots silently, and stores a hashed address only', async () => {

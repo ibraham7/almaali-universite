@@ -5,6 +5,7 @@ export const SETTING_DEFS: SettingDef[] = [
   { key: 'tagline', group: 'home', label: 'الشعار النصي تحت اسم الجامعة', max: 200 },
   { key: 'heroText', group: 'home', label: 'نص الصفحة الرئيسية', max: 600, multiline: true },
   { key: 'aboutIntro', group: 'about', label: 'نبذة عن الجامعة', max: 3000, multiline: true },
+  { key: 'aboutImageId', group: 'about', label: 'صورة النبذة (معرّف ملف من الوسائط)', max: 60, kind: 'media' },
   { key: 'vision', group: 'about', label: 'الرؤية', max: 1500, multiline: true },
   { key: 'mission', group: 'about', label: 'الرسالة', max: 1500, multiline: true },
   { key: 'presidentName', group: 'about', label: 'اسم رئيس الجامعة', max: 120 },

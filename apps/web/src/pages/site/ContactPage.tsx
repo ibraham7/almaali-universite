@@ -37,7 +37,7 @@ export default function ContactPage() {
     <SitePage title="اتصل بنا" subtitle="يسعدنا استقبال استفساراتكم.">
       <Wrap sx={{ py: { xs: 4, md: 6 }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: lines.length ? '1fr 1.2fr' : '1fr' }, gap: 3, maxWidth: lines.length ? undefined : 680 }}>
         {lines.length > 0 && (
-          <Box sx={{ ...goldCard, p: 3, borderTop: `4px solid ${T.gold}`, alignSelf: 'start', '&:hover': { transform: 'none' } }}>
+          <Box data-rv="" sx={{ ...goldCard, p: 3, borderTop: `4px solid ${T.gold}`, alignSelf: 'start', '&:hover': { transform: 'none' } }}>
             <Typography component="h2" sx={{ fontSize: 22, fontWeight: 800, color: T.navy, mb: 2 }}>بيانات التواصل</Typography>
             <Stack spacing={1.75}>
               {lines.map(([label, value, href]) => (
@@ -50,7 +50,7 @@ export default function ContactPage() {
             </Stack>
           </Box>
         )}
-        <Box component="form" onSubmit={submit} sx={{ ...goldCard, p: { xs: 2.5, md: 3.5 }, '&:hover': { transform: 'none' } }}>
+        <Box data-rv="" component="form" onSubmit={submit} sx={{ ...goldCard, p: { xs: 2.5, md: 3.5 }, '&:hover': { transform: 'none' } }}>
           <Typography component="h2" sx={{ fontSize: 22, fontWeight: 800, color: T.navy, mb: 2 }}>أرسل لنا رسالة</Typography>
           <Stack spacing={2}>
             {state.kind === 'done' && <Alert severity="success">وصلتنا رسالتك، وسنتواصل معك قريبًا.</Alert>}
