@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert, Autocomplete, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Paper, Stack,
-  Step, StepButton, Stepper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
+  ButtonBase, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -197,13 +197,25 @@ export default function StudyPlanWizardPage() {
       </Stack>
 
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-        <Stepper nonLinear activeStep={step} alternativeLabel>
-          {STEPS.map((label, index) => (
-            <Step key={label} completed={index < step}>
-              <StepButton color="inherit" onClick={() => goTo(index)} disabled={!planId && index > 0}>{label}</StepButton>
-            </Step>
-          ))}
-        </Stepper>
+        {/* شريط الخطوات: خطوط الوصل بخصائص منطقية (تعمل صحيحًا مع الاتجاه من اليمين لليسار) وبلا خط زائد بعد الخطوة الأخيرة */}
+        <Box component="ol" aria-label="خطوات إنشاء الخطة" sx={{ listStyle: 'none', m: 0, p: 0, display: 'flex' }}>
+          {STEPS.map((label, index) => {
+            const active = index === step;
+            const done = index < step;
+            const disabled = !planId && index > 0;
+            return (
+              <Box
+                component="li" key={label} aria-current={active ? 'step' : undefined}
+                sx={{ flex: 1, minWidth: 0, position: 'relative', textAlign: 'center', ...(index > 0 ? { '&::before': { content: '""', position: 'absolute', top: 14, insetInlineStart: 'calc(-50% + 24px)', insetInlineEnd: 'calc(50% + 24px)', height: 2, borderRadius: 2, bgcolor: done || active ? 'primary.main' : 'divider' } } : {}) }}
+              >
+                <ButtonBase onClick={() => goTo(index)} disabled={disabled} sx={{ flexDirection: 'column', gap: 0.75, px: 0.5, py: 0.25, borderRadius: 2, width: '100%', opacity: disabled ? 0.55 : 1 }}>
+                  <Box sx={{ width: 30, height: 30, borderRadius: '50%', display: 'grid', placeItems: 'center', fontSize: 14, fontWeight: 700, color: '#fff', position: 'relative', zIndex: 1, bgcolor: active || done ? 'primary.main' : 'grey.500', boxShadow: active ? '0 0 0 4px rgba(6,45,86,.15)' : 'none' }}>{done ? '✓' : index + 1}</Box>
+                  <Typography sx={{ fontSize: { xs: 11.5, md: 14 }, fontWeight: active ? 800 : 500, color: active ? 'text.primary' : 'text.secondary', lineHeight: 1.4 }}>{label}</Typography>
+                </ButtonBase>
+              </Box>
+            );
+          })}
+        </Box>
       </Paper>
 
       {locked && <Alert severity="warning" sx={{ mb: 2 }}>هذه الخطة {structure?.status === 'APPROVED' ? 'معتمدة' : 'إصدار قديم'} ومقفلة للتعديل. لتعديلها أنشئ إصدارًا جديدًا من صفحة «الهيكل الأكاديمي».</Alert>}
@@ -212,30 +224,51 @@ export default function StudyPlanWizardPage() {
 
       <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 }, mb: 2 }}>
         {step === 0 && (
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' }, gap: 2.5, alignItems: 'start', maxWidth: 900 }}>
-            <TextField select required label="الكلية" value={info.collegeId} disabled={Boolean(planId)}
-              onChange={(event) => setInfo({ ...info, collegeId: event.target.value, departmentId: '', programId: '' })}>
-              {open.colleges.map((item) => <MenuItem key={item.id} value={item.id}>{item.nameAr}</MenuItem>)}
-            </TextField>
-            <TextField select required label="القسم / الاختصاص" value={info.departmentId} disabled={Boolean(planId) || !info.collegeId}
-              onChange={(event) => setInfo({ ...info, departmentId: event.target.value, programId: '' })}>
-              {departmentOptions.map((item) => <MenuItem key={item.id} value={item.id}>{item.nameAr}</MenuItem>)}
-            </TextField>
-            <TextField select required label="البرنامج (بكالوريوس، دبلوم...)" value={info.programId} disabled={Boolean(planId) || !info.departmentId}
-              onChange={(event) => setInfo({ ...info, programId: event.target.value })}>
-              {programOptions.map((item) => <MenuItem key={item.id} value={item.id}>{item.nameAr}</MenuItem>)}
-            </TextField>
-            <TextField required label="اسم الخطة" value={info.nameAr} onChange={(event) => setInfo({ ...info, nameAr: event.target.value })} disabled={locked} />
-              <TextField label="من دفعة (سنة القبول)" value={info.cohortYear} disabled={locked}
-                onChange={(event) => setInfo({ ...info, cohortYear: event.target.value.replace(/\D/g, '').slice(0, 4) })} helperText="أول دفعة تسري عليها الخطة. فارغة مع «إلى دفعة» فارغة = خطة عامة لكل الدفعات." />
-              <TextField label="إلى دفعة (اختياري)" value={info.cohortToYear} disabled={locked || !info.cohortYear}
-                onChange={(event) => setInfo({ ...info, cohortToYear: event.target.value.replace(/\D/g, '').slice(0, 4) })} helperText="اتركها فارغة إذا كانت الخطة ما زالت سارية على الدفعات الجديدة. لدفعة واحدة اكتب نفس السنة." />
-              <TextField label="رقم الإصدار" value={structure?.versionNumber ?? 1} disabled helperText="الإصدارات الجديدة تُنشأ من الخطة المعتمدة" />
-              <TextField type="date" label="تاريخ بدء التطبيق" value={info.effectiveFrom} disabled={locked}
-                onChange={(event) => setInfo({ ...info, effectiveFrom: event.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
-              <TextField label="ساعات التخرج (اختياري)" value={info.graduationCredits} disabled={locked}
-                onChange={(event) => setInfo({ ...info, graduationCredits: event.target.value.replace(/\D/g, '').slice(0, 3) })} />
-          </Box>
+          <Stack spacing={3.5}>
+            <Box>
+              <Typography sx={{ fontWeight: 800, mb: 0.25 }}>البرنامج الأكاديمي</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.75 }}>الكلية والقسم والدرجة (بكالوريوس، دبلوم، ماجستير، دكتوراه) التي تتبع لها الخطة.</Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' }, gap: 2, alignItems: 'start' }}>
+                <TextField select required label="الكلية" value={info.collegeId} disabled={Boolean(planId)}
+                  onChange={(event) => setInfo({ ...info, collegeId: event.target.value, departmentId: '', programId: '' })}>
+                  {open.colleges.map((item) => <MenuItem key={item.id} value={item.id}>{item.nameAr}</MenuItem>)}
+                </TextField>
+                <TextField select required label="القسم / الاختصاص" value={info.departmentId} disabled={Boolean(planId) || !info.collegeId}
+                  onChange={(event) => setInfo({ ...info, departmentId: event.target.value, programId: '' })}>
+                  {departmentOptions.map((item) => <MenuItem key={item.id} value={item.id}>{item.nameAr}</MenuItem>)}
+                </TextField>
+                <TextField select required label="البرنامج (بكالوريوس، دبلوم...)" value={info.programId} disabled={Boolean(planId) || !info.departmentId}
+                  onChange={(event) => setInfo({ ...info, programId: event.target.value })}>
+                  {programOptions.map((item) => <MenuItem key={item.id} value={item.id}>{item.nameAr}</MenuItem>)}
+                </TextField>
+              </Box>
+            </Box>
+
+            <Box>
+              <Typography sx={{ fontWeight: 800, mb: 1.75 }}>الخطة</Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' }, gap: 2, alignItems: 'start' }}>
+                <Box sx={{ gridColumn: { md: 'span 2' } }}>
+                  <TextField fullWidth required label="اسم الخطة" value={info.nameAr} onChange={(event) => setInfo({ ...info, nameAr: event.target.value })} disabled={locked} />
+                </Box>
+                <TextField label="رقم الإصدار" value={structure?.versionNumber ?? 1} disabled helperText="الإصدارات الجديدة تُنشأ من الخطة المعتمدة" />
+              </Box>
+            </Box>
+
+            <Box>
+              <Typography sx={{ fontWeight: 800, mb: 0.25 }}>الدفعات والتطبيق</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.75 }}>الدفعة هي سنة قبول الطالب. اترك «من دفعة» و«إلى دفعة» فارغتين لخطة عامة لكل الدفعات.</Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' }, gap: 2, alignItems: 'start' }}>
+                <TextField label="من دفعة (سنة القبول)" value={info.cohortYear} disabled={locked}
+                  onChange={(event) => setInfo({ ...info, cohortYear: event.target.value.replace(/\D/g, '').slice(0, 4) })} helperText="أول دفعة تسري عليها الخطة، مثل 2023." />
+                <TextField label="إلى دفعة (اختياري)" value={info.cohortToYear} disabled={locked || !info.cohortYear}
+                  onChange={(event) => setInfo({ ...info, cohortToYear: event.target.value.replace(/\D/g, '').slice(0, 4) })} helperText="فارغة = ما زالت سارية على الدفعات الجديدة. لدفعة واحدة اكتب نفس السنة." />
+                <TextField type="date" label="تاريخ بدء التطبيق" value={info.effectiveFrom} disabled={locked}
+                  onChange={(event) => setInfo({ ...info, effectiveFrom: event.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
+                <TextField label="ساعات التخرج (اختياري)" value={info.graduationCredits} disabled={locked}
+                  onChange={(event) => setInfo({ ...info, graduationCredits: event.target.value.replace(/\D/g, '').slice(0, 3) })} />
+              </Box>
+            </Box>
+          </Stack>
         )}
 
         {step === 1 && (
