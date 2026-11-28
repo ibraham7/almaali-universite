@@ -1,0 +1,2 @@
+ALTER TABLE "SiteEntry" ADD COLUMN "videos" TEXT[] DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE "SiteAcademicProfile" ADD COLUMN "details" TEXT NOT NULL DEFAULT '';

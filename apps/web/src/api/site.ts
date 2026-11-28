@@ -3,12 +3,13 @@ import { apiClient } from './client';
 
 // المحتوى العام للموقع التعريفي (كله من لوحة الموقع). ما لا بيانات له لا يُرجَع، فتختفي أقسامه من الصفحات.
 export interface SiteItem { title: string; text: string; extra: string | null }
+export interface OrgNode { name: string; role: string; children: OrgNode[] }
 export interface SiteNewsCard { id: string; type: 'NEWS' | 'ANNOUNCEMENT'; category?: string; title: string; summary: string; coverMediaId: string | null; publishedAt: string | null }
 export type EntryKind = 'EVENT' | 'RESEARCH' | 'GRADUATE_STORY' | 'GRADUATE_NEWS' | 'CAMPUS';
-export interface SiteEntryCard { id: string; kind: EntryKind; category: string; title: string; summary: string; location: string; startsAt: string | null; endsAt: string | null; coverMediaId: string | null; publishedAt: string | null }
-export interface SiteEntryFull extends SiteEntryCard { body: string; galleryIds: string[] }
+export interface SiteEntryCard { id: string; kind: EntryKind; category: string; title: string; summary: string; location: string; startsAt: string | null; endsAt: string | null; coverMediaId: string | null; publishedAt: string | null; imageCount: number; videoCount: number }
+export interface SiteEntryFull { id: string; kind: EntryKind; category: string; title: string; summary: string; location: string; startsAt: string | null; endsAt: string | null; coverMediaId: string | null; publishedAt: string | null; body: string; galleryIds: string[]; videos: string[] }
 export interface SiteCollege {
-  nameAr: string; summary: string; mediaId: string | null;
+  id: string; nameAr: string; summary: string; details: string; mediaId: string | null;
   departments: Array<{ nameAr: string; summary: string; programs: Array<{ nameAr: string; summary: string }> }>;
 }
 export interface SiteContent {
@@ -20,7 +21,9 @@ export interface SiteContent {
   latestAnnouncements: SiteNewsCard[];
   newsCategories: string[];
   entryCounts: Partial<Record<EntryKind, number>>;
-  upcomingEvents: Array<{ id: string; title: string; location: string; startsAt: string | null; coverMediaId: string | null }>;
+  upcomingEvents: SiteEntryCard[];
+  orgTree: OrgNode[];
+  quickLinks: SiteItem[];
 }
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
@@ -59,8 +62,8 @@ export async function sendSiteMessage(input: { name: string; contact: string; su
   return data;
 }
 
-export async function getSiteEntries(kind: EntryKind, page: number, opts: { when?: 'upcoming' | 'past'; category?: string } = {}) {
-  const { data } = await apiClient.get<{ total: number; page: number; pageSize: number; items: SiteEntryCard[] }>(`/site/entries/${kind}`, { params: { page, when: opts.when, category: opts.category || undefined } });
+export async function getSiteEntries(kind: EntryKind, page: number, opts: { when?: 'upcoming' | 'past'; category?: string; q?: string } = {}) {
+  const { data } = await apiClient.get<{ total: number; page: number; pageSize: number; items: SiteEntryCard[]; categories: string[] }>(`/site/entries/${kind}`, { params: { page, when: opts.when, category: opts.category || undefined, q: opts.q?.trim() || undefined } });
   return data;
 }
 

@@ -152,14 +152,14 @@ type Kind = 'COLLEGE' | 'DEPARTMENT' | 'PROGRAM';
 
 function ProfileRow({ node, kind, images, depth, onSaved, onError, children }: { node: AcademicNode; kind: Kind; images: SiteMediaRow[]; depth: number; onSaved: () => void; onError: (message: string) => void; children?: React.ReactNode }) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ summary: node.summary, mediaId: node.mediaId, sortOrder: String(node.sortOrder), isVisible: node.isVisible });
+  const [form, setForm] = useState({ summary: node.summary, details: node.details, mediaId: node.mediaId, sortOrder: String(node.sortOrder), isVisible: node.isVisible });
   const [busy, setBusy] = useState(false);
-  const dirty = form.summary !== node.summary || form.mediaId !== node.mediaId || Number(form.sortOrder) !== node.sortOrder || form.isVisible !== node.isVisible;
+  const dirty = form.summary !== node.summary || form.details !== node.details || form.mediaId !== node.mediaId || Number(form.sortOrder) !== node.sortOrder || form.isVisible !== node.isVisible;
   const hideLabel = kind === 'COLLEGE' ? 'يظهر بالموقع' : 'يظهر (افتراضيًا نعم)';
 
   async function save() {
     setBusy(true);
-    try { await saveSiteProfile(kind, node.id, { summary: form.summary, mediaId: form.mediaId, sortOrder: Number(form.sortOrder) || 0, isVisible: form.isVisible }); onSaved(); } catch (cause) { onError(errorText(cause)); } finally { setBusy(false); }
+    try { await saveSiteProfile(kind, node.id, { summary: form.summary, details: form.details, mediaId: form.mediaId, sortOrder: Number(form.sortOrder) || 0, isVisible: form.isVisible }); onSaved(); } catch (cause) { onError(errorText(cause)); } finally { setBusy(false); }
   }
 
   return (
@@ -174,6 +174,7 @@ function ProfileRow({ node, kind, images, depth, onSaved, onError, children }: {
         <Collapse in={open} unmountOnExit>
           <Stack spacing={1.5} sx={{ pt: 1.5 }}>
             <TextField label="نبذة" multiline minRows={2} size="small" value={form.summary} onChange={(event) => setForm({ ...form, summary: event.target.value })} slotProps={{ htmlInput: { maxLength: 2000 } }} />
+            {kind === 'COLLEGE' && <TextField label="تفاصيل إضافية (تظهر في صفحة الكلية)" multiline minRows={3} size="small" value={form.details} onChange={(event) => setForm({ ...form, details: event.target.value })} slotProps={{ htmlInput: { maxLength: 6000 } }} />}
             {kind === 'COLLEGE' && <ImagePicker label="الصورة" value={form.mediaId} images={images} onChange={(id) => setForm({ ...form, mediaId: id })} />}
             <TextField label="الترتيب" type="number" size="small" value={form.sortOrder} onChange={(event) => setForm({ ...form, sortOrder: event.target.value })} sx={{ maxWidth: 140 }} />
           </Stack>

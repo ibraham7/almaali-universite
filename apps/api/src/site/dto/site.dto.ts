@@ -2,7 +2,7 @@ import { Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsEnum, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 
 const STATUSES = ['DRAFT', 'PUBLISHED', 'ARCHIVED'] as const;
-const KINDS = ['STAT', 'VALUE', 'GOAL', 'MILESTONE', 'ADMISSION_STEP', 'FAQ', 'NEWS_CATEGORY'] as const;
+const KINDS = ['STAT', 'VALUE', 'GOAL', 'MILESTONE', 'ADMISSION_STEP', 'FAQ', 'NEWS_CATEGORY', 'ORG_NODE', 'QUICK_LINK'] as const;
 const ENTRY_KIND_LIST = ['EVENT', 'RESEARCH', 'GRADUATE_STORY', 'GRADUATE_NEWS', 'CAMPUS'] as const;
 
 // قيم النصوص المفردة: المفاتيح المسموحة والحدود تُفحص بالخدمة.
@@ -21,7 +21,7 @@ export class CreateItemDto {
   @IsOptional() @IsString() @MaxLength(3000)
   text?: string;
 
-  @IsOptional() @IsString() @MaxLength(60)
+  @IsOptional() @IsString() @MaxLength(300)
   extra?: string;
 
   @IsOptional() @IsInt() @Min(0) @Max(100000) @Type(() => Number)
@@ -38,7 +38,7 @@ export class UpdateItemDto {
   @IsOptional() @IsString() @MaxLength(3000)
   text?: string;
 
-  @IsOptional() @IsString() @MaxLength(60)
+  @IsOptional() @IsString() @MaxLength(300)
   extra?: string;
 
   @IsOptional() @IsInt() @Min(0) @Max(100000) @Type(() => Number)
@@ -122,6 +122,9 @@ export class UpsertProfileDto {
   @IsOptional() @IsString() @MaxLength(2000)
   summary?: string;
 
+  @IsOptional() @IsString() @MaxLength(6000)
+  details?: string;
+
   @IsOptional() @IsUUID()
   mediaId?: string | null;
 
@@ -192,6 +195,9 @@ export class CreateEntryDto {
   @IsOptional() @IsArray() @ArrayMaxSize(24) @IsUUID(undefined, { each: true })
   galleryIds?: string[];
 
+  @IsOptional() @IsArray() @ArrayMaxSize(6) @IsString({ each: true }) @MaxLength(400, { each: true })
+  videos?: string[];
+
   @IsOptional() @IsInt() @Min(0) @Max(100000) @Type(() => Number)
   sortOrder?: number;
 }
@@ -223,6 +229,9 @@ export class UpdateEntryDto {
 
   @IsOptional() @IsArray() @ArrayMaxSize(24) @IsUUID(undefined, { each: true })
   galleryIds?: string[];
+
+  @IsOptional() @IsArray() @ArrayMaxSize(6) @IsString({ each: true }) @MaxLength(400, { each: true })
+  videos?: string[];
 
   @IsOptional() @IsInt() @Min(0) @Max(100000) @Type(() => Number)
   sortOrder?: number;

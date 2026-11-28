@@ -41,18 +41,19 @@ export function siteNav(content: SiteContent | null) {
   const s = content?.settings ?? {};
   const hasAbout = Boolean(s.aboutIntro || s.vision || s.mission || s.presidentWord || s.historyIntro || content?.values.length || content?.goals.length || content?.milestones.length);
   const hasAdmission = Boolean(content?.admissionSteps.length || content?.faq.length || s.admissionIntro || s.admissionConditions || s.admissionDocuments || s.admissionDates || s.admissionFees || s.admissionHow);
+  // الصفحات السبع الأساسية بترتيب التصميم المعتمد تظهر دائمًا في الشريط، والإضافية (secondary) تحت «المزيد».
   return [
-    { to: '/', label: 'الرئيسية', end: true, show: true },
-    { to: '/about', label: 'من نحن', end: false, show: hasAbout },
-    { to: '/colleges', label: 'الكليات', end: false, show: Boolean(content?.colleges.length) },
-    { to: '/admission', label: 'القبول والتسجيل', end: false, show: hasAdmission },
-    { to: '/news', label: 'الأخبار والإعلانات', end: false, show: Boolean(content?.latestNews.length || content?.latestAnnouncements.length) },
-    { to: '/events', label: 'الفعاليات', end: false, show: Boolean(content?.entryCounts.EVENT) },
-    { to: '/research', label: 'البحث العلمي', end: false, show: Boolean(content?.entryCounts.RESEARCH || s.researchIntro) },
-    { to: '/graduates', label: 'الخريجون', end: false, show: Boolean(content?.entryCounts.GRADUATE_STORY || content?.entryCounts.GRADUATE_NEWS || s.graduatesIntro) },
-    { to: '/campus', label: 'الحياة الجامعية', end: false, show: Boolean(content?.entryCounts.CAMPUS || s.campusIntro) },
-    { to: '/testimonials', label: 'قالوا عن الجامعة', end: false, show: Boolean(content?.testimonials.length) },
-    { to: '/contact', label: 'اتصل بنا', end: false, show: true },
+    { to: '/', label: 'الرئيسية', end: true, show: true, secondary: false },
+    { to: '/about', label: 'من نحن', end: false, show: hasAbout, secondary: false },
+    { to: '/colleges', label: 'الكليات', end: false, show: Boolean(content?.colleges.length), secondary: false },
+    { to: '/admission', label: 'القبول والتسجيل', end: false, show: hasAdmission, secondary: false },
+    { to: '/events', label: 'الحياة الجامعية', end: false, show: Boolean(content?.entryCounts.EVENT), secondary: false },
+    { to: '/news', label: 'الأخبار', end: false, show: Boolean(content?.latestNews.length || content?.latestAnnouncements.length), secondary: false },
+    { to: '/contact', label: 'اتصل بنا', end: false, show: true, secondary: false },
+    { to: '/research', label: 'البحث العلمي', end: false, show: Boolean(content?.entryCounts.RESEARCH || s.researchIntro), secondary: true },
+    { to: '/graduates', label: 'الخريجون', end: false, show: Boolean(content?.entryCounts.GRADUATE_STORY || content?.entryCounts.GRADUATE_NEWS || s.graduatesIntro), secondary: true },
+    { to: '/campus', label: 'المرافق والأنشطة', end: false, show: Boolean(content?.entryCounts.CAMPUS || s.campusIntro), secondary: true },
+    { to: '/testimonials', label: 'قالوا عن الجامعة', end: false, show: Boolean(content?.testimonials.length), secondary: true },
   ].filter((item) => item.show);
 }
 

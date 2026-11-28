@@ -137,7 +137,7 @@ describe('public site content', () => {
     expect(content.settings).toEqual({ tagline: 'شعار' });
     expect(content.colleges.map((college: any) => college.nameAr)).toEqual(['كلية ظاهرة']);
     expect(content.colleges[0].departments[0].programs.map((program: any) => program.nameAr)).toEqual(['بكالوريوس']);
-    expect(JSON.stringify(content)).not.toContain('"id"');
+    expect(JSON.stringify({ ...content, colleges: undefined })).not.toContain('"id"'); // only colleges carry an id (for their detail page)
   });
 
   it('a news item is public only when published', async () => {
@@ -245,11 +245,11 @@ describe('site entries (events, research, graduates, campus)', () => {
     const service = new SitePublicService(prisma as PrismaService);
     await expect(service.entriesList('NOPE')).rejects.toBeInstanceOf(NotFoundException);
     await service.entriesList('EVENT', 1, 9, { when: 'past' });
-    const past = prisma.siteEntry.findMany.mock.calls.at(-1)[0];
+    const past = prisma.siteEntry.findMany.mock.calls.at(-2)[0];
     expect(past.where).toMatchObject({ kind: 'EVENT', status: 'PUBLISHED' });
-    expect(past.where.startsAt.lt).toBeInstanceOf(Date);
+    expect(past.where.AND[0].startsAt.lt).toBeInstanceOf(Date);
     await service.entriesList('EVENT', 1, 9);
-    expect(prisma.siteEntry.findMany.mock.calls.at(-1)[0].where.OR).toHaveLength(2);
+    expect(prisma.siteEntry.findMany.mock.calls.at(-2)[0].where.AND[0].OR).toHaveLength(2);
     expect(await service.entryOne('x').catch((error) => error)).toBeInstanceOf(NotFoundException);
   });
 
@@ -262,5 +262,39 @@ describe('site entries (events, research, graduates, campus)', () => {
     expect(data.message).toContain('سنة التخرج: 2024');
     await service.submitGraduateUpdate({ name: 'بوت', contact: 'a@b.co', website: 'spam' }, '2.2.2.2');
     expect(prisma.siteContactMessage.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('videos must be YouTube or a direct https video file, at most six', async () => {
+    const prisma = db();
+    const service = adminService(prisma);
+    await expect(service.createEntry({ kind: 'EVENT', title: 'ف', videos: ['http://x.com/a.mp4'] }, admin)).rejects.toThrow('يوتيوب');
+    await expect(service.createEntry({ kind: 'EVENT', title: 'ف', videos: ['https://evil.com/page'] }, admin)).rejects.toThrow('يوتيوب');
+    await expect(service.createEntry({ kind: 'EVENT', title: 'ف', videos: Array.from({ length: 7 }, (_, i) => `https://x.com/${i}.mp4`) }, admin)).rejects.toThrow('الحد الأقصى');
+    await service.createEntry({ kind: 'EVENT', title: 'ف', videos: ['https://youtu.be/dQw4w9WgXcQ', 'https://x.com/a.mp4'] }, admin);
+    expect(prisma.siteEntry.create.mock.calls[0][0].data.videos).toHaveLength(2);
+  });
+
+  it('org chart items must point at an existing unit and never form a loop; quick links need a safe address', async () => {
+    const prisma = db();
+    const service = adminService(prisma);
+    await expect(service.createItem({ kind: 'QUICK_LINK', title: 'ر', extra: 'javascript:alert(1)' }, admin)).rejects.toThrow('الرابط');
+    await expect(service.createItem({ kind: 'QUICK_LINK', title: 'ر', extra: '//evil.com' }, admin)).rejects.toThrow('الرابط');
+    await service.createItem({ kind: 'QUICK_LINK', title: 'ر', extra: '/contact' }, admin);
+    prisma.siteContentItem.findUnique.mockResolvedValue(null);
+    await expect(service.createItem({ kind: 'ORG_NODE', title: 'و', extra: 'missing' }, admin)).rejects.toThrow('الوحدة الأعلى');
+    prisma.siteContentItem.findUnique.mockImplementation(async ({ where }: any) => (where.id === 'child' ? { id: 'child', kind: 'ORG_NODE', extra: 'root' } : { id: where.id, kind: 'ORG_NODE', extra: null }));
+    await expect(service.updateItem('root', { extra: 'root' }, admin)).rejects.toThrow('نفسها');
+  });
+
+  it('the public content builds the org tree from parent links and lists quick links', async () => {
+    const prisma = db();
+    prisma.siteContentItem.findMany.mockResolvedValue([
+      { id: 'a', kind: 'ORG_NODE', title: 'الرئيس', text: '', extra: null },
+      { id: 'b', kind: 'ORG_NODE', title: 'النائب', text: '', extra: 'a' },
+      { id: 'c', kind: 'QUICK_LINK', title: 'الأخبار', text: '', extra: '/news' },
+    ]);
+    const content: any = await new SitePublicService(prisma as PrismaService).content();
+    expect(content.orgTree).toEqual([{ name: 'الرئيس', role: '', children: [{ name: 'النائب', role: '', children: [] }] }]);
+    expect(content.quickLinks).toEqual([{ title: 'الأخبار', text: '', extra: '/news' }]);
   });
 });
