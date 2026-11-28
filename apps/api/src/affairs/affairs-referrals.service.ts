@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import type { AffairsUser } from './affairs.service.js';
 import { AffairsSettingsService } from './affairs-settings.service.js';
 import { CancelReferralDto, CreateReferralDto, ListReferralsQueryDto, RespondReferralDto } from './dto/affairs.dto.js';
-import { audit, loadRequestForAction } from './affairs-access.js';
+import { audit, isAffairsStaffRole, loadRequestForAction } from './affairs-access.js';
 import { notifyUsers, studentStatusMessage } from './affairs-notifications.js';
 import { isTerminal, type RequestStatus } from './affairs.rules.js';
 
@@ -41,7 +41,7 @@ export class AffairsReferralsService {
   // as "take"), so the referral never leaves a request with nobody responsible. A system admin may refer it without taking it.
   private async loadForReferral(tx: any, requestId: string, user: AffairsUser) {
     const request = await tx.studentRequest.findUnique({ where: { id: requestId }, include: { assignedStaff: { select: { userId: true } } } });
-    if (request && request.status === 'NEW' && !request.assignedStaffId && user.role === 'REGISTRAR') {
+    if (request && request.status === 'NEW' && !request.assignedStaffId && isAffairsStaffRole(user.role)) {
       await this.settings.assertCapability(user, 'capTakeNewRequests');
       const me = await tx.affairsStaff.findUnique({ where: { userId: user.id }, include: { services: { where: { isActive: true } } } });
       if (!me || !me.isActive) throw new ForbiddenException('حسابك غير مضاف كموظف في دائرة شؤون الطلاب.');

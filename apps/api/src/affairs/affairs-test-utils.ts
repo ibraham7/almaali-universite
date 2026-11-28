@@ -11,7 +11,7 @@ export function fakeSettings(overrides: Record<string, boolean | number> = {}) {
     get: vi.fn(async (key: string) => values[key]),
     assertCapability: vi.fn(async (user: { role: string }, key: string) => {
       if (user.role === 'SYSTEM_ADMIN') return;
-      if (user.role === 'REGISTRAR' && values[key]) return;
+      if (['REGISTRAR', 'AFFAIRS_STAFF', 'ADVISOR'].includes(user.role) && values[key]) return;
       throw new ForbiddenException('هذا الإجراء غير مفعّل لدورك.');
     }),
   } as unknown as AffairsSettingsService;

@@ -18,13 +18,17 @@ import {
 import { JwtGuard } from '../auth/guards/jwt/jwt.guard.js';
 import { RolesGuard } from '../auth/guards/roles/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
+import { AffairsAccessGuard } from './affairs-access.guard.js';
 
 interface AuthenticatedRequest extends Request {
   user: AffairsUser & { email: string };
 }
 
+// الأدوار التي تدخل مسارات الموظفين. المشرف (ADVISOR) مشروط بملف موظف فعّال (AffairsAccessGuard).
+const STAFF = ['REGISTRAR', 'SYSTEM_ADMIN', 'AFFAIRS_STAFF', 'ADVISOR'] as const;
+
 @Controller('affairs')
-@UseGuards(JwtGuard, RolesGuard)
+@UseGuards(JwtGuard, RolesGuard, AffairsAccessGuard)
 export class AffairsController {
   constructor(
     private readonly affairs: AffairsService,
@@ -46,103 +50,106 @@ export class AffairsController {
   }
 
   // ----- staff side (REGISTRAR, SYSTEM_ADMIN) -----
-  @Get('summary') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('summary') @Roles(...STAFF)
   summary(@Query() query: SummaryQueryDto, @Req() req: AuthenticatedRequest) { return this.affairs.summary(req.user, query); }
 
-  @Get('operations') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('operations') @Roles(...STAFF)
   operations(@Query('page') page?: string) {
     const n = Number(page ?? 1);
     return this.affairs.operations(Number.isInteger(n) && n >= 1 ? Math.min(n, 100000) : 1);
   }
 
-  @Get('services') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('services') @Roles(...STAFF)
   listServices() { return this.affairs.listServices(); }
 
-  @Post('services') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Post('services') @Roles(...STAFF)
   createService(@Body() body: CreateServiceDto, @Req() req: AuthenticatedRequest) { return this.affairs.createService(body, req.user); }
 
-  @Patch('services/:id') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Patch('services/:id') @Roles(...STAFF)
   updateService(@Param('id') id: string, @Body() body: UpdateServiceDto, @Req() req: AuthenticatedRequest) { return this.affairs.updateService(id, body, req.user); }
 
-  @Get('staff') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('staff') @Roles(...STAFF)
   listStaff() { return this.affairs.listStaff(); }
 
   // Must come before `staff/:id` routes (different verb/shape, but keep the literal path first).
-  @Get('staff/candidates') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('staff/candidates') @Roles(...STAFF)
   staffCandidates() { return this.affairs.staffCandidates(); }
 
   @Post('staff') @Roles('SYSTEM_ADMIN')
   createStaff(@Body() body: CreateStaffDto, @Req() req: AuthenticatedRequest) { return this.affairs.createStaff(body, req.user); }
 
-  @Patch('staff/:id') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Patch('staff/:id') @Roles(...STAFF)
   updateStaff(@Param('id') id: string, @Body() body: UpdateStaffDto, @Req() req: AuthenticatedRequest) { return this.affairs.updateStaff(id, body, req.user); }
 
-  @Get('students/search') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('students/search') @Roles(...STAFF)
   searchStudents(@Query() query: StudentSearchQueryDto) { return this.affairs.searchStudents(query.q); }
 
-  @Get('requests') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('requests') @Roles(...STAFF)
   listRequests(@Query() query: ListRequestsQueryDto, @Req() req: AuthenticatedRequest) { return this.affairs.listRequests(query, req.user); }
 
-  @Post('requests') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Post('requests') @Roles(...STAFF)
   createRequest(@Body() body: ProxyCreateRequestDto, @Req() req: AuthenticatedRequest) { return this.affairs.createByProxy(body, req.user); }
 
-  @Get('requests/:id') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('requests/:id') @Roles(...STAFF)
   getRequest(@Param('id') id: string, @Req() req: AuthenticatedRequest) { return this.affairs.getRequest(id, req.user); }
 
-  @Post('requests/:id/assign') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Post('requests/:id/assign') @Roles(...STAFF)
   assign(@Param('id') id: string, @Body() body: AssignRequestDto, @Req() req: AuthenticatedRequest) { return this.affairs.assign(id, body, req.user); }
 
-  @Post('requests/:id/status') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Post('requests/:id/status') @Roles(...STAFF)
   changeStatus(@Param('id') id: string, @Body() body: ChangeStatusDto, @Req() req: AuthenticatedRequest) { return this.affairs.changeStatus(id, body, req.user); }
 
-  @Post('requests/:id/comment') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Post('requests/:id/comment') @Roles(...STAFF)
   comment(@Param('id') id: string, @Body() body: CommentDto, @Req() req: AuthenticatedRequest) { return this.affairs.comment(id, body, req.user); }
 
   // ----- student files (read only) -----
-  @Get('students') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('students') @Roles(...STAFF)
   listStudents(@Query() query: ListStudentsQueryDto) { return this.files.list(query.search, query.page ?? 1); }
 
-  @Get('students/:id/file') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('students/:id/file') @Roles(...STAFF)
   studentFile(@Param('id') id: string) { return this.files.get(id); }
 
   // ----- attachments -----
-  @Post('requests/:id/attachments') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Post('requests/:id/attachments') @Roles(...STAFF)
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_ATTACHMENT_BYTES + 1, files: 1 } }))
   addAttachment(@Param('id') id: string, @UploadedFile() file: UploadedBinary | undefined, @Req() req: AuthenticatedRequest) { return this.attachments.addByStaff(id, file, req.user); }
 
-  @Post('requests/:id/attachments/:attId/archive') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Post('requests/:id/attachments/:attId/archive') @Roles(...STAFF)
   archiveAttachment(@Param('id') id: string, @Param('attId') attId: string, @Body() body: ArchiveAttachmentDto, @Req() req: AuthenticatedRequest) { return this.attachments.archive(id, attId, body.reason, req.user); }
 
-  @Get('requests/:id/attachments/:attId/download') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('requests/:id/attachments/:attId/download') @Roles(...STAFF)
   async downloadAttachment(@Param('id') id: string, @Param('attId') attId: string, @Res() res: Response) { this.send(res, await this.attachments.downloadForStaff(id, attId)); }
 
-  @Get('me') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('lookups/colleges') @Roles(...STAFF)
+  collegeOptions() { return this.affairs.collegeOptions(); }
+
+  @Get('me') @Roles(...STAFF)
   me(@Req() req: AuthenticatedRequest) { return this.affairs.me(req.user); }
 
   // ----- notifications (everyone reads only their own) -----
-  @Get('notifications') @Roles('STUDENT', 'REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('notifications') @Roles('STUDENT', ...STAFF)
   listNotifications(@Query() query: ListNotificationsQueryDto, @Req() req: AuthenticatedRequest) { return this.notifications.list(req.user, query.unread === 'true', query.page ?? 1); }
 
-  @Get('notifications/unread-count') @Roles('STUDENT', 'REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('notifications/unread-count') @Roles('STUDENT', ...STAFF)
   unreadCount(@Req() req: AuthenticatedRequest) { return this.notifications.unreadCount(req.user); }
 
-  @Post('notifications/read-all') @Roles('STUDENT', 'REGISTRAR', 'SYSTEM_ADMIN')
+  @Post('notifications/read-all') @Roles('STUDENT', ...STAFF)
   readAll(@Req() req: AuthenticatedRequest) { return this.notifications.markAllRead(req.user); }
 
-  @Post('notifications/:id/read') @Roles('STUDENT', 'REGISTRAR', 'SYSTEM_ADMIN')
+  @Post('notifications/:id/read') @Roles('STUDENT', ...STAFF)
   readOne(@Param('id') id: string, @Req() req: AuthenticatedRequest) { return this.notifications.markRead(id, req.user); }
 
   // ----- reports -----
-  @Get('reports/catalog') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('reports/catalog') @Roles(...STAFF)
   reportCatalog(@Req() req: AuthenticatedRequest) { return this.reports.catalog(req.user); }
 
-  @Get('reports/overview') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('reports/overview') @Roles(...STAFF)
   reportOverview(@Query() query: ReportFiltersDto, @Req() req: AuthenticatedRequest) { return this.reports.overview(query, req.user); }
 
-  @Post('reports/run') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Post('reports/run') @Roles(...STAFF)
   runReport(@Body() body: RunReportDto, @Req() req: AuthenticatedRequest) { return this.reports.run(body, req.user); }
 
-  @Post('reports/export') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Post('reports/export') @Roles(...STAFF)
   async exportReport(@Body() body: RunReportDto, @Req() req: AuthenticatedRequest, @Res() res: Response) {
     const csv = await this.reports.exportCsv(body, req.user);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -153,14 +160,14 @@ export class AffairsController {
   }
 
   // ----- settings -----
-  @Get('settings') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('settings') @Roles(...STAFF)
   getSettings() { return this.settings.view(); }
 
   @Patch('settings') @Roles('SYSTEM_ADMIN')
   updateSettings(@Body() body: UpdateSettingsDto, @Req() req: AuthenticatedRequest) { return this.settings.update(body.values, req.user); }
 
   // ----- documents -----
-  @Get('documents/types') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('documents/types') @Roles(...STAFF)
   documentTypes() { return this.documents.listTypes(); }
 
   @Post('documents/types') @Roles('SYSTEM_ADMIN')
@@ -169,29 +176,29 @@ export class AffairsController {
   @Patch('documents/types/:id') @Roles('SYSTEM_ADMIN')
   updateDocumentType(@Param('id') id: string, @Body() body: UpdateDocumentTypeDto, @Req() req: AuthenticatedRequest) { return this.documents.updateType(id, body, req.user); }
 
-  @Get('documents') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('documents') @Roles(...STAFF)
   listDocuments(@Query() query: ListDocumentsQueryDto) { return this.documents.list(query); }
 
-  @Get('documents/:id') @Roles('REGISTRAR', 'SYSTEM_ADMIN', 'STUDENT')
+  @Get('documents/:id') @Roles(...STAFF, 'STUDENT')
   getDocument(@Param('id') id: string, @Req() req: AuthenticatedRequest) { return this.documents.get(id, req.user); }
 
-  @Post('requests/:id/documents') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Post('requests/:id/documents') @Roles(...STAFF)
   issueDocument(@Param('id') id: string, @Req() req: AuthenticatedRequest) { return this.documents.issue(id, req.user); }
 
-  @Post('documents/:id/revoke') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Post('documents/:id/revoke') @Roles(...STAFF)
   revokeDocument(@Param('id') id: string, @Body() body: RevokeDocumentDto, @Req() req: AuthenticatedRequest) { return this.documents.revoke(id, body.reason, req.user); }
 
   // ----- referrals -----
-  @Get('referrals') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Get('referrals') @Roles(...STAFF)
   listReferrals(@Query() query: ListReferralsQueryDto) { return this.referrals.list(query); }
 
-  @Post('requests/:id/referrals') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Post('requests/:id/referrals') @Roles(...STAFF)
   createReferral(@Param('id') id: string, @Body() body: CreateReferralDto, @Req() req: AuthenticatedRequest) { return this.referrals.create(id, body, req.user); }
 
-  @Post('referrals/:id/respond') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Post('referrals/:id/respond') @Roles(...STAFF)
   respondReferral(@Param('id') id: string, @Body() body: RespondReferralDto, @Req() req: AuthenticatedRequest) { return this.referrals.respond(id, body, req.user); }
 
-  @Post('referrals/:id/cancel') @Roles('REGISTRAR', 'SYSTEM_ADMIN')
+  @Post('referrals/:id/cancel') @Roles(...STAFF)
   cancelReferral(@Param('id') id: string, @Body() body: CancelReferralDto, @Req() req: AuthenticatedRequest) { return this.referrals.cancel(id, body, req.user); }
 
   // ----- student side -----

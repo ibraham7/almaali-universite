@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, Chip, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
-import { getColleges, type College } from '../../api/academicStructure';
-import { exportReport, getAffairsServices, getAffairsStaff, getReportOverview, type AffairsServiceItem, type AffairsStaffItem, type ReportFilters, type ReportOverview } from '../../api/affairs';
+import { exportReport, getAffairsCollegeOptions, getAffairsServices, getAffairsStaff, getReportOverview, type AffairsServiceItem, type AffairsStaffItem, type ReportFilters, type ReportOverview } from '../../api/affairs';
 import { BarList, ColumnSeries } from './charts';
 import ReportBuilder from './ReportBuilder';
 import ReportDrilldownDialog from './ReportDrilldownDialog';
@@ -25,14 +24,14 @@ function Overview({ role }: { role: string }) {
   const [collegeId, setCollegeId] = useState('');
   const [services, setServices] = useState<AffairsServiceItem[]>([]);
   const [staff, setStaff] = useState<AffairsStaffItem[]>([]);
-  const [colleges, setColleges] = useState<College[]>([]);
+  const [colleges, setColleges] = useState<Array<{ id: string; nameAr: string }>>([]);
   const [data, setData] = useState<ReportOverview | null>(null);
   const [error, setError] = useState('');
   const [drill, setDrill] = useState<Drill>(null);
 
   useEffect(() => {
     getAffairsServices().then(setServices).catch(() => undefined);
-    getColleges().then(setColleges).catch(() => undefined);
+    getAffairsCollegeOptions().then(setColleges).catch(() => undefined);
     getAffairsStaff().then(setStaff).catch(() => undefined);
   }, []);
 

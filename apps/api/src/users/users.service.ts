@@ -20,7 +20,8 @@ type RoleCodeValue =
   | 'ADVISOR'
   | 'REGISTRAR'
   | 'SYSTEM_ADMIN'
-  | 'SITE_EDITOR';
+  | 'SITE_EDITOR'
+  | 'AFFAIRS_STAFF';
 
 interface FindUsersOptions {
   search?: string;
@@ -88,6 +89,8 @@ export class UsersService {
           passwordHash: await argon2.hash(input.password),
           status: 'ACTIVE',
           roleId: role.id,
+          // موظف شؤون الطلاب يُنشأ له ملف الموظف تلقائيًا ليظهر في «الموظفون وتوزيع المهام» (تُسند له الخدمات من هناك).
+          ...(role.code === 'AFFAIRS_STAFF' ? { affairsStaff: { create: {} } } : {}),
         },
         select: {
           id: true,
@@ -484,6 +487,7 @@ export class UsersService {
       'REGISTRAR',
       'SYSTEM_ADMIN',
       'SITE_EDITOR',
+      'AFFAIRS_STAFF',
     ];
 
     if (

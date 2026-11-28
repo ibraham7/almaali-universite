@@ -14,7 +14,8 @@ export type RoleCode =
     | 'ADVISOR'
     | 'REGISTRAR'
     | 'SYSTEM_ADMIN'
-    | 'SITE_EDITOR';
+    | 'SITE_EDITOR'
+    | 'AFFAIRS_STAFF';
 
 export interface Role {
     id: string;

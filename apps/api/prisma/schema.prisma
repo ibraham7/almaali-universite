@@ -21,6 +21,7 @@ enum RoleCode {
   REGISTRAR
   SYSTEM_ADMIN
   SITE_EDITOR
+  AFFAIRS_STAFF
 }
 
 enum ProgramLevel {

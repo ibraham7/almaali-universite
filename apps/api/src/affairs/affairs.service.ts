@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { dayRange } from './affairs-reports.catalog.js';
-import { canManage, isUnitManager } from './affairs-access.js';
+import { canManage, isAffairsStaffRole, isUnitManager } from './affairs-access.js';
 import { managerRecipients, notifyUsers, studentStatusMessage } from './affairs-notifications.js';
 import { AffairsSettingsService } from './affairs-settings.service.js';
 import { SERVICES_BLOCKED_MESSAGE, canRequestServices } from '../students/student-status.js';
@@ -44,6 +44,11 @@ export class AffairsService {
   async me(user: AffairsUser) {
     const staff = await this.prisma.affairsStaff.findUnique({ where: { userId: user.id }, select: { id: true, isManager: true, isActive: true } });
     return { role: user.role, staffId: staff?.id ?? null, isStaff: !!staff, isActiveStaff: !!staff && staff.isActive, isManager: !!staff && staff.isManager && staff.isActive, canManage: await canManage(this.prisma, user) };
+  }
+
+  // قائمة الكليات لمرشّحات التقارير: ضمن مسارات الشؤون حتى لا يحتاج موظف الشؤون صلاحية على الهيكل الأكاديمي.
+  collegeOptions() {
+    return this.prisma.college.findMany({ where: { isActive: true }, orderBy: { nameAr: 'asc' }, select: { id: true, nameAr: true } });
   }
 
   // ---------- services ----------
@@ -138,7 +143,7 @@ export class AffairsService {
 
   staffCandidates() {
     return this.prisma.user.findMany({
-      where: { role: { code: 'REGISTRAR' }, status: 'ACTIVE', affairsStaff: null },
+      where: { role: { code: { in: ['REGISTRAR', 'AFFAIRS_STAFF', 'ADVISOR'] } }, status: 'ACTIVE', affairsStaff: null },
       select: { id: true, email: true, displayName: true, username: true },
       orderBy: { email: 'asc' },
     });
@@ -152,7 +157,7 @@ export class AffairsService {
 
   async createStaff(dto: CreateStaffDto, user: AffairsUser) {
     const target = await this.prisma.user.findUnique({ where: { id: dto.userId }, include: { role: true, affairsStaff: true } });
-    if (!target || target.role.code !== 'REGISTRAR') throw new BadRequestException('المستخدم يجب أن يكون موظف تسجيل.');
+    if (!target || !isAffairsStaffRole(target.role.code)) throw new BadRequestException('المستخدم يجب أن يكون مسجّلاً أو موظف شؤون طلاب أو مشرفًا أكاديميًا.');
     if (target.affairsStaff) throw new ConflictException('هذا المستخدم مضاف كموظف مسبقاً.');
     const serviceIds = [...new Set(dto.serviceIds ?? [])];
     await this.assertServicesExist(serviceIds);
@@ -345,7 +350,7 @@ export class AffairsService {
     const actorIds = [...new Set(r.events.map((e) => e.actorUserId).filter((x): x is string => !!x))];
     const actors = actorIds.length ? await this.prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, displayName: true, username: true, email: true } }) : [];
     const actorName = new Map(actors.map((a) => [a.id, a.displayName || a.username || a.email]));
-    const canAct = user.role === 'SYSTEM_ADMIN' || (user.role === 'REGISTRAR' && r.assignedStaff?.userId === user.id);
+    const canAct = user.role === 'SYSTEM_ADMIN' || (isAffairsStaffRole(user.role) && r.assignedStaff?.userId === user.id);
     return {
       id: r.id, number: r.number, status: r.status, channel: r.channel, subject: r.subject, details: r.details, decisionReason: r.decisionReason,
       createdAt: r.createdAt, dueAt: r.dueAt, closedAt: r.closedAt, updatedAt: r.updatedAt,
@@ -358,7 +363,7 @@ export class AffairsService {
       student: { id: r.student.id, universityId: r.student.universityId, name: this.studentName(r.student), phone: r.student.phone, status: r.student.status, universityEmail: r.student.universityEmail },
       service: r.service,
       assignedStaff: r.assignedStaff ? { id: r.assignedStaff.id, name: r.assignedStaff.user.displayName || r.assignedStaff.user.username || r.assignedStaff.user.email } : null,
-      canAct, canTake: user.role === 'REGISTRAR' && r.status === 'NEW' && !r.assignedStaff,
+      canAct, canTake: isAffairsStaffRole(user.role) && r.status === 'NEW' && !r.assignedStaff,
       canAssign: (await canManage(this.prisma, user)) && !['COMPLETED', 'REJECTED', 'CANCELLED'].includes(r.status),
       allowedStatuses: canAct ? TRANSITIONS[r.status as RequestStatus].filter((s) => s !== 'ASSIGNED' && s !== 'REFERRED' && !(r.status === 'REFERRED' && r.referrals.some((x) => x.status === 'PENDING'))) : [],
       events: r.events.map((e) => ({ id: e.id, type: e.type, fromStatus: e.fromStatus, toStatus: e.toStatus, note: e.note, visibleToStudent: e.visibleToStudent, createdAt: e.createdAt, actor: e.actorUserId ? actorName.get(e.actorUserId) ?? null : null })),
@@ -370,7 +375,7 @@ export class AffairsService {
     const r = await tx.studentRequest.findUnique({ where: { id }, include: { assignedStaff: { select: { userId: true } } } });
     if (!r) throw new NotFoundException('الطلب غير موجود.');
     const isOwner = r.assignedStaff?.userId === user.id;
-    if (user.role !== 'SYSTEM_ADMIN' && !(user.role === 'REGISTRAR' && isOwner)) throw new ForbiddenException('هذا الطلب غير مسند لك.');
+    if (user.role !== 'SYSTEM_ADMIN' && !(isAffairsStaffRole(user.role) && isOwner)) throw new ForbiddenException('هذا الطلب غير مسند لك.');
     return r;
   }
 

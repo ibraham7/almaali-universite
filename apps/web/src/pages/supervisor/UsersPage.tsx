@@ -118,6 +118,9 @@ function roleLabel(
 
         case 'SITE_EDITOR':
             return 'محرر الموقع';
+
+        case 'AFFAIRS_STAFF':
+            return 'موظف شؤون الطلاب';
     }
 }
 
@@ -979,6 +982,7 @@ export default function UsersPage() {
                                 <MenuItem value="REGISTRAR">مسجل الجامعة</MenuItem>
                                 <MenuItem value="SYSTEM_ADMIN">مدير النظام</MenuItem>
                                 <MenuItem value="SITE_EDITOR">محرر الموقع</MenuItem>
+                                <MenuItem value="AFFAIRS_STAFF">موظف شؤون الطلاب</MenuItem>
                             </Select>
                         </FormControl>
                     </Stack>

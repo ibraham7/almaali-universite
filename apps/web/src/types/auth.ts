@@ -2,8 +2,8 @@ export interface AuthUser {
   id: string;
   email: string;
   role: string;
-  // للمسجّل فقط: هل له ملف موظف شؤون طلاب فعّال (يحدد الواجهة التي تُفتح له)
-  affairsStaff?: boolean;
+  // هل تظهر له وحدة شؤون الطلاب (للمشرف: إذا أضافه المدير كموظف فعّال). للواجهة فقط؛ الخادم يفرض الصلاحية.
+  affairsAccess?: boolean;
 }
 
 export interface LoginRequest {

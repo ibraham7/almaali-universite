@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { AffairsUser } from './affairs.service.js';
-import { isUnitManager } from './affairs-access.js';
+import { isAffairsStaffRole, isUnitManager } from './affairs-access.js';
 import { SETTING_DEFS, SettingValue, defaultsOf, validateSetting } from './affairs-settings.defs.js';
 
 const CACHE_MS = 10_000;
@@ -31,7 +31,7 @@ export class AffairsSettingsService {
   // A system admin is never restricted; a registrar needs the switch to be on.
   async assertCapability(user: AffairsUser, key: string, message = 'هذا الإجراء غير مفعّل لدورك. راجع مدير النظام.') {
     if (user.role === 'SYSTEM_ADMIN') return;
-    if (user.role === 'REGISTRAR' && ((await this.get<boolean>(key)) || (await isUnitManager(this.prisma, user)))) return;
+    if (isAffairsStaffRole(user.role) && ((await this.get<boolean>(key)) || (await isUnitManager(this.prisma, user)))) return;
     throw new ForbiddenException(message);
   }
 

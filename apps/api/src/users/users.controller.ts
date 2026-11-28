@@ -134,7 +134,8 @@ export class UsersController {
       | 'ADVISOR'
       | 'REGISTRAR'
       | 'SYSTEM_ADMIN'
-      | 'SITE_EDITOR';
+      | 'SITE_EDITOR'
+      | 'AFFAIRS_STAFF';
     },
   ) {
     return this.usersService.updateRole(

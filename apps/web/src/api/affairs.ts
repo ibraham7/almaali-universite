@@ -195,3 +195,9 @@ export const getNotifications = (unreadOnly: boolean, page: number) => get<{ ite
 export const getUnreadCount = () => get<{ unread: number }>('/affairs/notifications/unread-count');
 export const markNotificationRead = (id: string) => post<{ unread: number }>(`/affairs/notifications/${id}/read`, {});
 export const markAllNotificationsRead = () => post<{ unread: number }>('/affairs/notifications/read-all', {});
+
+// كليات لمرشّحات التقارير (من مسارات الشؤون، فلا يحتاج الموظف صلاحية على الهيكل الأكاديمي).
+export async function getAffairsCollegeOptions() {
+  const response = await apiClient.get<Array<{ id: string; nameAr: string }>>('/affairs/lookups/colleges');
+  return response.data;
+}

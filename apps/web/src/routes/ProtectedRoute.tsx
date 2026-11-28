@@ -4,7 +4,7 @@ import {
   useLocation,
 } from 'react-router-dom';
 
-import { isAffairsStaff, isPathAllowedForAffairsStaff } from '../auth/affairsStaff';
+import { canSeeAffairs, isAffairsOnly, isPathAllowedForAffairsOnly } from '../auth/affairsStaff';
 
 import {
   useAuth,
@@ -20,7 +20,6 @@ export default function ProtectedRoute({
   const {
     isAuthenticated,
     user,
-    affairsStaffPending,
   } = useAuth();
   const { pathname } = useLocation();
 
@@ -33,14 +32,14 @@ export default function ProtectedRoute({
     );
   }
 
-  // مسجّل لم تُحدَّد صفته بعد (جلسة قديمة): ننتظر لحظة ثم نقرر بدل وميض صفحة غير مناسبة.
-  if (affairsStaffPending) {
-    return <div role="status" aria-live="polite" style={{ minHeight: '50vh', display: 'grid', placeItems: 'center', color: '#60758a' }}>جارٍ التحميل...</div>;
+  // موظف شؤون الطلاب (دور مستقل) يُحصر بلوحة الشؤون: أي مسار آخر يعيده إليها.
+  if (isAffairsOnly(user) && !isPathAllowedForAffairsOnly(pathname)) {
+    return <Navigate to="/affairs" replace />;
   }
 
-  // موظف شؤون الطلاب يُحصر بلوحة الشؤون: أي مسار آخر يعيده إليها.
-  if (isAffairsStaff(user) && !isPathAllowedForAffairsStaff(pathname)) {
-    return <Navigate to="/affairs" replace />;
+  // وحدة الشؤون لمن يملك صلاحيتها فقط (المشرف بلا صلاحية يعود للرئيسية).
+  if ((pathname === '/affairs' || pathname.startsWith('/affairs/')) && !canSeeAffairs(user)) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   if (

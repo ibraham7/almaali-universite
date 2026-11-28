@@ -1,4 +1,4 @@
-import { isAffairsStaff } from '../auth/affairsStaff';
+import { canSeeAffairs, isAffairsOnly } from '../auth/affairsStaff';
 import {
   useMemo,
   useState,
@@ -124,7 +124,7 @@ const navigationItems: NavigationItem[] = [
     label: 'شؤون الطلاب',
     path: '/affairs',
     icon: <SupportAgentRoundedIcon />,
-    roles: ['REGISTRAR', 'SYSTEM_ADMIN'],
+    roles: ['REGISTRAR', 'SYSTEM_ADMIN', 'AFFAIRS_STAFF', 'ADVISOR'],
   },
 
   {
@@ -246,10 +246,7 @@ const navigationItems: NavigationItem[] = [
 
 function getRoleLabel(
   role?: string,
-  affairsStaff?: boolean,
 ) {
-  if (role === 'REGISTRAR' && affairsStaff) return 'موظف شؤون الطلاب';
-
   switch (role) {
     case 'STUDENT':
       return 'طالب';
@@ -262,6 +259,9 @@ function getRoleLabel(
 
     case 'SYSTEM_ADMIN':
       return 'مدير النظام';
+
+    case 'AFFAIRS_STAFF':
+      return 'موظف شؤون الطلاب';
 
     case 'SITE_EDITOR':
       return 'محرر الموقع';
@@ -327,7 +327,7 @@ export default function DashboardLayout() {
     user?.role ?? '';
 
   // موظف شؤون الطلاب: قائمته بنود الشؤون فقط (بلا بنود المسجّل أو الأكاديمية أو إدارة النظام)، بلا مجموعات.
-  const staffOnly = isAffairsStaff(user);
+  const staffOnly = isAffairsOnly(user);
 
   const visibleItems =
     useMemo(
@@ -336,9 +336,9 @@ export default function DashboardLayout() {
           (item) =>
             item.roles.includes(
               userRole,
-            ) && (!staffOnly || item.path.startsWith('/affairs')),
+            ) && (!staffOnly || item.path.startsWith('/affairs')) && (item.path !== '/affairs' || canSeeAffairs(user)),
         ),
-      [userRole, staffOnly],
+      [userRole, staffOnly, user],
     );
 
   // المجموعات مسكّرة افتراضيًا، ما عدا المجموعة اللي فيها الصفحة الحالية. اختيار المستخدم يغلب الافتراضي.
@@ -742,7 +742,6 @@ export default function DashboardLayout() {
             >
               {getRoleLabel(
                 user?.role,
-                staffOnly,
               )}
             </Typography>
           </Box>
@@ -944,7 +943,7 @@ export default function DashboardLayout() {
               </Typography>
             </Box>
 
-            {['STUDENT', 'REGISTRAR', 'SYSTEM_ADMIN'].includes(userRole) && <NotificationsBell role={userRole} />}
+            {(['STUDENT', 'REGISTRAR', 'SYSTEM_ADMIN', 'AFFAIRS_STAFF'].includes(userRole) || (userRole === 'ADVISOR' && canSeeAffairs(user))) && <NotificationsBell role={userRole} />}
 
             <Tooltip title="تسجيل الخروج">
               <IconButton
@@ -1050,7 +1049,6 @@ export default function DashboardLayout() {
                 >
                   {getRoleLabel(
                     user?.role,
-                    staffOnly,
                   )}
                 </Typography>
               </Box>

@@ -19,8 +19,6 @@ import type {
 interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
-  // جلسة مسجّل قديمة بلا علامة موظف الشؤون: نتحقق من الخادم قبل توجيهه
-  affairsStaffPending: boolean;
   login: (credentials: LoginRequest) => Promise<AuthUser>;
   logout: () => void;
 }
@@ -79,28 +77,19 @@ export function AuthProvider({
     return response.user;
   };
 
-  // مزامنة صفة موظف الشؤون مع الخادم (جلسة قديمة بلا علامة، أو تعطيل ملف الموظف أثناء الجلسة).
+  // المشرف: صلاحية دخول الشؤون تمنحها الإدارة أثناء الجلسة، فنزامنها مع الخادم (جلسة قديمة أو تغيّرت الصلاحية).
   const syncRole = user?.role;
   const syncId = user?.id;
   useEffect(() => {
-    if (syncRole !== 'REGISTRAR') return undefined;
+    if (syncRole !== 'ADVISOR') return undefined;
     let active = true;
-    apiClient.get<{ isActiveStaff?: boolean }>('/affairs/me')
-      .then((response) => {
-        if (!active) return;
-        const flag = response.data.isActiveStaff === true;
-        setUser((current) => {
-          if (!current || current.id !== syncId || current.affairsStaff === flag) return current;
-          const next = { ...current, affairsStaff: flag };
-          localStorage.setItem('auth_user', JSON.stringify(next));
-          return next;
-        });
-      })
-      .catch(() => {
-        // تعذّر السؤال: نعتبره غير موظف شؤون (الواجهة العادية) بدل حجز الشاشة
-        if (!active) return;
-        setUser((current) => (current && current.id === syncId && current.affairsStaff === undefined ? { ...current, affairsStaff: false } : current));
-      });
+    const apply = (flag: boolean) => setUser((current) => {
+      if (!current || current.id !== syncId || current.affairsAccess === flag) return current;
+      const next = { ...current, affairsAccess: flag };
+      localStorage.setItem('auth_user', JSON.stringify(next));
+      return next;
+    });
+    apiClient.get('/affairs/me').then(() => { if (active) apply(true); }).catch(() => { if (active) apply(false); });
     return () => { active = false; };
   }, [syncRole, syncId]);
 
@@ -115,7 +104,6 @@ export function AuthProvider({
     () => ({
       user,
       isAuthenticated: Boolean(user),
-      affairsStaffPending: user?.role === 'REGISTRAR' && user.affairsStaff === undefined,
       login,
       logout,
     }),

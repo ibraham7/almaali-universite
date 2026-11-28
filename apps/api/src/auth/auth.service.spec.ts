@@ -153,20 +153,20 @@ describe('AuthService', () => {
     expect(usersService.findByUsername).toHaveBeenCalledWith('advisor01');
   });
 
-  it('flags an active affairs employee (registrar with a staff profile) at login, and nobody else', async () => {
-    const staffLogin = async (role: string, staff: unknown) => {
+  it('tells the UI who may see the student affairs unit: admin, affairs staff and registrars always; an advisor only with an active staff profile', async () => {
+    const login = async (role: string, staff: unknown) => {
       usersService.findByUsername.mockResolvedValue({ id: 'u-1', username: 'u1', email: 'u1@staff.local', status: 'ACTIVE', passwordHash: await argon2.hash('a-strong-password'), role: { code: role } });
       prisma.student.findUnique.mockResolvedValue(null);
       prisma.affairsStaff.findFirst.mockReset().mockResolvedValue(staff);
       return service.login('u1', 'a-strong-password');
     };
-    expect((await staffLogin('REGISTRAR', { id: 's1' })).user.affairsStaff).toBe(true);
+    expect((await login('AFFAIRS_STAFF', null)).user.affairsAccess).toBe(true);
+    expect((await login('SYSTEM_ADMIN', null)).user.affairsAccess).toBe(true);
+    expect((await login('REGISTRAR', null)).user.affairsAccess).toBe(true);
+    expect((await login('ADVISOR', { id: 's1' })).user.affairsAccess).toBe(true);
     expect(prisma.affairsStaff.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'u-1', isActive: true } }));
-    expect((await staffLogin('REGISTRAR', null)).user.affairsStaff).toBe(false);
-    const admin = await staffLogin('SYSTEM_ADMIN', { id: 's1' });
-    expect(admin.user.affairsStaff).toBe(false);
-    expect(prisma.affairsStaff.findFirst).not.toHaveBeenCalled();
-    expect((await staffLogin('ADVISOR', { id: 's1' })).user.affairsStaff).toBe(false);
+    expect((await login('ADVISOR', null)).user.affairsAccess).toBe(false);
+    expect((await login('SITE_EDITOR', { id: 's1' })).user.affairsAccess).toBe(false);
   });
 
   it('blocks short test logins in production even if the flag is set', async () => {
