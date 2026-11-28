@@ -203,6 +203,7 @@ export const theme = createTheme({
 
           '& .MuiOutlinedInput-notchedOutline': {
             borderColor: universityColors.border,
+            textAlign: 'right',
           },
 
           '&:hover .MuiOutlinedInput-notchedOutline': {
@@ -230,10 +231,34 @@ export const theme = createTheme({
       },
     },
 
+    // اتجاه RTL للتسمية العائمة: بدون إضافة ستايلس RTL تبقى MUI تثبّتها يسارًا، فنثبّتها يمينًا ونعكس إزاحتها.
     MuiInputLabel: {
       styleOverrides: {
         root: {
+          left: 'auto',
+          right: 0,
           transformOrigin: 'top right',
+          '&.MuiInputLabel-outlined': {
+            transform: 'translate(-14px, 16px) scale(1)',
+            '&.MuiInputLabel-sizeSmall': { transform: 'translate(-14px, 9px) scale(1)' },
+            '&.MuiInputLabel-shrink, &[data-shrink="true"]': { transform: 'translate(-14px, -9px) scale(0.75)' },
+          },
+        },
+      },
+    },
+
+    // القائمة المنسدلة: السهم يسارًا والنص يمينًا (MUI تضع السهم يمينًا افتراضيًا فيتراكب مع النص والتسمية)
+    MuiSelect: {
+      styleOverrides: {
+        select: { paddingRight: '14px !important', paddingLeft: '32px !important' },
+        icon: { right: 'auto', left: 7 },
+      },
+    },
+
+    MuiFormHelperText: {
+      styleOverrides: {
+        root: {
+          textAlign: 'right',
         },
       },
     },
