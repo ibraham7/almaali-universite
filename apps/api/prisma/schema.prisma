@@ -1082,6 +1082,8 @@ enum SiteItemKind {
   ADMISSION_STEP
   FAQ
   NEWS_CATEGORY
+  ORG_NODE
+  QUICK_LINK
 }
 
 enum SiteEntryKind {
@@ -1164,6 +1166,7 @@ model SiteEntry {
   endsAt       DateTime?
   coverMediaId String?
   galleryIds   String[]          @default([])
+  videos       String[]          @default([])
   sortOrder    Int               @default(0)
   status       SiteContentStatus @default(DRAFT)
   publishedAt  DateTime?
@@ -1205,6 +1208,7 @@ model SiteAcademicProfile {
   kind        SiteProfileKind
   refId       String
   summary     String          @default("")
+  details     String          @default("")
   mediaId     String?
   sortOrder   Int             @default(0)
   // لا تظهر الكلية بالموقع إلا بقرار صريح من المدير

@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { Alert, Box, Button, Chip, CircularProgress, Dialog, IconButton, Stack, TextField, Typography } from '@mui/material';
 import { getSiteEntries, getSiteEntry, sendGraduateUpdate, siteMediaUrl, useSiteContent, type EntryKind, type SiteEntryCard, type SiteEntryFull } from '../../api/site';
 import { EmptyNote, GoldButton, Prose, SitePage, Wrap } from './siteTheme';
+import { Cover, EventCard } from './siteParts';
 import { T, goldCard } from './siteStyles';
 
 const dateFmt: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
@@ -18,7 +19,7 @@ const when = (entry: Pick<SiteEntryCard, 'startsAt' | 'endsAt'>) => {
 
 interface SectionConfig { kind: EntryKind; path: string; title: string; subtitle: string; introKey?: string; empty: string; categories?: string[] }
 const SECTIONS: Record<string, SectionConfig> = {
-  events: { kind: 'EVENT', path: '/events', title: 'الفعاليات', subtitle: 'فعاليات الجامعة القادمة والسابقة.', empty: 'لا توجد فعاليات منشورة حاليًا.' },
+  events: { kind: 'EVENT', path: '/events', title: 'الفعاليات والأنشطة', subtitle: 'فعاليات الجامعة القادمة والأرشيف.', empty: 'لا توجد فعاليات منشورة حاليًا.' },
   research: {
     kind: 'RESEARCH', path: '/research', title: 'البحث العلمي', subtitle: 'أبحاث ومؤتمرات ومبادرات وإنجازات الباحثين.', introKey: 'researchIntro', empty: 'لا توجد مواد منشورة حاليًا.',
     categories: ['أبحاث ودراسات', 'مؤتمرات وندوات علمية', 'مجلات ومنشورات', 'مبادرات ومشاريع بحثية', 'إنجازات الهيئة التدريسية والباحثين'],
@@ -31,13 +32,14 @@ const SECTIONS: Record<string, SectionConfig> = {
 const PATH_OF: Record<EntryKind, string> = { EVENT: '/events', RESEARCH: '/research', GRADUATE_STORY: '/graduates', GRADUATE_NEWS: '/graduates', CAMPUS: '/campus' };
 
 export function EntryCard({ item }: { item: SiteEntryCard }) {
+  if (item.kind === 'EVENT') return <EventCard item={item} />;
   return (
     <Box data-rv="" data-tilt="" component="article" sx={{ ...goldCard, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      {item.coverMediaId && <Box component="img" src={siteMediaUrl(item.coverMediaId)} alt="" loading="lazy" sx={{ width: '100%', height: 170, objectFit: 'cover' }} />}
+      <Box sx={{ overflow: 'hidden', height: 170 }}><Cover mediaId={item.coverMediaId} /></Box>
       <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', flex: 1 }}>
         <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', mb: 1, flexWrap: 'wrap' }}>
           {item.category && <Chip size="small" label={item.category} sx={{ bgcolor: '#f6ecd0', color: '#7a5a12' }} />}
-          <Typography sx={{ fontSize: 13, color: T.muted }}>{item.kind === 'EVENT' ? when(item) : day(item.publishedAt)}</Typography>
+          <Typography sx={{ fontSize: 13, color: T.muted }}>{day(item.publishedAt)}</Typography>
         </Stack>
         <Typography component="h3" sx={{ fontSize: 18, fontWeight: 700, color: T.navy, mb: 0.5 }}>{item.title}</Typography>
         {item.location && <Typography sx={{ fontSize: 14, color: T.muted, mb: 0.5 }}>📍 {item.location}</Typography>}
@@ -68,37 +70,49 @@ export function EntriesListPage({ section }: { section: 'events' | 'research' | 
   const [period, setPeriod] = useState<'upcoming' | 'past'>('upcoming');
   const [category, setCategory] = useState('');
   const [page, setPage] = useState(1);
-  const [data, setData] = useState<{ total: number; pageSize: number; items: SiteEntryCard[] } | null>(null);
+  const [query, setQuery] = useState('');
+  const [term, setTerm] = useState('');
+  const [data, setData] = useState<{ total: number; pageSize: number; items: SiteEntryCard[]; categories: string[] } | null>(null);
   const [failed, setFailed] = useState(false);
   const intro = config.introKey ? content?.settings[config.introKey] : undefined;
 
+  // بحث بعد توقف الكتابة 300ms
+  useEffect(() => {
+    const timer = window.setTimeout(() => { setTerm(query.trim()); setPage(1); }, 300);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
   useEffect(() => {
     let active = true;
-    getSiteEntries(config.kind, page, { when: config.kind === 'EVENT' ? period : undefined, category }).then((result) => { if (active) { setData(result); setFailed(false); } }).catch(() => { if (active) setFailed(true); });
+    getSiteEntries(config.kind, page, { when: config.kind === 'EVENT' ? period : undefined, category, q: term }).then((result) => { if (active) { setData(result); setFailed(false); } }).catch(() => { if (active) setFailed(true); });
     return () => { active = false; };
-  }, [config.kind, page, period, category]);
+  }, [config.kind, page, period, category, term]);
 
   const pick = (apply: () => void) => { setData(null); setPage(1); apply(); };
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+  const categories = config.categories ?? (data?.categories ?? []);
   return (
     <SitePage title={config.title} subtitle={config.subtitle}>
       <Wrap sx={{ pt: { xs: 4, md: 5 } }}>
         {intro && <Box sx={{ mb: 3 }}><Prose text={intro} /></Box>}
-        {config.kind === 'EVENT' && (
-          <Stack direction="row" spacing={1} role="tablist" aria-label="نوع الفعاليات">
-            {(['upcoming', 'past'] as const).map((value) => <Button key={value} role="tab" aria-selected={period === value} onClick={() => pick(() => setPeriod(value))} sx={tabSx(period === value)}>{value === 'upcoming' ? 'القادمة' : 'السابقة'}</Button>)}
-          </Stack>
-        )}
-        {config.categories && (
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between', mb: 1.75 }}>
+          <TextField type="search" placeholder="🔍 ابحث..." value={query} onChange={(event) => setQuery(event.target.value)} aria-label="بحث" sx={{ flex: '1 1 260px', maxWidth: 420, '& .MuiOutlinedInput-root': { borderRadius: '30px', bgcolor: '#fff', boxShadow: '0 4px 14px rgba(18,72,154,.06)', '& fieldset': { borderColor: 'rgba(211,154,61,.45)' } } }} slotProps={{ htmlInput: { maxLength: 80 } }} />
+          {config.kind === 'EVENT' && (
+            <Stack direction="row" spacing={1} role="tablist" aria-label="نوع الفعاليات">
+              {(['upcoming', 'past'] as const).map((value) => <Button key={value} role="tab" aria-selected={period === value} onClick={() => pick(() => setPeriod(value))} sx={tabSx(period === value)}>{value === 'upcoming' ? 'القادمة' : 'الأرشيف'}</Button>)}
+            </Stack>
+          )}
+        </Stack>
+        {categories.length > 0 && (
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }} role="tablist" aria-label="التصنيف">
-            <Button role="tab" aria-selected={!category} onClick={() => pick(() => setCategory(''))} sx={tabSx(!category)}>الكل</Button>
-            {config.categories.map((name) => <Button key={name} role="tab" aria-selected={category === name} onClick={() => pick(() => setCategory(name))} sx={tabSx(category === name)}>{name}</Button>)}
+            <Button role="tab" aria-selected={!category} onClick={() => pick(() => setCategory(''))} sx={tabSx(!category)}>كل التصنيفات</Button>
+            {categories.map((name) => <Button key={name} role="tab" aria-selected={category === name} onClick={() => pick(() => setCategory(name))} sx={tabSx(category === name)}>{name}</Button>)}
           </Stack>
         )}
       </Wrap>
       {failed && <Wrap sx={{ pt: 4 }}><Alert severity="error">تعذر تحميل المحتوى. حاول لاحقًا.</Alert></Wrap>}
       {!data && !failed && <Box sx={{ p: 8, textAlign: 'center' }}><CircularProgress /></Box>}
-      {data && data.items.length === 0 && <EmptyNote>{config.kind === 'EVENT' ? (period === 'upcoming' ? 'لا توجد فعاليات قادمة حاليًا.' : 'لا توجد فعاليات سابقة.') : config.empty}</EmptyNote>}
+      {data && data.items.length === 0 && <EmptyNote>{config.kind === 'EVENT' ? (period === 'upcoming' ? 'لا توجد فعاليات قادمة حاليًا.' : 'لا توجد فعاليات في الأرشيف.') : config.empty}</EmptyNote>}
       {data && data.items.length > 0 && (
         <Wrap sx={{ py: { xs: 4, md: 5 } }}>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' }, gap: 2.5 }}>
@@ -114,6 +128,7 @@ export function EntriesListPage({ section }: { section: 'events' | 'research' | 
 // معرض صور بتكبير: أسهم لوحة المفاتيح تتنقل، وEsc يغلق.
 function Gallery({ ids }: { ids: string[] }) {
   const [open, setOpen] = useState<number | null>(null);
+  const touchX = useRef<number | null>(null);
   useEffect(() => {
     if (open === null) return undefined;
     const onKey = (event: KeyboardEvent) => {
@@ -136,7 +151,11 @@ function Gallery({ ids }: { ids: string[] }) {
       </Box>
       <Dialog open={open !== null} onClose={() => setOpen(null)} maxWidth="lg" fullWidth slotProps={{ paper: { sx: { bgcolor: '#0b1b36', borderRadius: '18px' } } }}>
         {open !== null && (
-          <Box sx={{ position: 'relative', p: 1, textAlign: 'center' }}>
+          <Box
+            onTouchStart={(event) => { touchX.current = event.touches[0].clientX; }}
+            onTouchEnd={(event) => { if (touchX.current === null) return; const delta = event.changedTouches[0].clientX - touchX.current; touchX.current = null; if (Math.abs(delta) > 50) setOpen((open + (delta < 0 ? 1 : -1) + ids.length) % ids.length); }}
+            sx={{ position: 'relative', p: 1, textAlign: 'center' }}
+          >
             <Box component="img" src={siteMediaUrl(ids[open])} alt="" sx={{ maxWidth: '100%', maxHeight: '78vh', objectFit: 'contain' }} />
             <IconButton aria-label="إغلاق" onClick={() => setOpen(null)} sx={{ position: 'absolute', top: 8, insetInlineEnd: 8, color: '#fff', bgcolor: 'rgba(0,0,0,.4)' }}>✕</IconButton>
             {ids.length > 1 && (
@@ -153,6 +172,26 @@ function Gallery({ ids }: { ids: string[] }) {
   );
 }
 
+const youtubeId = (url: string) => /(?:youtu\.be\/|v=|embed\/)([\w-]{11})/.exec(url)?.[1] ?? null;
+
+// فيديوهات: يوتيوب تُضمَّن بدون تتبع، وملف مباشر يُشغَّل بمشغّل المتصفح.
+function Videos({ links }: { links: string[] }) {
+  if (links.length === 0) return null;
+  return (
+    <Box sx={{ mt: 3 }}>
+      <Typography component="h2" sx={{ fontSize: 20, fontWeight: 800, color: T.navy, mb: 1.5 }}>الفيديوهات</Typography>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(300px, 1fr))' }, gap: 1.75 }}>
+        {links.map((link) => {
+          const id = youtubeId(link);
+          return id
+            ? <Box key={link} component="iframe" title="فيديو" src={`https://www.youtube-nocookie.com/embed/${id}`} allowFullScreen loading="lazy" sx={{ width: '100%', aspectRatio: '16 / 9', border: 0, borderRadius: '18px', bgcolor: '#000', boxShadow: '0 8px 24px rgba(18,72,154,.18)' }} />
+            : <Box key={link} component="video" controls preload="metadata" src={link} sx={{ width: '100%', aspectRatio: '16 / 9', borderRadius: '18px', bgcolor: '#000', boxShadow: '0 8px 24px rgba(18,72,154,.18)' }} />;
+        })}
+      </Box>
+    </Box>
+  );
+}
+
 export function EntryDetailPage() {
   const { id = '' } = useParams();
   const [item, setItem] = useState<SiteEntryFull | null>(null);
@@ -163,6 +202,7 @@ export function EntryDetailPage() {
     return () => { active = false; };
   }, [id]);
   const back = item ? PATH_OF[item.kind] : '/';
+  const upcoming = Boolean(item?.startsAt && (new Date(item.startsAt) >= new Date() || (item.endsAt && new Date(item.endsAt) >= new Date())));
   return (
     <SitePage title={item?.title ?? 'التفاصيل'}>
       <Wrap sx={{ py: { xs: 4, md: 6 }, maxWidth: 900 }}>
@@ -171,6 +211,7 @@ export function EntryDetailPage() {
         {item && (
           <Box data-rv="" component="article" sx={{ ...goldCard, p: { xs: 2.5, md: 4 }, '&:hover': { transform: 'none' } }}>
             <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', mb: 2, flexWrap: 'wrap' }}>
+              {item.kind === 'EVENT' && <Chip size="small" label={upcoming ? 'قادمة' : 'أرشيف'} sx={upcoming ? { background: T.goldGrad, color: T.ink, fontWeight: 700 } : { bgcolor: T.navy, color: '#fff', fontWeight: 700 }} />}
               {item.category && <Chip size="small" label={item.category} sx={{ bgcolor: '#f6ecd0', color: '#7a5a12' }} />}
               <Typography sx={{ fontSize: 14, color: T.muted }}>{item.kind === 'EVENT' ? when(item) : day(item.publishedAt)}</Typography>
             </Stack>
@@ -179,7 +220,8 @@ export function EntryDetailPage() {
             {item.summary && <Typography sx={{ fontSize: 19, fontWeight: 600, color: T.navy, mb: 2 }}>{item.summary}</Typography>}
             {item.body && <Prose text={item.body} />}
             <Gallery ids={item.galleryIds} />
-            <Button component={RouterLink} to={back} sx={{ mt: 3, fontWeight: 700, color: T.goldDark }}>← رجوع</Button>
+            <Videos links={item.videos} />
+            <Button component={RouterLink} to={back} sx={{ mt: 3, px: 2.25, borderRadius: '30px', fontWeight: 700, bgcolor: '#f8ecd6', color: '#8a5a1c', '&:hover': { bgcolor: '#f3dfb8' } }}>← رجوع</Button>
           </Box>
         )}
       </Wrap>

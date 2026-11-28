@@ -1,89 +1,94 @@
 import { Box, Typography } from '@mui/material';
-import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
-import FlagRoundedIcon from '@mui/icons-material/FlagRounded';
-import DiamondRoundedIcon from '@mui/icons-material/DiamondRounded';
-import { siteMediaUrl, useSiteContent } from '../../api/site';
+import { useSiteContent } from '../../api/site';
 import { Block, EmptyNote, Prose, SitePage, Wrap } from './siteTheme';
-import { T, goldCard } from './siteStyles';
+import { Expandable } from './siteFx';
+import { InfoCard, Split, SplitImage } from './siteParts';
+import OrgTree from './OrgTree';
+import { T } from './siteStyles';
 
-const grid = { display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(auto-fit, minmax(260px, 1fr))' }, gap: 2.25 };
+const GOAL_ICONS = ['🎯', '🔬', '🤝', '🏛️', '💡', '🌍'];
+const heading = { fontSize: { xs: 26, md: 32 }, fontWeight: 800, color: T.navy, mb: 2.5, '&::after': { content: '""', display: 'block', width: 64, height: 5, borderRadius: 5, mt: 0.75, background: `linear-gradient(90deg,${T.goldDark},${T.gold2})` } };
 
-// من نحن: نبذة، رؤية ورسالة وقيم، أهداف، كلمة رئيس الجامعة، نشأة الجامعة وتطورها. كل قسم بلا بيانات يُخفى.
+// من نحن (بترتيب التصميم المعتمد): نبذة وكلمة الرئيس بصورتيهما، الرؤية والرسالة والقيم، الأهداف بأيقوناتها،
+// الهيكل التنظيمي، ثم نشأة الجامعة. كل قسم بلا بيانات يُخفى.
 export default function AboutPage() {
   const { content, loading } = useSiteContent();
   const s = content?.settings ?? {};
-  const pillars = [
-    s.vision && { title: 'الرؤية', text: s.vision, Icon: VisibilityRoundedIcon },
-    s.mission && { title: 'الرسالة', text: s.mission, Icon: FlagRoundedIcon },
-    ...(content?.values.length ? [{ title: 'القيم', text: content.values.map((item) => item.title).join('، '), Icon: DiamondRoundedIcon }] : []),
-  ].filter(Boolean) as Array<{ title: string; text: string; Icon: typeof FlagRoundedIcon }>;
-  const empty = !loading && !s.aboutIntro && !pillars.length && !content?.goals.length && !s.presidentWord && !s.historyIntro && !content?.milestones.length;
+  const values = content?.values ?? [];
+  const goals = content?.goals ?? [];
+  const org = content?.orgTree ?? [];
+  const milestones = content?.milestones ?? [];
+  const hasVm = Boolean(s.vision || s.mission || values.length);
+  const empty = !loading && !s.aboutIntro && !s.presidentWord && !hasVm && !goals.length && !org.length && !s.historyIntro && !milestones.length;
 
   return (
     <SitePage title="من نحن" subtitle={s.tagline}>
       {empty && <EmptyNote>سيتم نشر التعريف بالجامعة قريبًا.</EmptyNote>}
-      {s.aboutIntro && <Block title="نبذة عن الجامعة"><Prose text={s.aboutIntro} /></Block>}
-      {pillars.length > 0 && (
-        <Block title="الرؤية والرسالة والقيم">
-          <Box sx={grid}>
-            {pillars.map(({ title, text, Icon }) => (
-              <Box data-rv="" data-tilt="" key={title} sx={{ ...goldCard, p: 3, borderTop: `4px solid ${T.gold}` }}>
-                <Box sx={{ width: 48, height: 48, borderRadius: '14px', display: 'grid', placeItems: 'center', mb: 1.5, background: 'linear-gradient(135deg,#fbf2d9,#f0d890)', color: T.goldDark }}><Icon /></Box>
-                <Typography component="h3" sx={{ fontSize: 19, fontWeight: 700, color: T.navy, mb: 0.5 }}>{title}</Typography>
-                <Typography sx={{ color: T.muted, fontSize: 15.5, whiteSpace: 'pre-line' }}>{text}</Typography>
-              </Box>
-            ))}
-          </Box>
-          {content && content.values.some((item) => item.text) && (
-            <Box sx={{ ...grid, mt: 3 }}>
-              {content.values.filter((item) => item.text).map((item) => (
-                <Box data-rv="" data-tilt="" key={item.title} sx={{ ...goldCard, p: 2.5 }}>
-                  <Typography component="h3" sx={{ fontWeight: 700, color: T.navy }}>{item.title}</Typography>
-                  <Typography sx={{ color: T.muted, fontSize: 15 }}>{item.text}</Typography>
+      {(s.aboutIntro || s.presidentWord) && (
+        <Box component="section" sx={{ py: { xs: 5, md: 7 } }}>
+          <Wrap>
+            {s.aboutIntro && (
+              <Split image={s.aboutImageId ? <SplitImage mediaId={s.aboutImageId} /> : undefined}>
+                <Box data-rv="">
+                  <Typography component="h2" data-rv-line="" sx={heading}>نبذة عن الجامعة</Typography>
+                  <Expandable><Typography sx={{ fontSize: 17, whiteSpace: 'pre-line' }}>{s.aboutIntro}</Typography></Expandable>
                 </Box>
-              ))}
+              </Split>
+            )}
+            {s.presidentWord && (
+              <Split reverse image={s.presidentPhotoId ? <SplitImage portrait mediaId={s.presidentPhotoId} alt={s.presidentName ? `صورة ${s.presidentName}` : 'رئيس الجامعة'} /> : undefined}>
+                <Box data-rv="" sx={{ bgcolor: '#fff', borderRadius: '26px', p: { xs: 2.5, md: '26px 30px' }, boxShadow: '0 10px 30px rgba(18,72,154,.08)', border: '1px solid rgba(211,154,61,.3)', borderInlineStart: `5px solid ${T.gold}` }}>
+                  <Typography component="h2" data-rv-line="" sx={heading}>كلمة رئيس الجامعة</Typography>
+                  <Expandable><Typography sx={{ fontSize: 17, whiteSpace: 'pre-line' }}>{s.presidentWord}</Typography></Expandable>
+                  {s.presidentName && <Typography sx={{ mt: 1.5, fontWeight: 700, color: T.goldDark }}>— {s.presidentName}</Typography>}
+                </Box>
+              </Split>
+            )}
+          </Wrap>
+        </Box>
+      )}
+
+      {hasVm && (
+        <Block title="الرؤية والرسالة والقيم">
+          {(s.vision || s.mission) && (
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: s.vision && s.mission ? '1fr 1fr' : '1fr' }, gap: 3 }}>
+              {s.vision && <InfoCard icon="👁️" title="الرؤية" text={s.vision} />}
+              {s.mission && <InfoCard icon="🚀" title="الرسالة" text={s.mission} />}
             </Box>
+          )}
+          {values.length > 0 && (
+            <>
+              <Typography component="h3" data-rv="" sx={{ ...heading, mt: 5, fontSize: { xs: 22, md: 26 } }}>القيم</Typography>
+              <Box data-rv="" sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                {values.map((value) => <Box key={value.title} component="span" title={value.text || undefined} sx={{ px: 2, py: 0.6, borderRadius: 30, fontWeight: 600, fontSize: 15, bgcolor: '#fbefd6', color: '#7d521a', transition: 'background-color .2s, color .2s, transform .2s', '&:hover': { bgcolor: T.navy, color: T.goldText, transform: 'translateY(-2px)' } }}>{value.title}</Box>)}
+              </Box>
+            </>
           )}
         </Block>
       )}
-      {content && content.goals.length > 0 && (
-        <Block title="أهداف الجامعة">
-          <Box component="ol" sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gap: 1.75 }}>
-            {content.goals.map((goal, index) => (
-              <Box data-rv="" data-tilt="" component="li" key={goal.title} sx={{ ...goldCard, p: 2.25, display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-                <Box sx={{ flex: 'none', width: 36, height: 36, borderRadius: '50%', display: 'grid', placeItems: 'center', fontWeight: 800, background: T.navyGrad, color: T.goldText, boxShadow: `0 0 0 2px ${T.gold}` }}>{index + 1}</Box>
-                <Box><Typography sx={{ fontWeight: 700, color: T.navy }}>{goal.title}</Typography>{goal.text && <Typography sx={{ color: T.muted, fontSize: 15 }}>{goal.text}</Typography>}</Box>
-              </Box>
-            ))}
+
+      {goals.length > 0 && (
+        <Block title="الأهداف الاستراتيجية">
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(auto-fit, minmax(250px, 1fr))' }, gap: 2.25 }}>
+            {goals.map((goal, index) => <InfoCard key={goal.title} icon={goal.extra?.trim() || GOAL_ICONS[index % GOAL_ICONS.length]} title={goal.title} text={goal.text} />)}
           </Box>
         </Block>
       )}
-      {s.presidentWord && (
-        <Block title="كلمة رئيس الجامعة">
-          <Box data-rv="" sx={{ ...goldCard, p: { xs: 3, md: 4 }, borderInlineStart: `5px solid ${T.gold}`, display: 'flex', gap: 3, flexDirection: { xs: 'column', md: 'row' }, '&:hover': { transform: 'none' } }}>
-            {s.presidentPhotoId && <Box component="img" src={siteMediaUrl(s.presidentPhotoId)} alt={s.presidentName ? `صورة ${s.presidentName}` : 'رئيس الجامعة'} sx={{ width: { xs: 140, md: 180 }, height: { xs: 140, md: 180 }, objectFit: 'cover', borderRadius: '20px', border: `3px solid ${T.gold}`, alignSelf: { xs: 'center', md: 'flex-start' } }} />}
-            <Box sx={{ flex: 1 }}>
-              <Prose text={s.presidentWord} />
-              {s.presidentName && <Typography sx={{ mt: 2, fontWeight: 700, color: T.goldDark }}>{s.presidentName}</Typography>}
-            </Box>
-          </Box>
-        </Block>
-      )}
-      {(s.historyIntro || (content && content.milestones.length > 0)) && (
+
+      {org.length > 0 && <Block title="الهيكل التنظيمي"><Box data-rv="zoom"><OrgTree roots={org} /></Box></Block>}
+
+      {(s.historyIntro || milestones.length > 0) && (
         <Block title="نشأة الجامعة وتطورها">
           {s.historyIntro && <Box sx={{ mb: 3 }}><Prose text={s.historyIntro} /></Box>}
-          {content && content.milestones.length > 0 && (
-            <Wrap sx={{ width: '100%' }}>
-              <Box component="ol" sx={{ listStyle: 'none', m: 0, p: 0, borderInlineStart: `3px solid ${T.gold}`, paddingInlineStart: 3, display: 'grid', gap: 2.25 }}>
-                {content.milestones.map((stage) => (
-                  <Box component="li" key={`${stage.extra}-${stage.title}`} sx={{ position: 'relative', '&::before': { content: '""', position: 'absolute', insetInlineStart: -33, top: 8, width: 14, height: 14, borderRadius: '50%', background: T.goldGrad, boxShadow: '0 0 0 3px #fff' } }}>
-                    {stage.extra && <Typography sx={{ fontWeight: 800, color: T.goldDark }}>{stage.extra}</Typography>}
-                    <Typography sx={{ fontWeight: 700, color: T.navy }}>{stage.title}</Typography>
-                    {stage.text && <Typography sx={{ color: T.muted, fontSize: 15 }}>{stage.text}</Typography>}
-                  </Box>
-                ))}
-              </Box>
-            </Wrap>
+          {milestones.length > 0 && (
+            <Box component="ol" sx={{ listStyle: 'none', m: 0, p: 0, borderInlineStart: '3px solid #e8cf9c', paddingInlineStart: 2.25, display: 'grid', gap: 1.75 }}>
+              {milestones.map((stage) => (
+                <Box component="li" data-rv="side" key={`${stage.extra}-${stage.title}`} sx={{ position: 'relative', bgcolor: '#fff', borderRadius: '14px', px: 2, py: 1.25, boxShadow: '0 4px 14px rgba(18,72,154,.07)', '&::before': { content: '""', position: 'absolute', insetInlineStart: -34, top: 18, width: 14, height: 14, borderRadius: '50%', bgcolor: T.navy, border: '3px solid #fff', boxShadow: `0 0 0 2px ${T.gold}` } }}>
+                  <Typography sx={{ color: T.ink }}>{stage.extra && <Box component="b" sx={{ color: T.goldDark }}>{stage.extra} — </Box>}<Box component="span" sx={{ fontWeight: 700 }}>{stage.title}</Box></Typography>
+                  {stage.text && <Typography sx={{ color: T.muted, fontSize: 15 }}>{stage.text}</Typography>}
+                </Box>
+              ))}
+            </Box>
           )}
         </Block>
       )}

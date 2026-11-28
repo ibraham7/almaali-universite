@@ -3,6 +3,7 @@ export interface SettingDef { key: string; group: 'home' | 'about' | 'admission'
 
 export const SETTING_DEFS: SettingDef[] = [
   { key: 'tagline', group: 'home', label: 'الشعار النصي تحت اسم الجامعة', max: 200 },
+  { key: 'heroImageId', group: 'home', label: 'صورة خلفية الرئيسية (معرّف ملف من الوسائط)', max: 60, kind: 'media' },
   { key: 'heroText', group: 'home', label: 'نص الصفحة الرئيسية', max: 600, multiline: true },
   { key: 'aboutIntro', group: 'about', label: 'نبذة عن الجامعة', max: 3000, multiline: true },
   { key: 'aboutImageId', group: 'about', label: 'صورة النبذة (معرّف ملف من الوسائط)', max: 60, kind: 'media' },
@@ -31,13 +32,13 @@ export const SETTING_DEFS: SettingDef[] = [
   { key: 'campusIntro', group: 'sections', label: 'مقدمة صفحة الحياة الجامعية', max: 1500, multiline: true },
   { key: 'researchIntro', group: 'sections', label: 'مقدمة صفحة البحث العلمي', max: 1500, multiline: true },
   { key: 'graduatesIntro', group: 'sections', label: 'التعريف بالخريجين', max: 2500, multiline: true },
-  { key: 'contactMapUrl', group: 'contact', label: 'رابط الخريطة (https)', max: 500, kind: 'url' },
+  { key: 'contactMapUrl', group: 'contact', label: 'رابط الخريطة (https، ويفضّل رابط التضمين من OpenStreetMap أو خرائط جوجل)', max: 500, kind: 'url' },
 ];
 
 export const SETTING_KEYS = new Set(SETTING_DEFS.map((def) => def.key));
 
 export const ITEM_KIND_LABEL: Record<string, string> = {
-  STAT: 'رقم', VALUE: 'قيمة', GOAL: 'هدف', MILESTONE: 'مرحلة تاريخية', ADMISSION_STEP: 'خطوة تقديم', FAQ: 'سؤال شائع', NEWS_CATEGORY: 'تصنيف أخبار',
+  STAT: 'رقم', VALUE: 'قيمة', GOAL: 'هدف', MILESTONE: 'مرحلة تاريخية', ADMISSION_STEP: 'خطوة تقديم', FAQ: 'سؤال شائع', NEWS_CATEGORY: 'تصنيف أخبار', ORG_NODE: 'وحدة بالهيكل التنظيمي', QUICK_LINK: 'رابط سريع',
 };
 
 // الصور والملفات: النوع يُحدَّد من محتوى الملف لا من اسمه. الحد الأقصى للحجم بالبايت.
@@ -54,3 +55,8 @@ export const ENTRY_CATEGORIES: Record<EntryKind, string[]> = {
   CAMPUS: ['أنشطة وفعاليات طلابية', 'مؤتمرات وندوات', 'أنشطة ثقافية واجتماعية ورياضية', 'مرافق وخدمات جامعية', 'صور وتغطيات إعلامية'],
 };
 export const MAX_GALLERY = 24;
+
+// روابط الفيديو: يوتيوب (تُضمَّن بدون تتبع) أو ملف مباشر https بامتداد mp4/webm/ogg. لا نرفع فيديو إلى القاعدة.
+export const YOUTUBE_RE = /^https:\/\/(www\.)?(youtube\.com\/(watch\?v=|embed\/)|youtu\.be\/)[\w-]{11}([&?#].*)?$/i;
+export const VIDEO_FILE_RE = /^https:\/\/[^\s]+\.(mp4|webm|ogg)([?#].*)?$/i;
+export const MAX_VIDEOS = 6;

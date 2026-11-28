@@ -71,10 +71,9 @@ export function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [moreAnchor, setMoreAnchor] = useState<HTMLElement | null>(null);
   const { pathname } = useLocation();
-  // إذا كثرت الصفحات المعروضة، تبقى الأولى ظاهرة والباقي تحت «المزيد» حتى لا ينكسر الهيدر.
-  const VISIBLE = 6;
-  const primary = nav.length > VISIBLE + 1 ? nav.slice(0, VISIBLE) : nav;
-  const more = nav.slice(primary.length);
+  // الصفحات الأساسية في الشريط، والإضافية (بحث، خريجون، مرافق، آراء) تحت «المزيد» حتى لا ينكسر الهيدر.
+  const primary = nav.filter((item) => !item.secondary);
+  const more = nav.filter((item) => item.secondary);
   const moreActive = more.some((item) => pathname === item.to || pathname.startsWith(`${item.to}/`));
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);

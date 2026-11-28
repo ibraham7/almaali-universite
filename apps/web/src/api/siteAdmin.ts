@@ -2,12 +2,12 @@ import { apiClient } from './client';
 
 export type SiteStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
 export const SITE_STATUS_LABEL: Record<SiteStatus, string> = { DRAFT: 'مسودة', PUBLISHED: 'منشور', ARCHIVED: 'مؤرشف' };
-export type SiteItemKind = 'STAT' | 'VALUE' | 'GOAL' | 'MILESTONE' | 'ADMISSION_STEP' | 'FAQ' | 'NEWS_CATEGORY';
+export type SiteItemKind = 'STAT' | 'VALUE' | 'GOAL' | 'MILESTONE' | 'ADMISSION_STEP' | 'FAQ' | 'NEWS_CATEGORY' | 'ORG_NODE' | 'QUICK_LINK';
 export const SITE_KIND_LABEL: Record<SiteItemKind, string> = {
-  STAT: 'أرقام الجامعة', VALUE: 'القيم', GOAL: 'الأهداف', MILESTONE: 'نشأة الجامعة وتطورها (مراحل)', ADMISSION_STEP: 'خطوات التقديم', FAQ: 'الأسئلة الشائعة', NEWS_CATEGORY: 'تصنيفات الأخبار',
+  STAT: 'أرقام الجامعة', VALUE: 'القيم', GOAL: 'الأهداف', MILESTONE: 'نشأة الجامعة وتطورها (مراحل)', ADMISSION_STEP: 'خطوات التقديم', FAQ: 'الأسئلة الشائعة', NEWS_CATEGORY: 'تصنيفات الأخبار', ORG_NODE: 'الهيكل التنظيمي', QUICK_LINK: 'روابط سريعة (الرئيسية)',
 };
 // ما يعنيه «الحقل الإضافي» لكل نوع
-export const SITE_KIND_EXTRA: Partial<Record<SiteItemKind, string>> = { STAT: 'القيمة (مثل 12)', MILESTONE: 'السنة' };
+export const SITE_KIND_EXTRA: Partial<Record<SiteItemKind, string>> = { STAT: 'القيمة (مثل 12)', MILESTONE: 'السنة', GOAL: 'أيقونة (إيموجي مثل 🎓)', QUICK_LINK: 'الرابط (/news أو https://...)', ORG_NODE: 'تتبع لوحدة' };
 
 export interface SettingDef { key: string; group: 'home' | 'about' | 'admission' | 'contact' | 'sections'; label: string; max: number; multiline?: boolean; kind?: 'text' | 'url' | 'media' }
 export interface SiteItemRow { id: string; kind: SiteItemKind; title: string; text: string; extra: string | null; sortOrder: number; status: SiteStatus }
@@ -15,7 +15,7 @@ export interface SiteNewsRow { id: string; type: 'NEWS' | 'ANNOUNCEMENT'; catego
 export interface SiteTestimonialRow { id: string; text: string; name: string; role: string; sortOrder: number; status: SiteStatus }
 export interface SiteMediaRow { id: string; fileName: string; mimeType: string; sizeBytes: number; altText: string | null; isArchived: boolean; createdAt: string }
 export interface SiteMessageRow { id: string; name: string; contact: string; subject: string; message: string; status: 'NEW' | 'READ' | 'ARCHIVED'; createdAt: string; handledAt: string | null }
-export interface ProfileFields { summary: string; mediaId: string | null; sortOrder: number; isVisible: boolean; saved: boolean }
+export interface ProfileFields { summary: string; details: string; mediaId: string | null; sortOrder: number; isVisible: boolean; saved: boolean }
 export interface AcademicNode extends ProfileFields {
   id: string; nameAr: string; departments?: AcademicNode[]; programs?: AcademicNode[];
 }
@@ -44,7 +44,7 @@ export const updateSiteTestimonial = (id: string, body: { text?: string; name?: 
 export const setSiteTestimonialStatus = (id: string, status: SiteStatus) => post<SiteTestimonialRow>(`/site-admin/testimonials/${id}/status`, { status });
 
 export const getSiteAcademic = () => get<AcademicNode[]>('/site-admin/academic');
-export const saveSiteProfile = (kind: 'COLLEGE' | 'DEPARTMENT' | 'PROGRAM', refId: string, body: { summary?: string; mediaId?: string | null; sortOrder?: number; isVisible?: boolean }) => put(`/site-admin/academic/${kind}/${refId}`, body);
+export const saveSiteProfile = (kind: 'COLLEGE' | 'DEPARTMENT' | 'PROGRAM', refId: string, body: { summary?: string; details?: string; mediaId?: string | null; sortOrder?: number; isVisible?: boolean }) => put(`/site-admin/academic/${kind}/${refId}`, body);
 
 export const getSiteMedia = (archived = false) => get<SiteMediaRow[]>('/site-admin/media', archived ? { archived: 1 } : undefined);
 export async function uploadSiteMedia(file: File, altText: string) {
@@ -69,7 +69,7 @@ export const ENTRY_CATEGORIES: Record<EntryKind, string[]> = {
 };
 export interface SiteEntryRow {
   id: string; kind: EntryKind; category: string; title: string; summary: string; body: string; location: string; startsAt: string | null; endsAt: string | null;
-  coverMediaId: string | null; galleryIds: string[]; sortOrder: number; status: SiteStatus; publishedAt: string | null;
+  coverMediaId: string | null; galleryIds: string[]; videos: string[]; sortOrder: number; status: SiteStatus; publishedAt: string | null;
 }
 export type SiteEntryInput = Partial<Omit<SiteEntryRow, 'id' | 'status' | 'publishedAt' | 'kind'>>;
 export const getSiteEntriesAdmin = (kind: EntryKind) => get<SiteEntryRow[]>('/site-admin/entries', { kind });

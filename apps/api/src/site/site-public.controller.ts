@@ -25,7 +25,7 @@ export class SitePublicController {
 
   @Get('entries/:kind')
   @Header('Cache-Control', 'public, max-age=60')
-  entries(@Param('kind') kind: string, @Query('page') page?: string, @Query('when') when?: string, @Query('category') category?: string) { return this.service.entriesList(kind.toUpperCase().replace('-', '_'), Number(page) || 1, 9, { when, category }); }
+  entries(@Param('kind') kind: string, @Query('page') page?: string, @Query('when') when?: string, @Query('category') category?: string, @Query('q') q?: string) { return this.service.entriesList(kind.toUpperCase().replace('-', '_'), Number(page) || 1, 9, { when, category, q }); }
 
   @Get('entry/:id')
   @Header('Cache-Control', 'public, max-age=60')

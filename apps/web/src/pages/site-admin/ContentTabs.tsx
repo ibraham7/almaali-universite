@@ -95,7 +95,7 @@ export function ItemsTab() {
             {rows.map((item) => (
               <TableRow key={item.id} sx={{ opacity: item.status === 'ARCHIVED' ? 0.55 : 1 }}>
                 <TableCell>{item.sortOrder}</TableCell>
-                {SITE_KIND_EXTRA[kind] && <TableCell>{item.extra ?? '—'}</TableCell>}
+                {SITE_KIND_EXTRA[kind] && <TableCell dir={kind === 'QUICK_LINK' ? 'ltr' : undefined}>{(kind === 'ORG_NODE' ? items.find((row) => row.id === item.extra)?.title : item.extra) || '—'}</TableCell>}
                 <TableCell sx={{ fontWeight: 700 }}>{item.title}</TableCell>
                 <TableCell sx={{ maxWidth: 360 }}>{item.text || '—'}</TableCell>
                 <TableCell><Chip size="small" color={item.status === 'PUBLISHED' ? 'success' : 'default'} label={SITE_STATUS_LABEL[item.status]} /></TableCell>
@@ -115,7 +115,12 @@ export function ItemsTab() {
           {form && (
             <Stack spacing={2} sx={{ pt: 1 }}>
               <TextField required label="العنوان" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} slotProps={{ htmlInput: { maxLength: 200 } }} />
-              {SITE_KIND_EXTRA[kind] && <TextField label={SITE_KIND_EXTRA[kind]} value={form.extra} onChange={(event) => setForm({ ...form, extra: event.target.value })} slotProps={{ htmlInput: { maxLength: 60 } }} />}
+              {kind === 'ORG_NODE' ? (
+                <TextField select label="تتبع لوحدة" value={form.extra} onChange={(event) => setForm({ ...form, extra: event.target.value })} helperText="اتركها «بدون» للوحدة الأعلى (الجذر). الشجرة تُرسم تلقائيًا من هذه الروابط.">
+                  <MenuItem value="">بدون (وحدة رئيسية)</MenuItem>
+                  {rows.filter((row) => row.id !== form.id && row.status !== 'ARCHIVED').map((row) => <MenuItem key={row.id} value={row.id}>{row.title}</MenuItem>)}
+                </TextField>
+              ) : SITE_KIND_EXTRA[kind] && <TextField label={SITE_KIND_EXTRA[kind]} value={form.extra} onChange={(event) => setForm({ ...form, extra: event.target.value })} slotProps={{ htmlInput: { maxLength: kind === 'QUICK_LINK' ? 300 : 60, dir: kind === 'QUICK_LINK' ? 'ltr' : undefined } }} />}
               <TextField label="النص" multiline minRows={3} value={form.text} onChange={(event) => setForm({ ...form, text: event.target.value })} slotProps={{ htmlInput: { maxLength: 3000 } }} />
               <TextField label="الترتيب" type="number" value={form.sortOrder} onChange={(event) => setForm({ ...form, sortOrder: event.target.value })} />
             </Stack>

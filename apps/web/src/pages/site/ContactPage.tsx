@@ -10,8 +10,8 @@ export default function ContactPage() {
   const { content } = useSiteContent();
   const s = content?.settings ?? {};
   const lines: Array<[string, string, string?]> = [
-    ['العنوان', s.contactAddress], ['الهاتف', s.contactPhone, s.contactPhone && `tel:${s.contactPhone.replace(/\s/g, '')}`],
-    ['البريد الإلكتروني', s.contactEmail, s.contactEmail && `mailto:${s.contactEmail}`], ['ساعات الدوام', s.contactHours],
+    ['📍', s.contactAddress], ['📞', s.contactPhone, s.contactPhone && `tel:${s.contactPhone.replace(/\s/g, '')}`],
+    ['✉️', s.contactEmail, s.contactEmail && `mailto:${s.contactEmail}`], ['🕒', s.contactHours],
   ].filter((line) => line[1]) as Array<[string, string, string?]>;
   const hasInfo = lines.length > 0 || Object.keys(s).some((key) => key.startsWith('social') || key === 'contactMapUrl');
   const [form, setForm] = useState({ name: '', contact: '', subject: '', message: '', website: '' });
@@ -38,17 +38,16 @@ export default function ContactPage() {
     <SitePage title="اتصل بنا" subtitle="يسعدنا استقبال استفساراتكم.">
       <Wrap sx={{ py: { xs: 4, md: 6 }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: hasInfo ? '1fr 1.2fr' : '1fr' }, gap: 3, maxWidth: hasInfo ? undefined : 680 }}>
         {hasInfo && (
-          <Box data-rv="" sx={{ ...goldCard, p: 3, borderTop: `4px solid ${T.gold}`, alignSelf: 'start', '&:hover': { transform: 'none' } }}>
-            <Typography component="h2" sx={{ fontSize: 22, fontWeight: 800, color: T.navy, mb: 2 }}>بيانات التواصل</Typography>
+          <Box data-rv="" sx={{ p: 0.5, alignSelf: 'start' }}>
             <Stack spacing={1.75}>
-              {lines.map(([label, value, href]) => (
-                <Box key={label}>
-                  <Typography sx={{ fontSize: 13.5, color: T.muted }}>{label}</Typography>
+              {lines.map(([icon, value, href]) => (
+                <Box key={icon} sx={{ display: 'flex', gap: 1.25, alignItems: 'baseline' }}>
+                  <Box aria-hidden component="span">{icon}</Box>
                   {href ? <Link href={href} underline="hover" sx={{ fontSize: 17, fontWeight: 600, color: T.navy }} dir="ltr">{value}</Link> : <Typography sx={{ fontSize: 17, fontWeight: 600 }}>{value}</Typography>}
                 </Box>
               ))}
               <SocialLinks settings={s} />
-              {/^https:\/\/(www\.)?google\.[a-z.]+\/maps\/embed/i.test(s.contactMapUrl ?? '') && <Box component="iframe" title="خريطة الموقع" src={s.contactMapUrl} loading="lazy" referrerPolicy="no-referrer" sx={{ width: '100%', height: 260, border: 0, borderRadius: '14px' }} />}
+              {/^https:\/\/((www\.)?google\.[a-z.]+\/maps\/embed|www\.openstreetmap\.org\/export\/embed\.html)/i.test(s.contactMapUrl ?? '') && <Box component="iframe" title="خريطة الموقع" src={s.contactMapUrl} loading="lazy" referrerPolicy="no-referrer" sx={{ width: '100%', height: 260, border: '2px solid rgba(211,154,61,.55)', borderRadius: '22px', boxShadow: T.shadow }} />}
               {s.contactMapUrl && <Link href={s.contactMapUrl} target="_blank" rel="noopener noreferrer" underline="hover" sx={{ fontWeight: 700, color: T.goldDark }}>عرض الموقع على الخريطة ←</Link>}
             </Stack>
           </Box>

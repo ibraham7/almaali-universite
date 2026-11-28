@@ -4,6 +4,7 @@ import { Alert, Box, Button, Chip, CircularProgress, Stack, TextField, Typograph
 import { getSiteNews, getSiteNewsItem, siteMediaUrl, useSiteContent, type SiteNewsCard } from '../../api/site';
 import { EmptyNote, Prose, SitePage, Wrap } from './siteTheme';
 import { T, goldCard } from './siteStyles';
+import { Cover } from './siteParts';
 
 const typeLabel = (type: string) => (type === 'ANNOUNCEMENT' ? 'إعلان' : 'خبر');
 const day = (value: string | null) => (value ? new Date(value).toLocaleDateString('ar-EG-u-nu-latn', { year: 'numeric', month: 'long', day: 'numeric' }) : '');
@@ -36,15 +37,15 @@ export function NewsListPage() {
   const chooseCategory = (name: string) => { setPage(1); setData(null); setCategory(name); };
   const choose = (next: 'NEWS' | 'ANNOUNCEMENT') => { setPage(1); setData(null); setParams(next === 'NEWS' ? {} : { type: next }); };
   const toggle = (value: 'NEWS' | 'ANNOUNCEMENT', label: string) => (
-    <Button key={value} role="tab" aria-selected={type === value} onClick={() => choose(value)} sx={{ px: 3, py: 1, borderRadius: '14px', fontWeight: 700, fontSize: 16, transition: 'background-color .2s, color .2s', ...(type === value ? { background: T.navyGrad, color: T.goldText, boxShadow: `inset 0 -3px 0 ${T.gold}` } : { color: T.navy, bgcolor: '#fff', border: `1px solid ${T.gold}` }) }}>{label}</Button>
+    <Button key={value} role="tab" aria-selected={type === value} onClick={() => choose(value)} sx={{ px: 3.25, py: 1, borderRadius: 30, fontWeight: 700, fontSize: 16, transition: 'background-color .2s, color .2s', ...(type === value ? { background: T.navyGrad, color: T.goldText, boxShadow: `0 6px 16px rgba(18,72,154,.28), inset 0 -3px 0 ${T.gold}` } : { color: T.navy }) }}>{label}</Button>
   );
 
   return (
-    <SitePage title="الأخبار والإعلانات" subtitle="آخر أخبار الجامعة وإعلاناتها.">
+    <SitePage title="الأخبار" subtitle="آخر أخبار الجامعة وإعلاناتها.">
       <Wrap sx={{ pt: { xs: 4, md: 5 } }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}>
-          <Stack direction="row" spacing={1} role="tablist" aria-label="النوع">{toggle('NEWS', '📰 الأخبار')}{toggle('ANNOUNCEMENT', '📢 الإعلانات')}</Stack>
-          <TextField size="small" type="search" label="بحث" value={query} onChange={(event) => setQuery(event.target.value)} sx={{ minWidth: { sm: 280 }, bgcolor: '#fff', borderRadius: 1 }} slotProps={{ htmlInput: { maxLength: 80 } }} />
+          <Stack direction="row" spacing={0.5} role="tablist" aria-label="النوع" sx={{ bgcolor: '#f8ecd6', borderRadius: 30, p: 0.6, alignSelf: 'flex-start' }}>{toggle('NEWS', '📰 الأخبار')}{toggle('ANNOUNCEMENT', '📢 الإعلانات')}</Stack>
+          <TextField size="small" type="search" label="بحث" value={query} onChange={(event) => setQuery(event.target.value)} sx={{ minWidth: { sm: 320 }, '& .MuiOutlinedInput-root': { borderRadius: '30px', bgcolor: '#fff', boxShadow: '0 4px 14px rgba(18,72,154,.06)', '& fieldset': { borderColor: 'rgba(211,154,61,.45)' } } }} slotProps={{ htmlInput: { maxLength: 80 } }} />
         </Stack>
         {categories.length > 0 && (
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mt: 2 }} role="tablist" aria-label="التصنيف">
@@ -77,8 +78,8 @@ export function NewsListPage() {
 
 export function NewsCard({ item }: { item: SiteNewsCard }) {
   return (
-    <Box data-rv="" data-tilt="" component="article" sx={{ ...goldCard, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      {item.coverMediaId && <Box component="img" src={siteMediaUrl(item.coverMediaId)} alt="" loading="lazy" sx={{ width: '100%', height: 170, objectFit: 'cover' }} />}
+    <Box data-rv="" data-tilt="" component="article" sx={{ ...goldCard, overflow: 'hidden', display: 'flex', flexDirection: 'column', '&:hover img': { transform: 'scale(1.05)' } }}>
+      <Box sx={{ overflow: 'hidden', height: 170 }}><Cover mediaId={item.coverMediaId} /></Box>
       <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', flex: 1 }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
           <Chip size="small" label={typeLabel(item.type)} sx={{ bgcolor: '#f6ecd0', color: '#7a5a12' }} />

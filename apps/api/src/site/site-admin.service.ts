@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteMediaService } from './site-media.service.js';
 import { SETTING_DEFS, SETTING_KEYS } from './site.constants.js';
-import { ENTRY_CATEGORIES, MAX_GALLERY } from './site.constants.js';
+import { ENTRY_CATEGORIES, MAX_GALLERY, MAX_VIDEOS, VIDEO_FILE_RE, YOUTUBE_RE } from './site.constants.js';
 import type { CreateEntryDto, UpdateEntryDto, CreateItemDto, CreateNewsDto, CreateTestimonialDto, UpdateItemDto, UpdateNewsDto, UpdateTestimonialDto, UpsertProfileDto } from './dto/site.dto.js';
 
 type Status = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
@@ -51,7 +51,26 @@ export class SiteAdminService {
     return this.prisma.siteContentItem.findMany({ where: kind ? { kind: kind as 'FAQ' } : {}, orderBy: [{ kind: 'asc' }, { sortOrder: 'asc' }, { createdAt: 'asc' }] });
   }
 
-  createItem(dto: CreateItemDto, userId: string) {
+  // الهيكل التنظيمي: «الحقل الإضافي» معرّف الوحدة الأعلى (فارغ للجذر). الرابط السريع: مسار داخلي أو https.
+  private async checkItemExtra(kind: string, extra: string | undefined, selfId?: string) {
+    const value = extra?.trim() ?? '';
+    if (kind === 'QUICK_LINK') {
+      if (!value || !(/^\/(?!\/)/.test(value) || /^https:\/\/[^\s]+$/i.test(value))) throw new BadRequestException('الرابط يجب أن يبدأ بـ / (صفحة داخلية) أو https://');
+    }
+    if (kind === 'ORG_NODE' && value) {
+      if (value === selfId) throw new BadRequestException('لا يمكن جعل الوحدة تابعة لنفسها.');
+      let cursor: string | null = value;
+      for (let depth = 0; cursor && depth < 12; depth += 1) {
+        const parent: { id: string; kind: string; extra: string | null } | null = await this.prisma.siteContentItem.findUnique({ where: { id: cursor }, select: { id: true, kind: true, extra: true } });
+        if (!parent || parent.kind !== 'ORG_NODE') throw new BadRequestException('الوحدة الأعلى غير موجودة.');
+        if (selfId && parent.extra === selfId) throw new BadRequestException('هذا الاختيار يُنشئ حلقة مغلقة في الهيكل.');
+        cursor = parent.extra;
+      }
+    }
+  }
+
+  async createItem(dto: CreateItemDto, userId: string) {
+    await this.checkItemExtra(dto.kind, dto.extra);
     return this.prisma.$transaction(async (tx) => {
       const item = await tx.siteContentItem.create({ data: { kind: dto.kind, title: dto.title.trim(), text: dto.text?.trim() ?? '', extra: dto.extra?.trim() || null, sortOrder: dto.sortOrder ?? 0, status: dto.status ?? 'PUBLISHED', updatedById: userId } });
       await this.audit(tx, 'SITE_ITEM_CREATED', 'SiteContentItem', item.id, userId, { kind: item.kind, title: item.title });
@@ -60,8 +79,9 @@ export class SiteAdminService {
   }
 
   async updateItem(id: string, dto: UpdateItemDto, userId: string) {
-    const found = await this.prisma.siteContentItem.findUnique({ where: { id }, select: { id: true } });
+    const found = await this.prisma.siteContentItem.findUnique({ where: { id }, select: { id: true, kind: true } });
     if (!found) throw new NotFoundException('العنصر غير موجود.');
+    if (dto.extra !== undefined) await this.checkItemExtra(found.kind, dto.extra, id);
     return this.prisma.$transaction(async (tx) => {
       const item = await tx.siteContentItem.update({ where: { id }, data: {
         ...(dto.title !== undefined ? { title: dto.title.trim() } : {}), ...(dto.text !== undefined ? { text: dto.text.trim() } : {}),
@@ -170,7 +190,7 @@ export class SiteAdminService {
     ]);
     const profile = (kind: string, refId: string) => {
       const row = profiles.find((item) => item.kind === kind && item.refId === refId);
-      return { summary: row?.summary ?? '', mediaId: row?.mediaId ?? null, sortOrder: row?.sortOrder ?? 0, // الكلية لا تظهر إلا بقرار صريح، أما القسم والبرنامج فيظهران تحت كلية ظاهرة ما لم يُخفَيا
+      return { summary: row?.summary ?? '', details: row?.details ?? '', mediaId: row?.mediaId ?? null, sortOrder: row?.sortOrder ?? 0, // الكلية لا تظهر إلا بقرار صريح، أما القسم والبرنامج فيظهران تحت كلية ظاهرة ما لم يُخفَيا
       isVisible: row?.isVisible ?? kind !== 'COLLEGE', saved: Boolean(row) };
     };
     return colleges.map((college) => ({
@@ -191,7 +211,7 @@ export class SiteAdminService {
     const mediaId = dto.mediaId === undefined ? undefined : await this.media.assertImage(dto.mediaId);
     return this.prisma.$transaction(async (tx) => {
       const data = {
-        ...(dto.summary !== undefined ? { summary: dto.summary.trim() } : {}), ...(mediaId !== undefined ? { mediaId } : {}),
+        ...(dto.summary !== undefined ? { summary: dto.summary.trim() } : {}), ...(dto.details !== undefined ? { details: dto.details.trim() } : {}), ...(mediaId !== undefined ? { mediaId } : {}),
         ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}), ...(dto.isVisible !== undefined ? { isVisible: dto.isVisible } : {}), updatedById: userId,
       };
       const row = await tx.siteAcademicProfile.upsert({ where: { kind_refId: { kind: kind as 'COLLEGE', refId } }, update: data, create: { kind: kind as 'COLLEGE', refId, isVisible: kind !== 'COLLEGE', ...data } });
@@ -237,6 +257,14 @@ export class SiteAdminService {
     return unique;
   }
 
+  private checkVideos(list: string[] | undefined) {
+    if (list === undefined) return undefined;
+    const clean = [...new Set(list.map((value) => value.trim()).filter(Boolean))];
+    if (clean.length > MAX_VIDEOS) throw new BadRequestException(`الحد الأقصى ${MAX_VIDEOS} روابط فيديو.`);
+    for (const link of clean) if (!YOUTUBE_RE.test(link) && !VIDEO_FILE_RE.test(link)) throw new BadRequestException('رابط الفيديو يجب أن يكون من يوتيوب أو ملف mp4/webm/ogg بعنوان https.');
+    return clean;
+  }
+
   private checkCategory(kind: string, category: string | undefined) {
     const allowed = ENTRY_CATEGORIES[kind as keyof typeof ENTRY_CATEGORIES] ?? [];
     if (category && allowed.length > 0 && !allowed.includes(category)) throw new BadRequestException('التصنيف غير معروف لهذا النوع.');
@@ -253,10 +281,11 @@ export class SiteAdminService {
     this.checkDates(startsAt, endsAt);
     const coverMediaId = await this.media.assertImage(dto.coverMediaId);
     const galleryIds = (await this.gallery(dto.galleryIds)) ?? [];
+    const videos = this.checkVideos(dto.videos) ?? [];
     return this.prisma.$transaction(async (tx) => {
       const row = await tx.siteEntry.create({ data: {
         kind: dto.kind, category: dto.category?.trim() ?? '', title: dto.title.trim(), summary: dto.summary?.trim() ?? '', body: dto.body?.trim() ?? '', location: dto.location?.trim() ?? '',
-        startsAt: startsAt ?? null, endsAt: endsAt ?? null, coverMediaId, galleryIds, sortOrder: dto.sortOrder ?? 0, status: 'DRAFT', updatedById: userId,
+        startsAt: startsAt ?? null, endsAt: endsAt ?? null, coverMediaId, galleryIds, videos, sortOrder: dto.sortOrder ?? 0, status: 'DRAFT', updatedById: userId,
       } });
       await this.audit(tx, 'SITE_ENTRY_CREATED', 'SiteEntry', row.id, userId, { kind: row.kind, title: row.title });
       return row;
@@ -272,12 +301,13 @@ export class SiteAdminService {
     this.checkDates(startsAt === undefined ? found.startsAt : startsAt, endsAt === undefined ? found.endsAt : endsAt);
     const coverMediaId = dto.coverMediaId === undefined ? undefined : await this.media.assertImage(dto.coverMediaId);
     const galleryIds = await this.gallery(dto.galleryIds);
+    const videos = this.checkVideos(dto.videos);
     return this.prisma.$transaction(async (tx) => {
       const row = await tx.siteEntry.update({ where: { id }, data: {
         ...(dto.title !== undefined ? { title: dto.title.trim() } : {}), ...(dto.category !== undefined ? { category: dto.category.trim() } : {}),
         ...(dto.summary !== undefined ? { summary: dto.summary.trim() } : {}), ...(dto.body !== undefined ? { body: dto.body.trim() } : {}), ...(dto.location !== undefined ? { location: dto.location.trim() } : {}),
         ...(startsAt !== undefined ? { startsAt } : {}), ...(endsAt !== undefined ? { endsAt } : {}), ...(coverMediaId !== undefined ? { coverMediaId } : {}),
-        ...(galleryIds !== undefined ? { galleryIds } : {}), ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}), updatedById: userId,
+        ...(galleryIds !== undefined ? { galleryIds } : {}), ...(videos !== undefined ? { videos } : {}), ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}), updatedById: userId,
       } });
       await this.audit(tx, 'SITE_ENTRY_UPDATED', 'SiteEntry', id, userId);
       return row;

@@ -8,7 +8,7 @@ import { siteMediaUrl } from '../../api/site';
 import { ImagePicker } from './shared';
 import { errorText, useMediaList } from './adminHelpers';
 
-type Form = { id?: string; title: string; category: string; summary: string; body: string; location: string; startsAt: string; endsAt: string; coverMediaId: string | null; galleryIds: string[]; sortOrder: string };
+type Form = { id?: string; title: string; category: string; summary: string; body: string; location: string; startsAt: string; endsAt: string; coverMediaId: string | null; galleryIds: string[]; videos: string; sortOrder: string };
 
 // <input type="datetime-local"> يستخدم التوقيت المحلي بلا منطقة: نحوّل منه وإليه بدقة.
 const toLocal = (iso: string | null) => {
@@ -19,7 +19,7 @@ const toLocal = (iso: string | null) => {
 };
 const toIso = (local: string) => (local ? new Date(local).toISOString() : null);
 const chipColor = (status: SiteStatus) => (status === 'PUBLISHED' ? 'success' : status === 'DRAFT' ? 'warning' : 'default');
-const empty = (count: number): Form => ({ title: '', category: '', summary: '', body: '', location: '', startsAt: '', endsAt: '', coverMediaId: null, galleryIds: [], sortOrder: String(count + 1) });
+const empty = (count: number): Form => ({ title: '', category: '', summary: '', body: '', location: '', startsAt: '', endsAt: '', coverMediaId: null, galleryIds: [], videos: '', sortOrder: String(count + 1) });
 
 // الفعاليات والبحث العلمي والخريجون والحياة الجامعية: نموذج واحد بحقول تُعرض حسب النوع. الحذف نهائي ويُسجَّل.
 export default function EntriesTab() {
@@ -40,7 +40,7 @@ export default function EntriesTab() {
     try {
       const body = {
         title: form.title.trim(), category: form.category, summary: form.summary.trim(), body: form.body.trim(), location: form.location.trim(),
-        startsAt: toIso(form.startsAt), endsAt: toIso(form.endsAt), coverMediaId: form.coverMediaId, galleryIds: form.galleryIds, sortOrder: Number(form.sortOrder) || 0,
+        startsAt: toIso(form.startsAt), endsAt: toIso(form.endsAt), coverMediaId: form.coverMediaId, galleryIds: form.galleryIds, videos: form.videos.split(/\n+/).map((line) => line.trim()).filter(Boolean), sortOrder: Number(form.sortOrder) || 0,
       };
       if (form.id) await updateSiteEntry(form.id, body); else await createSiteEntry(kind, body);
       setForm(null); await load();
@@ -78,7 +78,7 @@ export default function EntriesTab() {
                 {kind === 'EVENT' && <TableCell>{row.startsAt ? new Date(row.startsAt).toLocaleString('ar-EG-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}</TableCell>}
                 <TableCell><Chip size="small" color={chipColor(row.status)} label={SITE_STATUS_LABEL[row.status]} /></TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                  <Button size="small" onClick={() => setForm({ id: row.id, title: row.title, category: row.category, summary: row.summary, body: row.body, location: row.location, startsAt: toLocal(row.startsAt), endsAt: toLocal(row.endsAt), coverMediaId: row.coverMediaId, galleryIds: row.galleryIds, sortOrder: String(row.sortOrder) })}>تعديل</Button>
+                  <Button size="small" onClick={() => setForm({ id: row.id, title: row.title, category: row.category, summary: row.summary, body: row.body, location: row.location, startsAt: toLocal(row.startsAt), endsAt: toLocal(row.endsAt), coverMediaId: row.coverMediaId, galleryIds: row.galleryIds, videos: row.videos.join('\n'), sortOrder: String(row.sortOrder) })}>تعديل</Button>
                   {row.status !== 'PUBLISHED' && <Button size="small" color="success" onClick={() => void status(row, 'PUBLISHED')}>{row.status === 'ARCHIVED' ? 'استعادة ونشر' : 'نشر'}</Button>}
                   {row.status === 'PUBLISHED' && <Button size="small" onClick={() => void status(row, 'DRAFT')}>إلغاء النشر</Button>}
                   {row.status !== 'ARCHIVED' && <Button size="small" color="warning" onClick={() => void status(row, 'ARCHIVED')}>أرشفة</Button>}
@@ -97,6 +97,7 @@ export default function EntriesTab() {
           {form && (
             <Stack spacing={2} sx={{ pt: 1 }}>
               <TextField required label="العنوان" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} slotProps={{ htmlInput: { maxLength: 250 } }} />
+              {kind === 'EVENT' && <TextField label="التصنيف (مثل: مؤتمرات وندوات، أنشطة رياضية)" value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} helperText="التصنيفات المستخدمة تظهر كأزرار فلترة في صفحة الفعاليات." slotProps={{ htmlInput: { maxLength: 120 } }} />}
               {categories.length > 0 && (
                 <TextField select size="small" label="التصنيف" value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>
                   <MenuItem value="">بدون تصنيف</MenuItem>
@@ -128,6 +129,7 @@ export default function EntriesTab() {
                   {images.length === 0 && <Typography variant="body2" color="text.secondary">لا صور مرفوعة بعد.</Typography>}
                 </Box>
               </Box>
+              <TextField label="روابط الفيديو (رابط في كل سطر)" multiline minRows={2} value={form.videos} onChange={(event) => setForm({ ...form, videos: event.target.value })} helperText="يوتيوب أو ملف mp4/webm بعنوان https (حتى 6). لا نرفع الفيديو إلى الموقع." slotProps={{ htmlInput: { dir: 'ltr' } }} />
               {kind !== 'EVENT' && <TextField label="الترتيب" type="number" size="small" value={form.sortOrder} onChange={(event) => setForm({ ...form, sortOrder: event.target.value })} sx={{ maxWidth: 160 }} />}
             </Stack>
           )}

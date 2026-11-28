@@ -17,6 +17,7 @@ import AdvisorEnrollmentMessagesDock from './components/AdvisorEnrollmentMessage
 const LandingPage = lazy(() => import('./pages/landing/LandingPage'));
 const AboutPage = lazy(() => import('./pages/site/AboutPage'));
 const CollegesPage = lazy(() => import('./pages/site/CollegesPage'));
+const CollegeDetailPage = lazy(() => import('./pages/site/CollegesPage').then((m) => ({ default: m.CollegeDetailPage })));
 const AdmissionPage = lazy(() => import('./pages/site/AdmissionPage'));
 const NewsListPage = lazy(() => import('./pages/site/NewsPages').then((m) => ({ default: m.NewsListPage })));
 const NewsDetailPage = lazy(() => import('./pages/site/NewsPages').then((m) => ({ default: m.NewsDetailPage })));
@@ -75,6 +76,7 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/colleges" element={<CollegesPage />} />
+        <Route path="/colleges/:id" element={<CollegeDetailPage />} />
         <Route path="/admission" element={<AdmissionPage />} />
         <Route path="/news" element={<NewsListPage />} />
         <Route path="/news/:id" element={<NewsDetailPage />} />
