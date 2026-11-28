@@ -25,6 +25,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
+import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
 
 import {
   useCallback,
@@ -60,6 +61,9 @@ import {
   type Semester,
   type StudyPlan,
 } from '../../api/academicStructure';
+
+import CourseImportDialog from './CourseImportDialog';
+import { useAuth } from '../../auth/AuthContext';
 
 interface CourseForm {
   code: string;
@@ -148,6 +152,9 @@ export default function CoursesPage() {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [prerequisiteCourse, setPrerequisiteCourse] = useState<Course | null>(null);
   const [selectedPrerequisiteIds, setSelectedPrerequisiteIds] = useState<string[]>([]);
+  const { user } = useAuth();
+  const canImport = user?.role === 'REGISTRAR' || user?.role === 'SYSTEM_ADMIN';
+  const [importOpen, setImportOpen] = useState(false);
   const [form, setForm] = useState<CourseForm>(emptyForm);
 
   const loadData = useCallback(async () => {
@@ -434,7 +441,8 @@ export default function CoursesPage() {
   }
 
 
-  if (loading) {
+  // إعادة التحميل بعد الاستيراد لا تُخفي الصفحة (فيبقى الحوار ورسالة النجاح ظاهرين).
+  if (loading && courses.length === 0) {
     return (
       <Box sx={{ minHeight: 420, display: 'grid', placeItems: 'center' }}>
         <Stack spacing={2} sx={{ alignItems: 'center' }}>
@@ -466,10 +474,15 @@ export default function CoursesPage() {
           </Typography>
         </Box>
 
-        <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={openCreate}>
-          إضافة مقرر
-        </Button>
+        <Stack direction="row" spacing={1.5} sx={{ flexWrap: 'wrap' }}>
+          {canImport && <Button variant="outlined" startIcon={<UploadFileRoundedIcon />} onClick={() => setImportOpen(true)}>استيراد من Excel</Button>}
+          <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={openCreate}>
+            إضافة مقرر
+          </Button>
+        </Stack>
       </Box>
+
+      {importOpen && <CourseImportDialog onClose={() => setImportOpen(false)} onImported={() => void loadData()} />}
 
       {error && !dialogOpen && !prerequisiteDialogOpen && (
         <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>
@@ -490,6 +503,7 @@ export default function CoursesPage() {
               display: 'grid',
               gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 180px 180px' },
               gap: 2,
+              alignItems: 'center',
             }}
           >
             <TextField

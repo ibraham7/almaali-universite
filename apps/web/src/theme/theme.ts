@@ -195,6 +195,19 @@ export const theme = createTheme({
       },
     },
 
+    // القوائم المنسدلة بنفس ارتفاع حقول النص (40px) حتى تتناسق الحقول المتجاورة.
+    MuiFormControl: {
+      defaultProps: {
+        size: 'small',
+      },
+    },
+
+    MuiSelect: {
+      defaultProps: {
+        size: 'small',
+      },
+    },
+
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
