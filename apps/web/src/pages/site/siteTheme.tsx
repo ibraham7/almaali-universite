@@ -85,10 +85,10 @@ export function SiteHeader() {
   return (
     <Box component="header" sx={{ position: 'sticky', top: 0, zIndex: 20, pt: 1.5, pointerEvents: 'none' }}>
       <Wrap sx={{ pointerEvents: 'auto' }}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minHeight: scrolled ? 54 : 64, px: 2, borderRadius: '20px', bgcolor: scrolled ? 'rgba(255,255,255,.95)' : 'rgba(255,255,255,.84)', backdropFilter: 'blur(14px)', border: '1px solid rgba(211,154,61,.45)', boxShadow: scrolled ? '0 12px 34px rgba(11,47,104,.24)' : '0 8px 30px rgba(11,47,104,.14)', transition: `min-height .3s ${T.ease}, box-shadow .3s, background-color .3s`, ...calm }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', minHeight: scrolled ? { xs: 56, md: 66 } : { xs: 64, md: 84 }, px: 2, borderRadius: '20px', bgcolor: scrolled ? 'rgba(255,255,255,.95)' : 'rgba(255,255,255,.84)', backdropFilter: 'blur(14px)', border: '1px solid rgba(211,154,61,.45)', boxShadow: scrolled ? '0 12px 34px rgba(11,47,104,.24)' : '0 8px 30px rgba(11,47,104,.14)', transition: `min-height .3s ${T.ease}, box-shadow .3s, background-color .3s`, ...calm }}>
           <Stack component={RouterLink} to="/" direction="row" spacing={1.2} sx={{ alignItems: 'center', textDecoration: 'none', color: T.navy }} aria-label={`${UNIVERSITY.name} ${UNIVERSITY.suffix}`}>
-            <Box component="img" src="/logo-md.png" alt="" sx={{ height: scrolled ? 38 : 44, width: 'auto', transition: 'height .3s' }} />
-            <Typography sx={{ fontWeight: 800, fontSize: { xs: 15, sm: 18 } }}>{UNIVERSITY.name} {UNIVERSITY.suffix}</Typography>
+            <Box component="img" src="/logo-md.png" alt="" sx={{ height: scrolled ? { xs: 40, md: 52 } : { xs: 48, md: 68 }, width: 'auto', transition: 'height .3s' }} />
+            <Typography sx={{ fontWeight: 800, fontSize: { xs: 15, sm: 18 }, whiteSpace: { xs: 'normal', sm: 'nowrap' }, lineHeight: 1.25 }}>{UNIVERSITY.name} {UNIVERSITY.suffix}</Typography>
           </Stack>
           <Stack component="nav" aria-label="التنقل الرئيسي" direction="row" spacing={0.5} sx={{ flex: 1, justifyContent: 'flex-end', display: { xs: 'none', md: 'flex' } }}>
             {primary.map((item) => (
