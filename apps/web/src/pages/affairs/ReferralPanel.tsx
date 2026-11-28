@@ -27,13 +27,17 @@ export default function ReferralPanel({ data, onChanged }: { data: RequestDetail
 
   const needsName = form.target === 'COLLEGE' || form.target === 'OTHER';
   // A new request nobody took yet can be referred too: the staff member who refers it takes it, an admin refers it as is.
-  const canSend = !pending && ((data.canAct && ['NEW', 'ASSIGNED', 'IN_PROGRESS'].includes(data.status)) || (data.canTake && data.status === 'NEW'));
+  const canSend = !pending && ((data.canAct && ['NEW', 'ASSIGNED', 'IN_PROGRESS'].includes(data.status) && (Boolean(data.assignedStaff) || data.canTake)) || (data.canTake && data.status === 'NEW'));
+  // الملكية: الإحالة لا تنقل المعاملة إلى أحد، فلا تُحال معاملة بلا مالك.
+  const needsOwner = !pending && data.canAct && !data.assignedStaff && !data.canTake && ['NEW'].includes(data.status);
   const outcomes = pending?.mode === 'EXECUTION' ? EXECUTION_OUTCOMES : OPINION_OUTCOMES;
   const noteRequired = outcome === 'REJECTED' || outcome === 'NOT_DONE';
 
   return (
     <Stack spacing={1.5}>
       <Typography sx={{ fontWeight: 700 }}>الإحالات</Typography>
+      <Typography variant="body2" color="text.secondary">الإحالة لا تنقل ملكية المعاملة: يبقى {data.assignedStaff?.name ?? 'الموظف المسؤول'} مالكها الأساسي حتى إغلاقها.</Typography>
+      {needsOwner && <Alert severity="info">أسند الطلب إلى موظف مسؤول أولاً، ثم يمكن إحالته.</Alert>}
       {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
       {data.referrals.length === 0 && <Typography variant="body2" color="text.secondary">لا توجد إحالات.</Typography>}
       {data.referrals.map((r) => (

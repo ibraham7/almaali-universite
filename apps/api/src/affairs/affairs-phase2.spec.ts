@@ -212,10 +212,37 @@ describe('referrals', () => {
     raced.studentRequest.updateMany = vi.fn().mockResolvedValue({ count: 0 });
     await expect(new AffairsReferralsService(raced as unknown as PrismaService, fakeSettings()).create('r1', dto as never, owner)).rejects.toBeInstanceOf(ForbiddenException);
 
-    // admin: refers it without taking it
+    // admin: a request with no owner cannot be referred; the owner stays the primary owner until closing, so assign first
     const adm = mockPrisma(fresh);
-    await new AffairsReferralsService(adm as unknown as PrismaService, fakeSettings()).create('r1', dto as never, admin);
-    expect(adm.studentRequest.update).toHaveBeenCalledWith({ where: { id: 'r1' }, data: { status: 'REFERRED' } });
+    await expect(new AffairsReferralsService(adm as unknown as PrismaService, fakeSettings()).create('r1', dto as never, admin)).rejects.toThrow('أسند الطلب');
+    expect(adm.requestReferral.create).not.toHaveBeenCalled();
+    expect(adm.studentRequest.update).not.toHaveBeenCalled();
+  });
+
+  it('ownership: creating, answering and cancelling a referral never change the staff member who owns the request', async () => {
+    const touchesOwner = (a: any) => a.studentRequest.update.mock.calls.some((c: any) => c[0].data && 'assignedStaffId' in c[0].data);
+    const created = mockPrisma();
+    await new AffairsReferralsService(created as unknown as PrismaService, fakeSettings()).create('r1', dto as never, owner);
+    expect(touchesOwner(created)).toBe(false);
+    // an admin referring a request owned by a staff member does not take it over either
+    const byAdmin = mockPrisma();
+    await new AffairsReferralsService(byAdmin as unknown as PrismaService, fakeSettings()).create('r1', dto as never, admin);
+    expect(touchesOwner(byAdmin)).toBe(false);
+    expect(byAdmin.studentRequestEvent.create.mock.calls.map((c: any) => c[0].data).every((e: any) => e.staffId === 'st1' || e.type === undefined)).toBe(true);
+    for (const outcome of ['APPROVED', 'REJECTED']) {
+      const a = mockPrisma({ status: 'REFERRED' });
+      a.requestReferral.findUnique.mockResolvedValue({ id: 'f1', requestId: 'r1', mode: 'OPINION', target: 'COLLEGE', targetName: 'x', status: 'PENDING' });
+      await new AffairsReferralsService(a as unknown as PrismaService, fakeSettings()).respond('f1', { outcome, note: 'ملاحظة' }, owner);
+      expect(touchesOwner(a)).toBe(false);
+    }
+    const done = mockPrisma({ status: 'REFERRED' });
+    done.requestReferral.findUnique.mockResolvedValue({ id: 'f2', requestId: 'r1', mode: 'EXECUTION', target: 'FINANCIAL_AFFAIRS', status: 'PENDING' });
+    await new AffairsReferralsService(done as unknown as PrismaService, fakeSettings()).respond('f2', { outcome: 'DONE' }, owner);
+    expect(touchesOwner(done)).toBe(false);
+    const cancelled = mockPrisma({ status: 'REFERRED' });
+    cancelled.requestReferral.findUnique.mockResolvedValue({ id: 'f3', requestId: 'r1', mode: 'OPINION', target: 'ACADEMIC_AFFAIRS', status: 'PENDING' });
+    await new AffairsReferralsService(cancelled as unknown as PrismaService, fakeSettings()).cancel('f3', { reason: 'خطأ' }, owner);
+    expect(touchesOwner(cancelled)).toBe(false);
   });
 
   it('an opinion answer returns the request to the original staff; an execution "done" completes it; a rejection needs a note', async () => {
