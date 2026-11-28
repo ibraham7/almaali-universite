@@ -28,6 +28,13 @@ export function cohortRangeLabel(from?: number | null, to?: number | null) {
   return from === to ? `دفعة ${from}` : `من دفعة ${from} إلى ${to}`;
 }
 
+// صيغة مختصرة للجداول: «كل الدفعات» / «2023 – الآن» / «2019 – 2021» / «2026».
+export function cohortShortLabel(from?: number | null, to?: number | null) {
+  if (!from) return 'كل الدفعات';
+  if (!to) return `${from} – الآن`;
+  return from === to ? String(from) : `${from} – ${to}`;
+}
+
 // "الكلية ← القسم ← البرنامج" for a plan's program (used to pick a program in a drop-down).
 export function studyPlanProgramLabel(plan: StudyPlan) {
   const college = plan.program?.college?.nameAr ?? plan.program?.department?.college?.nameAr;

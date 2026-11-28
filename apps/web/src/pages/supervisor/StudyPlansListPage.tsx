@@ -7,7 +7,7 @@ import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { STUDY_PLAN_STATUS_LABEL, approveStudyPlan, createStudyPlanVersion, type StudyPlanStatus } from '../../api/academicStructure';
 import { apiClient } from '../../api/client';
-import { cohortRangeLabel, getPlanStructure, type PlanStructure } from '../../api/studyPlan';
+import { cohortRangeLabel, cohortShortLabel, getPlanStructure, type PlanStructure } from '../../api/studyPlan';
 import { useAuth } from '../../auth/AuthContext';
 import PlanStructureTables from './PlanStructureTables';
 
@@ -141,7 +141,7 @@ export default function StudyPlansListPage() {
                   <TableCell>{plan.program?.college?.nameAr ?? plan.program?.department?.college?.nameAr ?? '—'}</TableCell>
                   <TableCell>{plan.program?.department?.nameAr ?? '—'}</TableCell>
                   <TableCell>{plan.program?.nameAr ?? '—'}</TableCell>
-                  <TableCell>{cohortRangeLabel(plan.cohortYear, plan.cohortToYear)}</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{cohortShortLabel(plan.cohortYear, plan.cohortToYear)}</TableCell>
                   <TableCell>{plan.versionNumber}</TableCell>
                   <TableCell><Chip size="small" color={STATUS_COLOR[plan.status]} label={STUDY_PLAN_STATUS_LABEL[plan.status]} /></TableCell>
                   <TableCell>{date(plan.effectiveFrom)}</TableCell>

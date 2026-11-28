@@ -195,6 +195,13 @@ export const theme = createTheme({
       },
     },
 
+    // تباعد موحد: Stack يستخدم gap (يعمل بالاتجاهين) بدل الهوامش الفيزيائية التي تنكسر مع RTL فتلتصق العناصر ببعضها.
+    MuiStack: {
+      defaultProps: {
+        useFlexGap: true,
+      },
+    },
+
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
