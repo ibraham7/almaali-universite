@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import axios from 'axios';
 import { Alert, Box, Link, Stack, TextField, Typography } from '@mui/material';
 import { sendSiteMessage, useSiteContent } from '../../api/site';
-import { GoldButton, SitePage, Wrap } from './siteTheme';
+import { GoldButton, SitePage, SocialLinks, Wrap } from './siteTheme';
 import { T, goldCard } from './siteStyles';
 
 // التواصل: بيانات الجامعة من لوحة الموقع (ما فاضي يُخفى) + نموذج رسالة تصل للوحة الموقع.
@@ -13,6 +13,7 @@ export default function ContactPage() {
     ['العنوان', s.contactAddress], ['الهاتف', s.contactPhone, s.contactPhone && `tel:${s.contactPhone.replace(/\s/g, '')}`],
     ['البريد الإلكتروني', s.contactEmail, s.contactEmail && `mailto:${s.contactEmail}`], ['ساعات الدوام', s.contactHours],
   ].filter((line) => line[1]) as Array<[string, string, string?]>;
+  const hasInfo = lines.length > 0 || Object.keys(s).some((key) => key.startsWith('social') || key === 'contactMapUrl');
   const [form, setForm] = useState({ name: '', contact: '', subject: '', message: '', website: '' });
   const [state, setState] = useState<{ kind: 'idle' | 'sending' | 'done' | 'error'; text?: string }>({ kind: 'idle' });
 
@@ -35,8 +36,8 @@ export default function ContactPage() {
 
   return (
     <SitePage title="اتصل بنا" subtitle="يسعدنا استقبال استفساراتكم.">
-      <Wrap sx={{ py: { xs: 4, md: 6 }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: lines.length ? '1fr 1.2fr' : '1fr' }, gap: 3, maxWidth: lines.length ? undefined : 680 }}>
-        {lines.length > 0 && (
+      <Wrap sx={{ py: { xs: 4, md: 6 }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: hasInfo ? '1fr 1.2fr' : '1fr' }, gap: 3, maxWidth: hasInfo ? undefined : 680 }}>
+        {hasInfo && (
           <Box data-rv="" sx={{ ...goldCard, p: 3, borderTop: `4px solid ${T.gold}`, alignSelf: 'start', '&:hover': { transform: 'none' } }}>
             <Typography component="h2" sx={{ fontSize: 22, fontWeight: 800, color: T.navy, mb: 2 }}>بيانات التواصل</Typography>
             <Stack spacing={1.75}>
@@ -46,6 +47,8 @@ export default function ContactPage() {
                   {href ? <Link href={href} underline="hover" sx={{ fontSize: 17, fontWeight: 600, color: T.navy }} dir="ltr">{value}</Link> : <Typography sx={{ fontSize: 17, fontWeight: 600 }}>{value}</Typography>}
                 </Box>
               ))}
+              <SocialLinks settings={s} />
+              {/^https:\/\/(www\.)?google\.[a-z.]+\/maps\/embed/i.test(s.contactMapUrl ?? '') && <Box component="iframe" title="خريطة الموقع" src={s.contactMapUrl} loading="lazy" referrerPolicy="no-referrer" sx={{ width: '100%', height: 260, border: 0, borderRadius: '14px' }} />}
               {s.contactMapUrl && <Link href={s.contactMapUrl} target="_blank" rel="noopener noreferrer" underline="hover" sx={{ fontWeight: 700, color: T.goldDark }}>عرض الموقع على الخريطة ←</Link>}
             </Stack>
           </Box>

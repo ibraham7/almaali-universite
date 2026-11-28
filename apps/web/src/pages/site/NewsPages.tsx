@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link as RouterLink, useParams, useSearchParams } from 'react-router-dom';
 import { Alert, Box, Button, Chip, CircularProgress, Stack, TextField, Typography } from '@mui/material';
-import { getSiteNews, getSiteNewsItem, siteMediaUrl, type SiteNewsCard } from '../../api/site';
+import { getSiteNews, getSiteNewsItem, siteMediaUrl, useSiteContent, type SiteNewsCard } from '../../api/site';
 import { EmptyNote, Prose, SitePage, Wrap } from './siteTheme';
 import { T, goldCard } from './siteStyles';
 
@@ -14,6 +14,9 @@ export function NewsListPage() {
   const [page, setPage] = useState(1);
   const [query, setQuery] = useState('');
   const [term, setTerm] = useState('');
+  const [category, setCategory] = useState('');
+  const { content } = useSiteContent();
+  const categories = content?.newsCategories ?? [];
   const [data, setData] = useState<{ total: number; pageSize: number; items: SiteNewsCard[] } | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -25,11 +28,12 @@ export function NewsListPage() {
 
   useEffect(() => {
     let active = true;
-    getSiteNews(page, type, term).then((result) => { if (active) { setData(result); setFailed(false); } }).catch(() => { if (active) setFailed(true); });
+    getSiteNews(page, type, term, category).then((result) => { if (active) { setData(result); setFailed(false); } }).catch(() => { if (active) setFailed(true); });
     return () => { active = false; };
-  }, [page, type, term]);
+  }, [page, type, term, category]);
 
   const pages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
+  const chooseCategory = (name: string) => { setPage(1); setData(null); setCategory(name); };
   const choose = (next: 'NEWS' | 'ANNOUNCEMENT') => { setPage(1); setData(null); setParams(next === 'NEWS' ? {} : { type: next }); };
   const toggle = (value: 'NEWS' | 'ANNOUNCEMENT', label: string) => (
     <Button key={value} role="tab" aria-selected={type === value} onClick={() => choose(value)} sx={{ px: 3, py: 1, borderRadius: '14px', fontWeight: 700, fontSize: 16, transition: 'background-color .2s, color .2s', ...(type === value ? { background: T.navyGrad, color: T.goldText, boxShadow: `inset 0 -3px 0 ${T.gold}` } : { color: T.navy, bgcolor: '#fff', border: `1px solid ${T.gold}` }) }}>{label}</Button>
@@ -42,6 +46,13 @@ export function NewsListPage() {
           <Stack direction="row" spacing={1} role="tablist" aria-label="النوع">{toggle('NEWS', '📰 الأخبار')}{toggle('ANNOUNCEMENT', '📢 الإعلانات')}</Stack>
           <TextField size="small" type="search" label="بحث" value={query} onChange={(event) => setQuery(event.target.value)} sx={{ minWidth: { sm: 280 }, bgcolor: '#fff', borderRadius: 1 }} slotProps={{ htmlInput: { maxLength: 80 } }} />
         </Stack>
+        {categories.length > 0 && (
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mt: 2 }} role="tablist" aria-label="التصنيف">
+            {['', ...categories].map((name) => (
+              <Button key={name || 'all'} role="tab" aria-selected={category === name} onClick={() => chooseCategory(name)} sx={{ px: 2, py: 0.5, borderRadius: '999px', fontSize: 14, fontWeight: 700, ...(category === name ? { background: T.navyGrad, color: T.goldText } : { color: T.navy, bgcolor: '#fff', border: `1px solid ${T.gold}` }) }}>{name || 'الكل'}</Button>
+            ))}
+          </Stack>
+        )}
       </Wrap>
       {failed && <Wrap sx={{ pt: 4 }}><Alert severity="error">تعذر تحميل المحتوى. حاول لاحقًا.</Alert></Wrap>}
       {!data && !failed && <Box sx={{ p: 8, textAlign: 'center' }}><CircularProgress /></Box>}
@@ -71,6 +82,7 @@ export function NewsCard({ item }: { item: SiteNewsCard }) {
       <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', flex: 1 }}>
         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 1 }}>
           <Chip size="small" label={typeLabel(item.type)} sx={{ bgcolor: '#f6ecd0', color: '#7a5a12' }} />
+          {item.category && <Chip size="small" variant="outlined" label={item.category} />}
           <Typography sx={{ fontSize: 13, color: T.muted }}>{day(item.publishedAt)}</Typography>
         </Stack>
         <Typography component="h3" sx={{ fontSize: 18, fontWeight: 700, color: T.navy, mb: 0.5 }}>{item.title}</Typography>
@@ -99,6 +111,7 @@ export function NewsDetailPage() {
           <Box data-rv="" component="article" sx={{ ...goldCard, p: { xs: 2.5, md: 4 }, '&:hover': { transform: 'none' } }}>
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 2 }}>
               <Chip size="small" label={typeLabel(item.type)} sx={{ bgcolor: '#f6ecd0', color: '#7a5a12' }} />
+              {item.category && <Chip size="small" variant="outlined" label={item.category} />}
               <Typography sx={{ fontSize: 14, color: T.muted }}>{day(item.publishedAt)}</Typography>
             </Stack>
             {item.coverMediaId && <Box component="img" src={siteMediaUrl(item.coverMediaId)} alt="" sx={{ width: '100%', maxHeight: 420, objectFit: 'cover', borderRadius: '14px', mb: 3 }} />}

@@ -7,7 +7,7 @@ import {
 import { ImagePicker } from './shared';
 import { errorText, useMediaList } from './adminHelpers';
 
-const GROUPS: Record<string, string> = { home: 'الرئيسية', about: 'من نحن وكلمة الرئيس', admission: 'القبول والتسجيل', contact: 'التواصل' };
+const GROUPS: Record<string, string> = { home: 'الرئيسية', about: 'من نحن وكلمة الرئيس', admission: 'القبول والتسجيل', contact: 'التواصل والحسابات الاجتماعية والخريطة', sections: 'مقدمات الصفحات الجديدة' };
 
 // النصوص المفردة: الشعار، نبذة، رؤية ورسالة، كلمة الرئيس، نصوص القبول، بيانات التواصل. الحقل الفارغ يُخفى من الموقع.
 export function SettingsTab() {

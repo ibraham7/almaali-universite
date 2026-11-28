@@ -20,6 +20,11 @@ const CollegesPage = lazy(() => import('./pages/site/CollegesPage'));
 const AdmissionPage = lazy(() => import('./pages/site/AdmissionPage'));
 const NewsListPage = lazy(() => import('./pages/site/NewsPages').then((m) => ({ default: m.NewsListPage })));
 const NewsDetailPage = lazy(() => import('./pages/site/NewsPages').then((m) => ({ default: m.NewsDetailPage })));
+const EventsPage = lazy(() => import('./pages/site/EntriesPages').then((m) => ({ default: () => <m.EntriesListPage section="events" /> })));
+const ResearchPage = lazy(() => import('./pages/site/EntriesPages').then((m) => ({ default: () => <m.EntriesListPage section="research" /> })));
+const CampusPage = lazy(() => import('./pages/site/EntriesPages').then((m) => ({ default: () => <m.EntriesListPage section="campus" /> })));
+const GraduatesPage = lazy(() => import('./pages/site/EntriesPages').then((m) => ({ default: m.GraduatesPage })));
+const EntryDetailPage = lazy(() => import('./pages/site/EntriesPages').then((m) => ({ default: m.EntryDetailPage })));
 const TestimonialsPage = lazy(() => import('./pages/site/TestimonialsPage'));
 const ContactPage = lazy(() => import('./pages/site/ContactPage'));
 const SiteAdminPage = lazy(() => import('./pages/site-admin/SiteAdminPage'));
@@ -73,6 +78,14 @@ function App() {
         <Route path="/admission" element={<AdmissionPage />} />
         <Route path="/news" element={<NewsListPage />} />
         <Route path="/news/:id" element={<NewsDetailPage />} />
+        <Route path="/events" element={<EventsPage />} />
+        <Route path="/research" element={<ResearchPage />} />
+        <Route path="/campus" element={<CampusPage />} />
+        <Route path="/graduates" element={<GraduatesPage />} />
+        <Route path="/events/:id" element={<EntryDetailPage />} />
+        <Route path="/research/:id" element={<EntryDetailPage />} />
+        <Route path="/campus/:id" element={<EntryDetailPage />} />
+        <Route path="/graduates/:id" element={<EntryDetailPage />} />
         <Route path="/testimonials" element={<TestimonialsPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/login" element={<LoginPage />} />

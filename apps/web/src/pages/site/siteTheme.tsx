@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Link as RouterLink, NavLink } from 'react-router-dom';
-import { Box, Button, Link, Stack, Typography } from '@mui/material';
+import { Link as RouterLink, NavLink, useLocation } from 'react-router-dom';
+import { Box, Button, Link, Menu, MenuItem, Stack, Typography } from '@mui/material';
 import { useSiteContent } from '../../api/site';
 import { PageTransition, SiteChrome, SiteFx } from './siteFx';
 import { T, UNIVERSITY, calm, drift, goldCard, pulse, rise, shift, siteNav } from './siteStyles';
@@ -69,6 +69,13 @@ export function SiteHeader() {
   const nav = siteNav(content);
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [moreAnchor, setMoreAnchor] = useState<HTMLElement | null>(null);
+  const { pathname } = useLocation();
+  // إذا كثرت الصفحات المعروضة، تبقى الأولى ظاهرة والباقي تحت «المزيد» حتى لا ينكسر الهيدر.
+  const VISIBLE = 6;
+  const primary = nav.length > VISIBLE + 1 ? nav.slice(0, VISIBLE) : nav;
+  const more = nav.slice(primary.length);
+  const moreActive = more.some((item) => pathname === item.to || pathname.startsWith(`${item.to}/`));
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     onScroll();
@@ -84,13 +91,21 @@ export function SiteHeader() {
             <Typography sx={{ fontWeight: 800, fontSize: { xs: 15, sm: 18 } }}>{UNIVERSITY.name} {UNIVERSITY.suffix}</Typography>
           </Stack>
           <Stack component="nav" aria-label="التنقل الرئيسي" direction="row" spacing={0.5} sx={{ flex: 1, justifyContent: 'flex-end', display: { xs: 'none', md: 'flex' } }}>
-            {nav.map((item) => (
+            {primary.map((item) => (
               <NavLink key={item.to} to={item.to} end={item.end} style={{ textDecoration: 'none' }}>
                 {({ isActive }) => (
-                  <Box component="span" aria-current={isActive ? 'page' : undefined} sx={{ position: 'relative', display: 'inline-block', px: 1.75, py: 0.9, borderRadius: '12px', fontSize: 15, fontWeight: 500, transition: 'background-color .2s, color .2s', ...(isActive ? { background: T.navyGrad, color: T.goldText, boxShadow: `inset 0 -3px 0 ${T.gold}` } : { color: T.navy, '&::after': { content: '""', position: 'absolute', insetInline: 14, bottom: 3, height: 2, borderRadius: 2, background: T.gold, transform: 'scaleX(0)', transition: `transform .25s ${T.ease}` }, '&:hover': { bgcolor: '#f6efdb' }, '&:hover::after': { transform: 'scaleX(1)' } }) }}>{item.label}</Box>
+                  <Box component="span" aria-current={isActive ? 'page' : undefined} sx={{ position: 'relative', display: 'inline-block', px: 1.5, py: 0.9, borderRadius: '12px', fontSize: 15, fontWeight: 500, whiteSpace: 'nowrap', transition: 'background-color .2s, color .2s', ...(isActive ? { background: T.navyGrad, color: T.goldText, boxShadow: `inset 0 -3px 0 ${T.gold}` } : { color: T.navy, '&::after': { content: '""', position: 'absolute', insetInline: 14, bottom: 3, height: 2, borderRadius: 2, background: T.gold, transform: 'scaleX(0)', transition: `transform .25s ${T.ease}` }, '&:hover': { bgcolor: '#f6efdb' }, '&:hover::after': { transform: 'scaleX(1)' } }) }}>{item.label}</Box>
                 )}
               </NavLink>
             ))}
+            {more.length > 0 && (
+              <>
+                <Button aria-haspopup="menu" aria-expanded={Boolean(moreAnchor)} onClick={(event) => setMoreAnchor(event.currentTarget)} sx={{ px: 1.5, py: 0.9, minWidth: 0, borderRadius: '12px', fontSize: 15, fontWeight: 500, whiteSpace: 'nowrap', ...(moreActive ? { background: T.navyGrad, color: T.goldText, boxShadow: `inset 0 -3px 0 ${T.gold}` } : { color: T.navy, '&:hover': { bgcolor: '#f6efdb' } }) }}>المزيد ▾</Button>
+                <Menu anchorEl={moreAnchor} open={Boolean(moreAnchor)} onClose={() => setMoreAnchor(null)} slotProps={{ paper: { sx: { borderRadius: '14px', border: `1px solid ${T.gold}`, mt: 1, minWidth: 190 } } }}>
+                  {more.map((item) => <MenuItem key={item.to} component={RouterLink} to={item.to} onClick={() => setMoreAnchor(null)} sx={{ fontWeight: 600, color: T.navy }}>{item.label}</MenuItem>)}
+                </Menu>
+              </>
+            )}
           </Stack>
           <Box aria-hidden sx={{ flex: 1, display: { xs: 'block', md: 'none' } }} />
           <Button component={RouterLink} to="/login" sx={{ flex: 'none', marginInlineStart: { md: 1 }, borderRadius: '12px', fontWeight: 700, whiteSpace: 'nowrap', background: T.goldGrad, color: T.ink, px: 2.25, '&:hover': { background: T.goldGrad, filter: 'brightness(1.05)' } }}>دخول الطلاب</Button>
@@ -110,6 +125,21 @@ export function SiteHeader() {
   );
 }
 
+const SOCIAL: Array<[string, string]> = [['socialFacebook', 'فيسبوك'], ['socialInstagram', 'إنستغرام'], ['socialYoutube', 'يوتيوب'], ['socialTelegram', 'تلغرام'], ['socialX', 'إكس'], ['socialLinkedin', 'لينكدإن']];
+
+// حسابات التواصل الاجتماعي: تظهر فقط ما أُدخل منها (روابط https).
+export function SocialLinks({ settings, dark }: { settings: Record<string, string>; dark?: boolean }) {
+  const links = SOCIAL.filter(([key]) => /^https:\/\//i.test(settings[key] ?? ''));
+  if (links.length === 0) return null;
+  return (
+    <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }} aria-label="حسابات التواصل الاجتماعي">
+      {links.map(([key, label]) => (
+        <Link key={key} href={settings[key]} target="_blank" rel="noopener noreferrer" underline="none" sx={{ px: 1.75, py: 0.6, borderRadius: '999px', fontSize: 14, fontWeight: 700, border: `1px solid ${dark ? 'rgba(246,213,148,.6)' : T.gold}`, color: dark ? T.goldText : T.navy, transition: 'background-color .2s', '&:hover': { bgcolor: dark ? 'rgba(246,213,148,.15)' : '#f6efdb' } }}>{label}</Link>
+      ))}
+    </Stack>
+  );
+}
+
 export function SiteFooter() {
   const { content } = useSiteContent();
   const s = content?.settings ?? {};
@@ -121,6 +151,7 @@ export function SiteFooter() {
           <Box component="img" src="/logo-md.png" alt="" sx={{ height: 64, width: 64, objectFit: 'contain', bgcolor: '#fff', borderRadius: '12px', p: 0.5, boxShadow: '0 0 0 3px rgba(246,213,148,.5)', transition: `transform .3s ${T.ease}`, '&:hover': { transform: 'rotate(-4deg) scale(1.08)' }, ...calm }} />
           <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 18 }}>{UNIVERSITY.name} {UNIVERSITY.suffix}</Typography>
           {lines.map((line) => <Typography key={line} sx={{ fontSize: 15 }}>{line}</Typography>)}
+          <SocialLinks settings={s} dark />
           <Stack direction="row" spacing={2.5} useFlexGap sx={{ flexWrap: 'wrap', pt: 1 }}>
             <Link component={RouterLink} to="/login" underline="hover" sx={{ color: T.goldText }}>دخول الطلاب</Link>
             <Link component={RouterLink} to="/signup" underline="hover" sx={{ color: T.goldText }}>إنشاء حساب</Link>

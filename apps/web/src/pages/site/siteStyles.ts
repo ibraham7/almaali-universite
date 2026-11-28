@@ -47,6 +47,10 @@ export function siteNav(content: SiteContent | null) {
     { to: '/colleges', label: 'الكليات', end: false, show: Boolean(content?.colleges.length) },
     { to: '/admission', label: 'القبول والتسجيل', end: false, show: hasAdmission },
     { to: '/news', label: 'الأخبار والإعلانات', end: false, show: Boolean(content?.latestNews.length || content?.latestAnnouncements.length) },
+    { to: '/events', label: 'الفعاليات', end: false, show: Boolean(content?.entryCounts.EVENT) },
+    { to: '/research', label: 'البحث العلمي', end: false, show: Boolean(content?.entryCounts.RESEARCH || s.researchIntro) },
+    { to: '/graduates', label: 'الخريجون', end: false, show: Boolean(content?.entryCounts.GRADUATE_STORY || content?.entryCounts.GRADUATE_NEWS || s.graduatesIntro) },
+    { to: '/campus', label: 'الحياة الجامعية', end: false, show: Boolean(content?.entryCounts.CAMPUS || s.campusIntro) },
     { to: '/testimonials', label: 'قالوا عن الجامعة', end: false, show: Boolean(content?.testimonials.length) },
     { to: '/contact', label: 'اتصل بنا', end: false, show: true },
   ].filter((item) => item.show);
