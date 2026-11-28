@@ -8,7 +8,7 @@ export type ReferralTarget = 'ACADEMIC_AFFAIRS' | 'FINANCIAL_AFFAIRS' | 'COLLEGE
 export type ReferralMode = 'OPINION' | 'EXECUTION';
 export type ReferralStatus = 'PENDING' | 'ANSWERED' | 'CANCELLED';
 export type DocumentStatus = 'ACTIVE' | 'REVOKED';
-export type ReferralOutcome = 'APPROVED' | 'REJECTED' | 'NOTES' | 'DONE' | 'NOT_DONE';
+export type ReferralOutcome = 'APPROVED' | 'REJECTED' | 'NOTES' | 'DONE' | 'NOT_DONE' | 'NEEDS_INFO';
 
 export interface AffairsServiceItem {
   id: string; code: string; nameAr: string; description: string | null; isActive: boolean; expectedDays: number; specialization: string | null;
@@ -38,6 +38,7 @@ export interface AttachmentItem {
 export interface ReferralItem {
   id: string; requestId: string; mode: ReferralMode; target: ReferralTarget; targetName: string | null; reason: string; requested: string | null; dueAt: string | null;
   status: ReferralStatus; outcome: ReferralOutcome | null; responseNote: string | null; respondedAt: string | null; cancelReason: string | null; createdAt: string;
+  collegeId?: string | null; advisorUserId?: string | null; decisionAllowed?: boolean;
 }
 export interface RequestDetails extends Omit<RequestRow, 'student' | 'service'> {
   details: string | null; decisionReason: string | null;
@@ -46,6 +47,11 @@ export interface RequestDetails extends Omit<RequestRow, 'student' | 'service'> 
   canAct: boolean; canTake: boolean; canAssign: boolean; allowedStatuses: RequestStatus[]; events: RequestEvent[];
   attachments: AttachmentItem[]; referrals: ReferralItem[]; pendingReferral: ReferralItem | null;
   documents: RequestDocument[]; documentTypeName: string | null; canIssueDocument: boolean;
+  delayReason: string | null; delayReasonAt: string | null; overdue: boolean; canNoteDelay: boolean;
+}
+export interface StuckItem {
+  id: string; number: string; status: RequestStatus; serviceName: string; studentName: string; studentUniversityId: string; owner: string | null; dueAt: string | null; createdAt: string;
+  reasons: Array<{ kind: string; days: number; label: string }>; maxDays: number; delayReason: string | null; delayReasonAt: string | null;
 }
 export interface AffairsSummary {
   counts: { new: number; mine: number; waiting: number; referred: number; doneToday: number; overdue: number };
@@ -201,3 +207,7 @@ export async function getAffairsCollegeOptions() {
   const response = await apiClient.get<Array<{ id: string; nameAr: string }>>('/affairs/lookups/colleges');
   return response.data;
 }
+
+export const getAffairsAdvisorOptions = async (collegeId: string) => (await apiClient.get<Array<{ id: string; name: string }>>('/affairs/lookups/advisors', { params: { collegeId } })).data;
+export const setDelayReason = (requestId: string, reason: string) => post<{ delayReason: string; delayReasonAt: string }>(`/affairs/requests/${requestId}/delay-reason`, { reason });
+export const getStuckRequests = async () => (await apiClient.get<{ total: number; withoutReason: number; items: StuckItem[] }>('/affairs/stuck')).data;

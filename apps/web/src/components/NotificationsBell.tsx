@@ -42,7 +42,7 @@ export default function NotificationsBell({ role }: { role: string }) {
       setItems((list) => list.map((x) => (x.id === item.id ? { ...x, isRead: true } : x)));
     }
     setAnchor(null);
-    if (item.requestId) navigate(role === 'STUDENT' ? `/student/requests?open=${item.requestId}` : `/affairs?tab=requests&open=${item.requestId}`);
+    if (item.requestId) navigate(role === 'STUDENT' ? `/student/requests?open=${item.requestId}` : role === 'ADVISOR' ? `/advisor/affairs?request=${item.requestId}` : `/affairs?tab=requests&open=${item.requestId}`);
   }
 
   async function readAll() {

@@ -28,8 +28,9 @@ export const SERVICE_CHANNEL_LABEL: Record<ServiceChannel, string> = { ONLINE: '
 export const OUTCOME_SERVICE_LABEL: Record<ServiceOutcome, string> = { NONE: 'غير محددة', DOCUMENT: 'إصدار وثيقة', ACTION: 'تنفيذ إجراء', BOTH: 'وثيقة وإجراء' };
 export const TARGET_LABEL: Record<ReferralTarget, string> = { ACADEMIC_AFFAIRS: 'الشؤون العلمية', FINANCIAL_AFFAIRS: 'الشؤون المالية', COLLEGE: 'الكلية', OTHER: 'جهة أخرى' };
 export const MODE_LABEL = { OPINION: 'طلب رأي/موافقة', EXECUTION: 'إحالة للتنفيذ' } as const;
+export const EVENT_LABEL_EXTRA: Record<string, string> = { DELAY_NOTED: 'سبب التأخير' };
 export const REFERRAL_STATUS_LABEL = { PENDING: 'بانتظار الرد', ANSWERED: 'تم الرد', CANCELLED: 'ملغاة' } as const;
-export const REFERRAL_OUTCOME_LABEL: Record<ReferralOutcome, string> = { APPROVED: 'موافقة', REJECTED: 'رفض', NOTES: 'ملاحظات', DONE: 'تم التنفيذ', NOT_DONE: 'لم يتم التنفيذ' };
+export const REFERRAL_OUTCOME_LABEL: Record<ReferralOutcome, string> = { APPROVED: 'موافقة', REJECTED: 'رفض', NOTES: 'ملاحظات', DONE: 'تم التنفيذ', NOT_DONE: 'لم يتم التنفيذ', NEEDS_INFO: 'طلب استكمال معلومات أو وثائق' };
 
 export const DOCUMENT_STATUS_LABEL = { ACTIVE: 'نشطة', REVOKED: 'ملغاة' } as const;
 

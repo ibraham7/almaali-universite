@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import {
-  issueDocument, archiveAttachment, assignAffairsRequest, changeAffairsStatus, commentAffairsRequest, downloadStaffAttachment, getAffairsRequest, getAffairsStaff, uploadStaffAttachment,
+  issueDocument, archiveAttachment, setDelayReason, assignAffairsRequest, changeAffairsStatus, commentAffairsRequest, downloadStaffAttachment, getAffairsRequest, getAffairsStaff, uploadStaffAttachment,
   type AffairsStaffItem, type RequestDetails, type RequestStatus,
 } from '../../api/affairs';
 import { CHANNEL_LABEL, REASON_REQUIRED, STATUS_LABEL, errorText, formatDate } from './affairsUi';
@@ -18,6 +18,7 @@ export default function AffairsRequestDialog({ requestId, role, onClose, onChang
   const [staff, setStaff] = useState<AffairsStaffItem[]>([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [delayText, setDelayText] = useState('');
   const [status, setStatus] = useState<RequestStatus | ''>('');
   const [note, setNote] = useState('');
   const [comment, setComment] = useState('');
@@ -70,6 +71,18 @@ export default function AffairsRequestDialog({ requestId, role, onClose, onChang
               </Box>
             )}
             {data.decisionReason && <Alert severity="info">السبب: {data.decisionReason}</Alert>}
+            {(data.delayReason || data.overdue || data.canNoteDelay) && (
+              <Box sx={{ border: 1, borderColor: data.overdue && !data.delayReason ? 'warning.main' : 'divider', borderRadius: 1, p: 1.5 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>سبب التأخير{data.overdue ? ' (المعاملة متأخرة عن موعدها)' : ''}</Typography>
+                {data.delayReason ? <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{data.delayReason} <Typography component="span" variant="caption" color="text.secondary">— {formatDate(data.delayReasonAt, true)}</Typography></Typography> : <Typography variant="body2" color="text.secondary">لم يُسجَّل سبب.</Typography>}
+                {data.canNoteDelay && (
+                  <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                    <TextField size="small" sx={{ flex: 1 }} label={data.delayReason ? 'تعديل سبب التأخير' : 'سبب التأخير (داخلي)'} value={delayText} onChange={(event) => setDelayText(event.target.value)} slotProps={{ htmlInput: { maxLength: 1000 } }} />
+                    <Button variant="outlined" disabled={busy || !delayText.trim()} onClick={() => run(() => setDelayReason(data.id, delayText.trim()).then(() => setDelayText('')))}>حفظ</Button>
+                  </Stack>
+                )}
+              </Box>
+            )}
             {(data.service.requiredData || data.service.attachmentsNote || data.service.feeNote || data.service.workflowNote) && (
               <Alert severity="info" icon={false} sx={{ '& .MuiAlert-message': { fontSize: 13 } }}>
                 {data.service.requiredData && <div><b>البيانات المطلوبة من الطالب:</b> {data.service.requiredData}</div>}

@@ -128,12 +128,8 @@ export class AuthService {
     };
 
     const accessToken = await this.jwtService.signAsync(payload);
-    // هل تظهر له وحدة شؤون الطلاب؟ المدير وموظف الشؤون والمسجّل دائمًا، والمشرف إذا أضافه المدير كموظف فعّال. للواجهة فقط؛ الخادم يفرض الصلاحيات.
-    const affairsAccess = ['SYSTEM_ADMIN', 'AFFAIRS_STAFF', 'REGISTRAR'].includes(user.role.code)
-      ? true
-      : user.role.code === 'ADVISOR'
-        ? Boolean(await this.prisma.affairsStaff.findFirst({ where: { userId: user.id, isActive: true }, select: { id: true } }))
-        : false;
+    // هل تظهر له لوحة وحدة شؤون الطلاب؟ المدير وموظف الشؤون والمسجّل. (المشرف له مساحة مستقلة محصورة بكليته.) للواجهة فقط؛ الخادم يفرض الصلاحيات.
+    const affairsAccess = ['SYSTEM_ADMIN', 'AFFAIRS_STAFF', 'REGISTRAR'].includes(user.role.code);
 
     return {
       access_token: accessToken,

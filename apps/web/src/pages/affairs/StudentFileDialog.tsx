@@ -22,14 +22,14 @@ function Rows({ rows }: { rows: [string, string | null | undefined][] }) {
 }
 
 // Read-only electronic file of a student. Data is edited from the Students page (and every edit is logged here).
-export default function StudentFileDialog({ studentId, onClose }: { studentId: string; onClose: () => void }) {
+export default function StudentFileDialog({ studentId, onClose, loader = getStudentFile, canDownload = true }: { studentId: string; onClose: () => void; loader?: (id: string) => Promise<StudentFile>; canDownload?: boolean }) {
   const [file, setFile] = useState<StudentFile | null>(null);
   const [error, setError] = useState('');
   const [tab, setTab] = useState('data');
 
   useEffect(() => {
-    getStudentFile(studentId).then(setFile).catch((cause) => setError(errorText(cause, 'تعذر تحميل الملف.')));
-  }, [studentId]);
+    loader(studentId).then(setFile).catch((cause) => setError(errorText(cause, 'تعذر تحميل الملف.')));
+  }, [studentId, loader]);
 
   async function download(requestId: string, id: string, name: string) {
     try { saveBlob(await downloadStaffAttachment(requestId, id), name); } catch (cause) { setError(errorText(cause)); }
@@ -100,7 +100,7 @@ export default function StudentFileDialog({ studentId, onClose }: { studentId: s
                   <Stack key={a.id} direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap', border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}>
                     <Typography variant="body2" sx={{ flex: 1, minWidth: 140, overflowWrap: 'anywhere' }}>{a.fileName} <Box component="span" sx={{ color: 'text.secondary' }}>· الطلب {a.requestNumber}</Box></Typography>
                     <Typography variant="caption" color="text.secondary">{formatSize(a.sizeBytes)} · {formatDate(a.createdAt)}</Typography>
-                    <Button size="small" onClick={() => void download(a.requestId, a.id, a.fileName)}>تنزيل</Button>
+                    {canDownload && <Button size="small" onClick={() => void download(a.requestId, a.id, a.fileName)}>تنزيل</Button>}
                   </Stack>
                 ))}
               </Stack>

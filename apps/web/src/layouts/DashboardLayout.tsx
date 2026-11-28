@@ -72,7 +72,7 @@ interface NavigationItem {
 
 // مجموعات القائمة الجانبية (قابلة للفتح والإغلاق). العناصر خارج أي مجموعة تظهر أولاً.
 const NAV_GROUPS: Array<{ key: string; label: string; paths: string[] }> = [
-  { key: 'students', label: 'إدارة شؤون الطلاب', paths: ['/students', '/affairs'] },
+  { key: 'students', label: 'إدارة شؤون الطلاب', paths: ['/students', '/affairs', '/advisor/affairs'] },
   { key: 'academic', label: 'الإدارة الأكاديمية', paths: ['/academic-structure', '/supervisor/study-plan', '/courses', '/supervisor/sections', '/supervisor/registration-periods'] },
   { key: 'system', label: 'إدارة النظام', paths: ['/users', '/settings', '/site-admin'] },
   { key: 'support', label: 'التواصل والدعم', paths: ['/support-tickets'] },
@@ -124,7 +124,14 @@ const navigationItems: NavigationItem[] = [
     label: 'شؤون الطلاب',
     path: '/affairs',
     icon: <SupportAgentRoundedIcon />,
-    roles: ['REGISTRAR', 'SYSTEM_ADMIN', 'AFFAIRS_STAFF', 'ADVISOR'],
+    roles: ['REGISTRAR', 'SYSTEM_ADMIN', 'AFFAIRS_STAFF'],
+  },
+
+  {
+    label: 'شؤون الطلاب (المحالة إليّ)',
+    path: '/advisor/affairs',
+    icon: <SupportAgentRoundedIcon />,
+    roles: ['ADVISOR'],
   },
 
   {
@@ -943,7 +950,7 @@ export default function DashboardLayout() {
               </Typography>
             </Box>
 
-            {(['STUDENT', 'REGISTRAR', 'SYSTEM_ADMIN', 'AFFAIRS_STAFF'].includes(userRole) || (userRole === 'ADVISOR' && canSeeAffairs(user))) && <NotificationsBell role={userRole} />}
+            {['STUDENT', 'REGISTRAR', 'SYSTEM_ADMIN', 'AFFAIRS_STAFF', 'ADVISOR'].includes(userRole) && <NotificationsBell role={userRole} />}
 
             <Tooltip title="تسجيل الخروج">
               <IconButton

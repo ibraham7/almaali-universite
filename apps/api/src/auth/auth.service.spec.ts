@@ -153,20 +153,14 @@ describe('AuthService', () => {
     expect(usersService.findByUsername).toHaveBeenCalledWith('advisor01');
   });
 
-  it('tells the UI who may see the student affairs unit: admin, affairs staff and registrars always; an advisor only with an active staff profile', async () => {
-    const login = async (role: string, staff: unknown) => {
+  it('tells the UI who gets the student affairs panel: admin, affairs staff and registrars; advisors have their own workspace', async () => {
+    const login = async (role: string) => {
       usersService.findByUsername.mockResolvedValue({ id: 'u-1', username: 'u1', email: 'u1@staff.local', status: 'ACTIVE', passwordHash: await argon2.hash('a-strong-password'), role: { code: role } });
       prisma.student.findUnique.mockResolvedValue(null);
-      prisma.affairsStaff.findFirst.mockReset().mockResolvedValue(staff);
       return service.login('u1', 'a-strong-password');
     };
-    expect((await login('AFFAIRS_STAFF', null)).user.affairsAccess).toBe(true);
-    expect((await login('SYSTEM_ADMIN', null)).user.affairsAccess).toBe(true);
-    expect((await login('REGISTRAR', null)).user.affairsAccess).toBe(true);
-    expect((await login('ADVISOR', { id: 's1' })).user.affairsAccess).toBe(true);
-    expect(prisma.affairsStaff.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'u-1', isActive: true } }));
-    expect((await login('ADVISOR', null)).user.affairsAccess).toBe(false);
-    expect((await login('SITE_EDITOR', { id: 's1' })).user.affairsAccess).toBe(false);
+    for (const role of ['AFFAIRS_STAFF', 'SYSTEM_ADMIN', 'REGISTRAR']) expect((await login(role)).user.affairsAccess, role).toBe(true);
+    for (const role of ['ADVISOR', 'SITE_EDITOR']) expect((await login(role)).user.affairsAccess, role).toBe(false);
   });
 
   it('blocks short test logins in production even if the flag is set', async () => {

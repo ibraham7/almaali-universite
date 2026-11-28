@@ -2,16 +2,22 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { PrismaService } from '../prisma/prisma.service.js';
 import { dayRange } from './affairs-reports.catalog.js';
 import { canManage, isAffairsStaffRole, isUnitManager } from './affairs-access.js';
+import { advisorsOfCollege } from './advisor-scope.js';
 import { managerRecipients, notifyUsers, studentStatusMessage } from './affairs-notifications.js';
 import { AffairsSettingsService } from './affairs-settings.service.js';
 import { SERVICES_BLOCKED_MESSAGE, canRequestServices } from '../students/student-status.js';
 import {
-  AssignRequestDto, ChangeStatusDto, CommentDto, CreateServiceDto, CreateStaffDto, ListRequestsQueryDto,
+  AssignRequestDto, ChangeStatusDto, CommentDto, DelayReasonDto, CreateServiceDto, CreateStaffDto, ListRequestsQueryDto,
   ProxyCreateRequestDto, StudentCreateRequestDto, UpdateServiceDto, UpdateStaffDto,
 } from './dto/affairs.dto.js';
 import {
   OPEN_STATUSES, RequestStatus, TERMINAL_STATUSES, TRANSITIONS, canTransition, isTerminal, pickLeastLoaded, reasonRequired, requestNumber, serviceMissing,
 } from './affairs.rules.js';
+
+// عتبات «التعثر»: بقاء المعاملة عند جهة، أو بانتظار استكمال الطالب، أو جديدة بلا مالك، أكثر من هذه الأيام.
+const STUCK_REFERRAL_DAYS = 3;
+const STUCK_WAITING_DAYS = 7;
+const STUCK_UNASSIGNED_DAYS = 2;
 
 export interface AffairsUser {
   id: string;
@@ -49,6 +55,14 @@ export class AffairsService {
   // قائمة الكليات لمرشّحات التقارير: ضمن مسارات الشؤون حتى لا يحتاج موظف الشؤون صلاحية على الهيكل الأكاديمي.
   collegeOptions() {
     return this.prisma.college.findMany({ where: { isActive: true }, orderBy: { nameAr: 'asc' }, select: { id: true, nameAr: true } });
+  }
+
+  // مشرفو الكلية الفعّالون (لاختيار مشرف محدد عند الإحالة؛ وإلا تصل الإحالة لكل مشرفي الكلية).
+  async advisorOptions(collegeId: string) {
+    const ids = await advisorsOfCollege(this.prisma, collegeId);
+    if (!ids.length) return [];
+    const users = await this.prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, displayName: true, username: true, email: true }, orderBy: { email: 'asc' } });
+    return users.map((u) => ({ id: u.id, name: u.displayName || u.username || u.email }));
   }
 
   // ---------- services ----------
@@ -143,7 +157,7 @@ export class AffairsService {
 
   staffCandidates() {
     return this.prisma.user.findMany({
-      where: { role: { code: { in: ['REGISTRAR', 'AFFAIRS_STAFF', 'ADVISOR'] } }, status: 'ACTIVE', affairsStaff: null },
+      where: { role: { code: { in: ['REGISTRAR', 'AFFAIRS_STAFF'] } }, status: 'ACTIVE', affairsStaff: null },
       select: { id: true, email: true, displayName: true, username: true },
       orderBy: { email: 'asc' },
     });
@@ -157,7 +171,7 @@ export class AffairsService {
 
   async createStaff(dto: CreateStaffDto, user: AffairsUser) {
     const target = await this.prisma.user.findUnique({ where: { id: dto.userId }, include: { role: true, affairsStaff: true } });
-    if (!target || !isAffairsStaffRole(target.role.code)) throw new BadRequestException('المستخدم يجب أن يكون مسجّلاً أو موظف شؤون طلاب أو مشرفًا أكاديميًا.');
+    if (!target || !isAffairsStaffRole(target.role.code)) throw new BadRequestException('المستخدم يجب أن يكون مسجّلاً أو موظف شؤون طلاب.');
     if (target.affairsStaff) throw new ConflictException('هذا المستخدم مضاف كموظف مسبقاً.');
     const serviceIds = [...new Set(dto.serviceIds ?? [])];
     await this.assertServicesExist(serviceIds);
@@ -354,6 +368,8 @@ export class AffairsService {
     return {
       id: r.id, number: r.number, status: r.status, channel: r.channel, subject: r.subject, details: r.details, decisionReason: r.decisionReason,
       createdAt: r.createdAt, dueAt: r.dueAt, closedAt: r.closedAt, updatedAt: r.updatedAt,
+      delayReason: r.delayReason, delayReasonAt: r.delayReasonAt, overdue: !!r.dueAt && r.dueAt < new Date() && !isTerminal(r.status as RequestStatus),
+      canNoteDelay: !isTerminal(r.status as RequestStatus) && (user.role === 'SYSTEM_ADMIN' || (isAffairsStaffRole(user.role) && r.assignedStaff?.userId === user.id) || (await isUnitManager(this.prisma, user))),
       attachments: r.attachments.map((a) => ({ ...a, uploadedBy: a.uploadedByUserId === r.student.userId ? 'student' : 'staff' })),
       referrals: r.referrals,
       documents: r.documents.map((d) => ({ id: d.id, number: d.number, status: d.status, issuedAt: d.issuedAt, typeName: d.type.nameAr })),
@@ -446,6 +462,62 @@ export class AffairsService {
       await notifyUsers(tx, [owner?.userId], { ...studentStatusMessage(r.number, to, note), requestId: id });
       return updated;
     });
+  }
+
+  // سبب التأخير: يكتبه المالك أو مدير الوحدة أو مدير النظام على معاملة مفتوحة، ويظهر في «المعاملات المتعثرة». داخلي (لا يراه الطالب).
+  async setDelayReason(id: string, dto: DelayReasonDto, user: AffairsUser) {
+    const reason = dto.reason.trim();
+    if (!reason) throw new BadRequestException('اكتب سبب التأخير.');
+    return this.prisma.$transaction(async (tx) => {
+      const r = await tx.studentRequest.findUnique({ where: { id }, include: { assignedStaff: { select: { userId: true } } } });
+      if (!r) throw new NotFoundException('الطلب غير موجود.');
+      const isOwner = isAffairsStaffRole(user.role) && r.assignedStaff?.userId === user.id;
+      if (!isOwner && !(await canManage(tx, user))) throw new ForbiddenException('سبب التأخير يكتبه الموظف المسؤول أو مدير الوحدة أو مدير النظام.');
+      if (isTerminal(r.status as RequestStatus)) throw new BadRequestException('الطلب منتهٍ.');
+      const updated = await tx.studentRequest.update({ where: { id }, data: { delayReason: reason, delayReasonAt: new Date(), delayReasonById: user.id } });
+      await tx.studentRequestEvent.create({ data: { requestId: id, type: 'DELAY_NOTED', note: reason, visibleToStudent: false, actorUserId: user.id, staffId: r.assignedStaffId } });
+      await this.audit(tx, 'AFFAIRS_REQUEST_DELAY_NOTED', id, user.id, { number: r.number, reason });
+      return { delayReason: updated.delayReason, delayReasonAt: updated.delayReasonAt };
+    });
+  }
+
+  // المعاملات المتعثرة (للمدير ومدير الوحدة): متأخرة عن موعدها، أو عالقة عند جهة أو بانتظار استكمال، أو جديدة بلا مالك. مع سبب التأخير المسجَّل.
+  async stuck(user: AffairsUser) {
+    if (!(await canManage(this.prisma, user))) throw new ForbiddenException('المعاملات المتعثرة لمدير النظام أو مدير الوحدة.');
+    const now = new Date();
+    const daysAgo = (d: Date) => Math.max(1, Math.floor((now.getTime() - d.getTime()) / 86_400_000));
+    const rows = await this.prisma.studentRequest.findMany({
+      where: {
+        status: { in: OPEN_STATUSES },
+        OR: [
+          { dueAt: { lt: now } },
+          { status: 'REFERRED', referrals: { some: { status: 'PENDING', createdAt: { lt: new Date(now.getTime() - STUCK_REFERRAL_DAYS * 86_400_000) } } } },
+          { status: 'WAITING_COMPLETION', updatedAt: { lt: new Date(now.getTime() - STUCK_WAITING_DAYS * 86_400_000) } },
+          { status: 'NEW', assignedStaffId: null, createdAt: { lt: new Date(now.getTime() - STUCK_UNASSIGNED_DAYS * 86_400_000) } },
+        ],
+      },
+      take: 300,
+      select: {
+        id: true, number: true, status: true, dueAt: true, createdAt: true, updatedAt: true, delayReason: true, delayReasonAt: true, assignedStaffId: true,
+        service: { select: { nameAr: true } }, student: { select: { universityId: true, fullName: true, firstName: true, middleName: true, familyName: true } },
+        assignedStaff: { select: { user: { select: { displayName: true, username: true, email: true } } } },
+        referrals: { where: { status: 'PENDING' }, select: { target: true, targetName: true, createdAt: true, collegeId: true }, take: 1 },
+      },
+    });
+    const items = rows.map((r) => {
+      const reasons: Array<{ kind: string; days: number; label: string }> = [];
+      if (r.dueAt && r.dueAt < now) reasons.push({ kind: 'OVERDUE', days: daysAgo(r.dueAt), label: `متأخرة ${daysAgo(r.dueAt)} يومًا عن موعدها` });
+      const pending = r.referrals[0];
+      if (r.status === 'REFERRED' && pending && pending.createdAt < new Date(now.getTime() - STUCK_REFERRAL_DAYS * 86_400_000)) reasons.push({ kind: 'REFERRAL', days: daysAgo(pending.createdAt), label: `عند ${pending.targetName ?? 'جهة'} منذ ${daysAgo(pending.createdAt)} يومًا` });
+      if (r.status === 'WAITING_COMPLETION' && r.updatedAt < new Date(now.getTime() - STUCK_WAITING_DAYS * 86_400_000)) reasons.push({ kind: 'WAITING', days: daysAgo(r.updatedAt), label: `بانتظار استكمال الطالب منذ ${daysAgo(r.updatedAt)} يومًا` });
+      if (r.status === 'NEW' && !r.assignedStaffId && r.createdAt < new Date(now.getTime() - STUCK_UNASSIGNED_DAYS * 86_400_000)) reasons.push({ kind: 'UNASSIGNED', days: daysAgo(r.createdAt), label: `بلا مالك منذ ${daysAgo(r.createdAt)} يومًا` });
+      return {
+        id: r.id, number: r.number, status: r.status, serviceName: r.service.nameAr, studentName: this.studentName(r.student), studentUniversityId: r.student.universityId,
+        owner: r.assignedStaff ? r.assignedStaff.user.displayName || r.assignedStaff.user.username || r.assignedStaff.user.email : null,
+        dueAt: r.dueAt, createdAt: r.createdAt, reasons, maxDays: Math.max(0, ...reasons.map((x) => x.days)), delayReason: r.delayReason, delayReasonAt: r.delayReasonAt,
+      };
+    }).filter((item) => item.reasons.length > 0).sort((a, b) => b.maxDays - a.maxDays);
+    return { total: items.length, withoutReason: items.filter((item) => !item.delayReason).length, items };
   }
 
   async comment(id: string, dto: CommentDto, user: AffairsUser) {

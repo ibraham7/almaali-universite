@@ -1,8 +1,8 @@
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { AffairsUser } from './affairs.service.js';
 
-// أدوار تعمل على معاملات شؤون الطلاب: المسجّل، موظف الشؤون (الدور الخاص)، والمشرف الذي مُنح الصلاحية بملف موظف فعّال (يفرضه AffairsAccessGuard).
-export const AFFAIRS_STAFF_ROLES = ['REGISTRAR', 'AFFAIRS_STAFF', 'ADVISOR'] as const;
+// أدوار موظفي وحدة شؤون الطلاب: المسجّل وموظف الشؤون (الدور الخاص). المشرف الأكاديمي له مساحة مستقلة ومحصورة بكليته (AdvisorAffairsController).
+export const AFFAIRS_STAFF_ROLES = ['REGISTRAR', 'AFFAIRS_STAFF'] as const;
 export function isAffairsStaffRole(role: string) {
   return (AFFAIRS_STAFF_ROLES as readonly string[]).includes(role);
 }

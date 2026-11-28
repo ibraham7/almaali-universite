@@ -5,10 +5,9 @@ export function isAffairsOnly(user: AuthUser | null | undefined) {
   return user?.role === 'AFFAIRS_STAFF';
 }
 
-// هل تظهر وحدة «شؤون الطلاب» لهذا المستخدم؟ المدير وموظف الشؤون والمسجّل دائمًا، والمشرف إذا مُنح الصلاحية (ملف موظف فعّال).
+// هل تظهر لوحة «شؤون الطلاب» (لوحة الموظفين) لهذا المستخدم؟ المدير وموظف الشؤون والمسجّل. المشرف له صفحة مستقلة (/advisor/affairs).
 export function canSeeAffairs(user: AuthUser | null | undefined) {
   if (!user) return false;
-  if (user.role === 'ADVISOR') return user.affairsAccess === true;
   return ['SYSTEM_ADMIN', 'AFFAIRS_STAFF', 'REGISTRAR'].includes(user.role);
 }
 

@@ -205,10 +205,25 @@ export class CreateReferralDto {
 
   @IsOptional() @IsInt() @Min(1) @Max(365)
   dueInDays?: number;
+
+  // الإحالة للكلية: الكلية مطلوبة، والمشرف المحدد اختياري (وإلا تصل لمشرفي الكلية)، وdecisionAllowed = هل للمشرف الموافقة/الرفض.
+  @IsOptional() @IsUUID()
+  collegeId?: string;
+
+  @IsOptional() @IsUUID()
+  advisorUserId?: string;
+
+  @IsOptional() @IsBoolean()
+  decisionAllowed?: boolean;
+}
+
+export class DelayReasonDto {
+  @IsString() @IsNotEmpty() @MaxLength(1000)
+  reason!: string;
 }
 
 export class RespondReferralDto {
-  @IsIn(['APPROVED', 'REJECTED', 'NOTES', 'DONE', 'NOT_DONE'])
+  @IsIn(['APPROVED', 'REJECTED', 'NOTES', 'DONE', 'NOT_DONE', 'NEEDS_INFO'])
   outcome!: string;
 
   @IsOptional() @IsString() @MaxLength(2000)

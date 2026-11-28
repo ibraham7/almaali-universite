@@ -810,6 +810,7 @@ enum ReferralOutcome {
   NOTES
   DONE
   NOT_DONE
+  NEEDS_INFO
 }
 
 model AffairsService {
@@ -887,6 +888,10 @@ model StudentRequest {
   closedAt        DateTime?
   decisionReason  String?
   channel         RequestChannel       @default(ONLINE)
+  // سبب التأخير: يكتبه المالك أو مدير الوحدة أو المدير، ويظهر في «المعاملات المتعثرة».
+  delayReason     String?
+  delayReasonAt   DateTime?
+  delayReasonById String?
 
   student       Student               @relation(fields: [studentId], references: [id])
   service       AffairsService        @relation(fields: [serviceId], references: [id])
@@ -959,6 +964,10 @@ model RequestReferral {
   respondedByUserId String?
   respondedAt      DateTime?
   cancelReason     String?
+  // الإحالة للكلية: collegeId مطلوب، advisorUserId اختياري (مشرف محدد)، وdecisionAllowed = هل للمشرف الموافقة/الرفض (وإلا ملاحظات فقط).
+  collegeId        String?
+  advisorUserId    String?
+  decisionAllowed  Boolean         @default(true)
 
   request StudentRequest @relation(fields: [requestId], references: [id])
 
@@ -967,6 +976,8 @@ model RequestReferral {
 
   @@index([requestId])
   @@index([status])
+  @@index([collegeId])
+  @@index([advisorUserId])
 }
 
 // Who changed which student field, when, from what to what.

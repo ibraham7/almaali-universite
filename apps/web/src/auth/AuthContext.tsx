@@ -1,13 +1,11 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
 
-import { apiClient } from '../api/client';
 
 import { loginRequest } from '../api/auth';
 
@@ -76,22 +74,6 @@ export function AuthProvider({
 
     return response.user;
   };
-
-  // المشرف: صلاحية دخول الشؤون تمنحها الإدارة أثناء الجلسة، فنزامنها مع الخادم (جلسة قديمة أو تغيّرت الصلاحية).
-  const syncRole = user?.role;
-  const syncId = user?.id;
-  useEffect(() => {
-    if (syncRole !== 'ADVISOR') return undefined;
-    let active = true;
-    const apply = (flag: boolean) => setUser((current) => {
-      if (!current || current.id !== syncId || current.affairsAccess === flag) return current;
-      const next = { ...current, affairsAccess: flag };
-      localStorage.setItem('auth_user', JSON.stringify(next));
-      return next;
-    });
-    apiClient.get('/affairs/me').then(() => { if (active) apply(true); }).catch(() => { if (active) apply(false); });
-    return () => { active = false; };
-  }, [syncRole, syncId]);
 
   const logout = () => {
     localStorage.removeItem('access_token');

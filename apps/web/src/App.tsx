@@ -41,6 +41,7 @@ const StudentRequestsPage = lazy(() => import('./pages/student/StudentRequestsPa
 const DocumentPrintPage = lazy(() => import('./pages/documents/DocumentPrintPage'));
 const VerifyDocumentPage = lazy(() => import('./pages/documents/VerifyDocumentPage'));
 const AffairsPage = lazy(() => import('./pages/affairs/AffairsPage'));
+const AdvisorAffairsPage = lazy(() => import('./pages/advisor/AdvisorAffairsPage'));
 const AdvisorRegistrationsPage = lazy(() => import('./pages/advisor/AdvisorRegistrationsPage'));
 const AdvisorStudentRegistrationPage = lazy(() => import('./pages/advisor/AdvisorStudentRegistrationPage'));
 const StudyPlanPage = lazy(() => import('./pages/supervisor/StudyPlanPage'));
@@ -139,7 +140,7 @@ function App() {
           </Route>
         </Route>
 
-        <Route element={<ProtectedRoute allowedRoles={['REGISTRAR', 'SYSTEM_ADMIN', 'AFFAIRS_STAFF', 'ADVISOR']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['REGISTRAR', 'SYSTEM_ADMIN', 'AFFAIRS_STAFF']} />}>
           <Route element={<DashboardLayout />}>
             <Route path="/affairs" element={<AffairsPage />} />
           </Route>
@@ -147,6 +148,7 @@ function App() {
 
         <Route element={<ProtectedRoute allowedRoles={['ADVISOR']} />}>
           <Route element={<DashboardLayout />}>
+            <Route path="/advisor/affairs" element={<AdvisorAffairsPage />} />
             <Route
               path="/advisor/registrations"
               element={<AdvisorRegistrationsPage />}

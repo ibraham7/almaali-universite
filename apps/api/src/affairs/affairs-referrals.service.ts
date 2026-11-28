@@ -6,6 +6,7 @@ import { CancelReferralDto, CreateReferralDto, ListReferralsQueryDto, RespondRef
 import { audit, isAffairsStaffRole, loadRequestForAction } from './affairs-access.js';
 import { notifyUsers, studentStatusMessage } from './affairs-notifications.js';
 import { isTerminal, type RequestStatus } from './affairs.rules.js';
+import { advisorCoversCollege, advisorsOfCollege } from './advisor-scope.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -14,7 +15,7 @@ export const TARGET_LABEL: Record<string, string> = {
 };
 
 export const OUTCOME_LABEL: Record<string, string> = {
-  APPROVED: 'موافقة', REJECTED: 'رفض', NOTES: 'ملاحظات', DONE: 'تم التنفيذ', NOT_DONE: 'لم يتم التنفيذ',
+  APPROVED: 'موافقة', REJECTED: 'رفض', NOTES: 'ملاحظات', DONE: 'تم التنفيذ', NOT_DONE: 'لم يتم التنفيذ', NEEDS_INFO: 'طلب استكمال معلومات أو وثائق',
 };
 
 export function targetLabel(target: string, name?: string | null) {
@@ -29,9 +30,14 @@ export function statusAfterResponse(mode: string, outcome: string): RequestStatu
   return 'IN_PROGRESS';
 }
 
-export function outcomeAllowed(mode: string, outcome: string) {
-  return mode === 'OPINION' ? ['APPROVED', 'REJECTED', 'NOTES'].includes(outcome) : ['DONE', 'NOT_DONE'].includes(outcome);
+// طلب الرأي: موافقة/رفض/ملاحظات/طلب استكمال؛ وإن لم يكن للجهة حق القرار (decisionAllowed=false) فملاحظات أو طلب استكمال فقط.
+export function outcomeAllowed(mode: string, outcome: string, decisionAllowed = true) {
+  if (mode === 'OPINION') return (decisionAllowed ? ['APPROVED', 'REJECTED', 'NOTES', 'NEEDS_INFO'] : ['NOTES', 'NEEDS_INFO']).includes(outcome);
+  return ['DONE', 'NOT_DONE'].includes(outcome);
 }
+
+// الرفض وعدم التنفيذ وطلب الاستكمال تحتاج سببًا مكتوبًا.
+export const NOTE_REQUIRED_OUTCOMES = ['REJECTED', 'NOT_DONE', 'NEEDS_INFO'];
 
 @Injectable()
 export class AffairsReferralsService {
@@ -63,9 +69,25 @@ export class AffairsReferralsService {
     await this.settings.assertCapability(user, 'capCreateReferrals');
     const reason = dto.reason.trim();
     if (!reason) throw new BadRequestException('سبب الإحالة مطلوب.');
-    const targetName = dto.targetName?.trim() || null;
-    if ((dto.target === 'COLLEGE' || dto.target === 'OTHER') && !targetName) throw new BadRequestException('اكتب اسم الجهة المحال إليها.');
+    let targetName = dto.targetName?.trim() || null;
+    const toCollege = dto.target === 'COLLEGE';
+    if (toCollege && dto.mode !== 'OPINION') throw new BadRequestException('الإحالة إلى الكلية لطلب الرأي أو الموافقة فقط.');
+    if (dto.target === 'OTHER' && !targetName) throw new BadRequestException('اكتب اسم الجهة المحال إليها.');
+    if (toCollege && !dto.collegeId) throw new BadRequestException('اختر الكلية المحال إليها.');
     return this.prisma.$transaction(async (tx) => {
+      let collegeId: string | null = null;
+      let advisorUserId: string | null = null;
+      if (toCollege) {
+        const college = await tx.college.findFirst({ where: { id: dto.collegeId, isActive: true }, select: { id: true, nameAr: true } });
+        if (!college) throw new BadRequestException('الكلية غير موجودة أو معطّلة.');
+        collegeId = college.id;
+        targetName = college.nameAr;
+        if (dto.advisorUserId) {
+          const advisor = await tx.user.findFirst({ where: { id: dto.advisorUserId, status: 'ACTIVE', role: { code: 'ADVISOR' } }, select: { id: true } });
+          if (!advisor || !(await advisorCoversCollege(tx, advisor.id, college.id))) throw new BadRequestException('المشرف المختار غير مسؤول عن هذه الكلية.');
+          advisorUserId = advisor.id;
+        }
+      }
       const request = await this.loadForReferral(tx, requestId, user);
       const from = request.status as RequestStatus;
       if (!['NEW', 'ASSIGNED', 'IN_PROGRESS'].includes(from)) throw new BadRequestException('لا يمكن إحالة الطلب في حالته الحالية.');
@@ -74,7 +96,7 @@ export class AffairsReferralsService {
         data: {
           requestId, mode: dto.mode as 'OPINION' | 'EXECUTION', target: dto.target as 'ACADEMIC_AFFAIRS', targetName, reason,
           requested: dto.requested?.trim() || null, dueAt: dto.dueInDays ? new Date(Date.now() + dto.dueInDays * DAY_MS) : null,
-          referredByUserId: user.id,
+          referredByUserId: user.id, collegeId, advisorUserId, decisionAllowed: toCollege ? dto.decisionAllowed !== false : true,
         },
       });
       const label = targetLabel(dto.target, targetName);
@@ -85,6 +107,11 @@ export class AffairsReferralsService {
       await audit(tx, 'AFFAIRS_REFERRAL_CREATED', requestId, user.id, { number: request.number, referralId: referral.id, mode: dto.mode, target: dto.target, targetName, reason });
       const owner = await tx.student.findUnique({ where: { id: request.studentId }, select: { userId: true } });
       await notifyUsers(tx, [owner?.userId], { ...studentStatusMessage(request.number, 'REFERRED'), requestId });
+      // الإحالة للكلية: إشعار المشرف المحدد، أو كل مشرفي الكلية.
+      if (collegeId) {
+        const recipients = advisorUserId ? [advisorUserId] : await advisorsOfCollege(tx, collegeId);
+        await notifyUsers(tx, recipients, { kind: 'REFERRAL_RECEIVED', title: dto.decisionAllowed === false ? 'أُحيلت إليك معاملة لإبداء الرأي' : 'أُحيلت إليك معاملة للرأي أو الموافقة', body: `الطلب ${request.number} — ${reason}`, requestId });
+      }
       return referral;
     });
   }
@@ -96,9 +123,9 @@ export class AffairsReferralsService {
       if (!referral) throw new NotFoundException('الإحالة غير موجودة.');
       const request = await loadRequestForAction(tx as never, referral.requestId, user);
       if (referral.status !== 'PENDING') throw new BadRequestException('تم الرد على هذه الإحالة أو إلغاؤها.');
-      if (!outcomeAllowed(referral.mode, dto.outcome)) throw new BadRequestException('نتيجة الرد لا تناسب نوع الإحالة.');
+      if (!outcomeAllowed(referral.mode, dto.outcome, referral.decisionAllowed)) throw new BadRequestException('نتيجة الرد لا تناسب نوع الإحالة.');
       const note = (dto.note ?? '').trim();
-      if (['REJECTED', 'NOT_DONE'].includes(dto.outcome) && !note) throw new BadRequestException('اكتب سبب الرفض أو عدم التنفيذ.');
+      if (NOTE_REQUIRED_OUTCOMES.includes(dto.outcome) && !note) throw new BadRequestException('اكتب سبب الرفض أو عدم التنفيذ أو المعلومات المطلوبة.');
       const to = statusAfterResponse(referral.mode, dto.outcome);
       await tx.requestReferral.update({ where: { id: referralId }, data: { status: 'ANSWERED', outcome: dto.outcome as 'APPROVED', responseNote: note || null, respondedByUserId: user.id, respondedAt: new Date() } });
       await tx.studentRequest.update({ where: { id: referral.requestId }, data: { status: to, closedAt: isTerminal(to) ? new Date() : null } });

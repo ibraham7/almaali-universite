@@ -10,19 +10,19 @@ const request = { id: 'r1', assignedStaff: { userId: 'u-staff' } };
 const tx = { studentRequest: { findUnique: vi.fn().mockResolvedValue(request) } };
 
 describe('affairs staff role (AFFAIRS_STAFF)', () => {
-  it('registrar, affairs staff and a granted advisor work on their own requests the same way; others do not', async () => {
-    for (const role of ['REGISTRAR', 'AFFAIRS_STAFF', 'ADVISOR']) {
+  it('registrar and affairs staff work on their own requests the same way; advisors and others do not', async () => {
+    for (const role of ['REGISTRAR', 'AFFAIRS_STAFF']) {
       expect(isAffairsStaffRole(role)).toBe(true);
       await expect(loadRequestForAction(tx, 'r1', { id: 'u-staff', role })).resolves.toBe(request);
       await expect(loadRequestForAction(tx, 'r1', { id: 'someone-else', role })).rejects.toBeInstanceOf(ForbiddenException);
     }
-    for (const role of ['STUDENT', 'SITE_EDITOR']) {
+    for (const role of ['STUDENT', 'SITE_EDITOR', 'ADVISOR']) {
       expect(isAffairsStaffRole(role)).toBe(false);
       await expect(loadRequestForAction(tx, 'r1', { id: 'u-staff', role })).rejects.toBeInstanceOf(ForbiddenException);
     }
   });
 
-  it('a staff profile can be added to a registrar, an affairs staff account or an advisor, not to anyone else', async () => {
+  it('a staff profile can be added to a registrar or an affairs staff account, not to anyone else (advisors have their own workspace)', async () => {
     const make = (code: string) => {
       const prisma: any = {
         user: { findUnique: vi.fn().mockResolvedValue({ id: 'u1', role: { code }, affairsStaff: null }) },
@@ -31,12 +31,12 @@ describe('affairs staff role (AFFAIRS_STAFF)', () => {
       };
       return { prisma, service: new AffairsService(prisma as PrismaService, fakeSettings()) };
     };
-    for (const code of ['REGISTRAR', 'AFFAIRS_STAFF', 'ADVISOR']) {
+    for (const code of ['REGISTRAR', 'AFFAIRS_STAFF']) {
       const { prisma, service } = make(code);
       await expect(service.createStaff({ userId: 'u1' } as never, { id: 'admin', role: 'SYSTEM_ADMIN' })).resolves.toMatchObject({ id: 's1' });
       expect(prisma.affairsStaff.create).toHaveBeenCalled();
     }
-    for (const code of ['STUDENT', 'SITE_EDITOR', 'SYSTEM_ADMIN']) {
+    for (const code of ['STUDENT', 'SITE_EDITOR', 'SYSTEM_ADMIN', 'ADVISOR']) {
       const { service } = make(code);
       await expect(service.createStaff({ userId: 'u1' } as never, { id: 'admin', role: 'SYSTEM_ADMIN' })).rejects.toBeInstanceOf(BadRequestException);
     }

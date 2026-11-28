@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Box, Paper, Stack, Tab, Tabs, Typography } from '@mui/material';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
@@ -11,6 +12,8 @@ import AffairsReferralsTab from './AffairsReferralsTab';
 import AffairsDocumentsTab from './AffairsDocumentsTab';
 import AffairsReportsTab from './AffairsReportsTab';
 import AffairsSettingsTab from './AffairsSettingsTab';
+import AffairsStuckTab from './AffairsStuckTab';
+import { getAffairsMe } from '../../api/affairs';
 
 // The ten sections of the student-affairs dashboard.
 const SECTIONS = [
@@ -20,6 +23,7 @@ const SECTIONS = [
   { id: 'services', label: 'الخدمات الطلابية' },
   { id: 'documents', label: 'الوثائق والإفادات' },
   { id: 'referrals', label: 'المعاملات والإحالات' },
+  { id: 'stuck', label: 'المعاملات المتعثرة' },
   { id: 'staff', label: 'الموظفون وتوزيع المهام' },
   { id: 'reports', label: 'التقارير والإحصائيات' },
   { id: 'operations', label: 'سجل العمليات' },
@@ -30,14 +34,18 @@ export default function AffairsPage() {
   const { user } = useAuth();
   const role = user?.role ?? '';
   const [params, setParams] = useSearchParams();
-  const current = SECTIONS.find((s) => s.id === params.get('tab')) ?? SECTIONS[0];
+  // «المعاملات المتعثرة» لمدير النظام ومدير الوحدة فقط.
+  const [canManage, setCanManage] = useState(role === 'SYSTEM_ADMIN');
+  useEffect(() => { getAffairsMe().then((me) => setCanManage(me.canManage)).catch(() => undefined); }, []);
+  const sections = SECTIONS.filter((s) => s.id !== 'stuck' || canManage);
+  const current = sections.find((s) => s.id === params.get('tab')) ?? sections[0];
 
   return (
     <Stack spacing={2}>
       <Typography variant="h5" sx={{ fontWeight: 800 }}>شؤون الطلاب</Typography>
       <Paper variant="outlined">
         <Tabs value={current.id} onChange={(_, value: string) => setParams({ tab: value })} variant="scrollable" scrollButtons="auto" aria-label="أقسام شؤون الطلاب">
-          {SECTIONS.map((s) => <Tab key={s.id} value={s.id} label={s.label} />)}
+          {sections.map((s) => <Tab key={s.id} value={s.id} label={s.label} />)}
         </Tabs>
       </Paper>
       <Box>
@@ -48,6 +56,7 @@ export default function AffairsPage() {
         {current.id === 'reports' && <AffairsReportsTab role={role} />}
         {current.id === 'settings' && <AffairsSettingsTab role={role} />}
         {current.id === 'referrals' && <AffairsReferralsTab role={role} />}
+        {current.id === 'stuck' && <AffairsStuckTab role={role} />}
         {current.id === 'services' && <AffairsServicesTab />}
         {current.id === 'staff' && <AffairsStaffTab role={role} />}
         {current.id === 'operations' && <AffairsOperationsTab />}

@@ -10,7 +10,7 @@ import { AffairsSettingsService } from './affairs-settings.service.js';
 import { AffairsReportsService } from './affairs-reports.service.js';
 import { AffairsNotificationsService } from './affairs-notifications.service.js';
 import {
-  ListNotificationsQueryDto, ReportFiltersDto, RunReportDto, SummaryQueryDto, UpdateSettingsDto, CreateDocumentTypeDto, ListDocumentsQueryDto, RevokeDocumentDto, UpdateDocumentTypeDto,
+  DelayReasonDto, ListNotificationsQueryDto, ReportFiltersDto, RunReportDto, SummaryQueryDto, UpdateSettingsDto, CreateDocumentTypeDto, ListDocumentsQueryDto, RevokeDocumentDto, UpdateDocumentTypeDto,
   ArchiveAttachmentDto, CancelReferralDto, CreateReferralDto, ListReferralsQueryDto, ListStudentsQueryDto, RespondReferralDto,
   AssignRequestDto, ChangeStatusDto, CommentDto, CreateServiceDto, CreateStaffDto, ListRequestsQueryDto,
   ProxyCreateRequestDto, StudentCreateRequestDto, StudentSearchQueryDto, UpdateServiceDto, UpdateStaffDto,
@@ -18,17 +18,16 @@ import {
 import { JwtGuard } from '../auth/guards/jwt/jwt.guard.js';
 import { RolesGuard } from '../auth/guards/roles/roles.guard.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
-import { AffairsAccessGuard } from './affairs-access.guard.js';
 
 interface AuthenticatedRequest extends Request {
   user: AffairsUser & { email: string };
 }
 
-// الأدوار التي تدخل مسارات الموظفين. المشرف (ADVISOR) مشروط بملف موظف فعّال (AffairsAccessGuard).
-const STAFF = ['REGISTRAR', 'SYSTEM_ADMIN', 'AFFAIRS_STAFF', 'ADVISOR'] as const;
+// الأدوار التي تدخل مسارات الموظفين. المشرف الأكاديمي لا يدخلها: له مسارات مستقلة محصورة بكليته (advisor-affairs).
+const STAFF = ['REGISTRAR', 'SYSTEM_ADMIN', 'AFFAIRS_STAFF'] as const;
 
 @Controller('affairs')
-@UseGuards(JwtGuard, RolesGuard, AffairsAccessGuard)
+@UseGuards(JwtGuard, RolesGuard)
 export class AffairsController {
   constructor(
     private readonly affairs: AffairsService,
@@ -99,6 +98,12 @@ export class AffairsController {
   @Post('requests/:id/status') @Roles(...STAFF)
   changeStatus(@Param('id') id: string, @Body() body: ChangeStatusDto, @Req() req: AuthenticatedRequest) { return this.affairs.changeStatus(id, body, req.user); }
 
+  @Post('requests/:id/delay-reason') @Roles(...STAFF)
+  delayReason(@Param('id') id: string, @Body() body: DelayReasonDto, @Req() req: AuthenticatedRequest) { return this.affairs.setDelayReason(id, body, req.user); }
+
+  @Get('stuck') @Roles(...STAFF)
+  stuck(@Req() req: AuthenticatedRequest) { return this.affairs.stuck(req.user); }
+
   @Post('requests/:id/comment') @Roles(...STAFF)
   comment(@Param('id') id: string, @Body() body: CommentDto, @Req() req: AuthenticatedRequest) { return this.affairs.comment(id, body, req.user); }
 
@@ -120,6 +125,9 @@ export class AffairsController {
   @Get('requests/:id/attachments/:attId/download') @Roles(...STAFF)
   async downloadAttachment(@Param('id') id: string, @Param('attId') attId: string, @Res() res: Response) { this.send(res, await this.attachments.downloadForStaff(id, attId)); }
 
+  @Get('lookups/advisors') @Roles(...STAFF)
+  advisorOptions(@Query('collegeId') collegeId: string) { return this.affairs.advisorOptions(collegeId); }
+
   @Get('lookups/colleges') @Roles(...STAFF)
   collegeOptions() { return this.affairs.collegeOptions(); }
 
@@ -127,16 +135,16 @@ export class AffairsController {
   me(@Req() req: AuthenticatedRequest) { return this.affairs.me(req.user); }
 
   // ----- notifications (everyone reads only their own) -----
-  @Get('notifications') @Roles('STUDENT', ...STAFF)
+  @Get('notifications') @Roles('STUDENT', 'ADVISOR', ...STAFF)
   listNotifications(@Query() query: ListNotificationsQueryDto, @Req() req: AuthenticatedRequest) { return this.notifications.list(req.user, query.unread === 'true', query.page ?? 1); }
 
-  @Get('notifications/unread-count') @Roles('STUDENT', ...STAFF)
+  @Get('notifications/unread-count') @Roles('STUDENT', 'ADVISOR', ...STAFF)
   unreadCount(@Req() req: AuthenticatedRequest) { return this.notifications.unreadCount(req.user); }
 
-  @Post('notifications/read-all') @Roles('STUDENT', ...STAFF)
+  @Post('notifications/read-all') @Roles('STUDENT', 'ADVISOR', ...STAFF)
   readAll(@Req() req: AuthenticatedRequest) { return this.notifications.markAllRead(req.user); }
 
-  @Post('notifications/:id/read') @Roles('STUDENT', ...STAFF)
+  @Post('notifications/:id/read') @Roles('STUDENT', 'ADVISOR', ...STAFF)
   readOne(@Param('id') id: string, @Req() req: AuthenticatedRequest) { return this.notifications.markRead(id, req.user); }
 
   // ----- reports -----

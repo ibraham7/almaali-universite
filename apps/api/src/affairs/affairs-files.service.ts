@@ -14,9 +14,10 @@ export class AffairsFilesService {
   constructor(private readonly prisma: PrismaService) {}
 
   // Search by name, current or previous university number, or national ID.
-  async list(search: string | undefined, page = 1) {
+  // scope: شرط إضافي يحصر الطلاب (للمشرف: طلاب كليته فقط).
+  async list(search: string | undefined, page = 1, scope?: object) {
     const term = search?.trim();
-    const where = term
+    const searchWhere = term
       ? {
           OR: [
             { universityId: { contains: term, mode: 'insensitive' as const } },
@@ -28,6 +29,7 @@ export class AffairsFilesService {
           ],
         }
       : {};
+    const where = scope ? { AND: [scope, searchWhere] } : searchWhere;
     const [total, rows] = await Promise.all([
       this.prisma.student.count({ where }),
       this.prisma.student.findMany({
