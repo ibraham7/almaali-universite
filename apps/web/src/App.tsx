@@ -8,6 +8,7 @@ import {
 
 import ProtectedRoute from './routes/ProtectedRoute';
 import { useAuth } from './auth/AuthContext';
+import { isAffairsStaff } from './auth/affairsStaff';
 import DashboardLayout from './layouts/DashboardLayout';
 import GlobalSuccessToast from './components/GlobalSuccessToast';
 import RegistrationCountdown from './components/RegistrationCountdown';
@@ -59,6 +60,7 @@ const AuditLogsPage = lazy(() => import('./pages/supervisor/AuditLogsPage'));
 function DashboardHome() {
   const { user } = useAuth();
   if (user?.role === 'SITE_EDITOR') return <Navigate to="/site-admin" replace />;
+  if (isAffairsStaff(user)) return <Navigate to="/affairs" replace />;
   return <DashboardPage />;
 }
 

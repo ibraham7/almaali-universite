@@ -18,6 +18,7 @@ describe('AuthService', () => {
     },
     student: { findUnique: vi.fn(), update: vi.fn() },
     role: { findUnique: vi.fn(), upsert: vi.fn() },
+    affairsStaff: { findFirst: vi.fn().mockResolvedValue(null) },
     signupAttempt: { deleteMany: vi.fn(), count: vi.fn().mockResolvedValue(0), create: vi.fn() },
     $transaction: vi.fn(),
     auditLog: { create: vi.fn() },
@@ -150,6 +151,22 @@ describe('AuthService', () => {
       access_token: 'token',
     });
     expect(usersService.findByUsername).toHaveBeenCalledWith('advisor01');
+  });
+
+  it('flags an active affairs employee (registrar with a staff profile) at login, and nobody else', async () => {
+    const staffLogin = async (role: string, staff: unknown) => {
+      usersService.findByUsername.mockResolvedValue({ id: 'u-1', username: 'u1', email: 'u1@staff.local', status: 'ACTIVE', passwordHash: await argon2.hash('a-strong-password'), role: { code: role } });
+      prisma.student.findUnique.mockResolvedValue(null);
+      prisma.affairsStaff.findFirst.mockReset().mockResolvedValue(staff);
+      return service.login('u1', 'a-strong-password');
+    };
+    expect((await staffLogin('REGISTRAR', { id: 's1' })).user.affairsStaff).toBe(true);
+    expect(prisma.affairsStaff.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'u-1', isActive: true } }));
+    expect((await staffLogin('REGISTRAR', null)).user.affairsStaff).toBe(false);
+    const admin = await staffLogin('SYSTEM_ADMIN', { id: 's1' });
+    expect(admin.user.affairsStaff).toBe(false);
+    expect(prisma.affairsStaff.findFirst).not.toHaveBeenCalled();
+    expect((await staffLogin('ADVISOR', { id: 's1' })).user.affairsStaff).toBe(false);
   });
 
   it('blocks short test logins in production even if the flag is set', async () => {

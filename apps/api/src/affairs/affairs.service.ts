@@ -43,7 +43,7 @@ export class AffairsService {
 
   async me(user: AffairsUser) {
     const staff = await this.prisma.affairsStaff.findUnique({ where: { userId: user.id }, select: { id: true, isManager: true, isActive: true } });
-    return { role: user.role, staffId: staff?.id ?? null, isStaff: !!staff, isManager: !!staff && staff.isManager && staff.isActive, canManage: await canManage(this.prisma, user) };
+    return { role: user.role, staffId: staff?.id ?? null, isStaff: !!staff, isActiveStaff: !!staff && staff.isActive, isManager: !!staff && staff.isManager && staff.isActive, canManage: await canManage(this.prisma, user) };
   }
 
   // ---------- services ----------

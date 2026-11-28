@@ -1,3 +1,4 @@
+import { isAffairsStaff } from '../auth/affairsStaff';
 import {
   useMemo,
   useState,
@@ -245,7 +246,10 @@ const navigationItems: NavigationItem[] = [
 
 function getRoleLabel(
   role?: string,
+  affairsStaff?: boolean,
 ) {
+  if (role === 'REGISTRAR' && affairsStaff) return 'موظف شؤون الطلاب';
+
   switch (role) {
     case 'STUDENT':
       return 'طالب';
@@ -322,6 +326,9 @@ export default function DashboardLayout() {
   const userRole =
     user?.role ?? '';
 
+  // موظف شؤون الطلاب: قائمته بنود الشؤون فقط (بلا بنود المسجّل أو الأكاديمية أو إدارة النظام)، بلا مجموعات.
+  const staffOnly = isAffairsStaff(user);
+
   const visibleItems =
     useMemo(
       () =>
@@ -329,15 +336,16 @@ export default function DashboardLayout() {
           (item) =>
             item.roles.includes(
               userRole,
-            ),
+            ) && (!staffOnly || item.path.startsWith('/affairs')),
         ),
-      [userRole],
+      [userRole, staffOnly],
     );
 
   // المجموعات مسكّرة افتراضيًا، ما عدا المجموعة اللي فيها الصفحة الحالية. اختيار المستخدم يغلب الافتراضي.
   const [groupToggles, setGroupToggles] = useState<Record<string, boolean>>({});
 
   function renderSections(renderItem: (item: NavigationItem) => ReactNode) {
+    if (staffOnly) return <>{visibleItems.map(renderItem)}</>;
     const grouped = new Set(NAV_GROUPS.flatMap((group) => group.paths));
     const loose = visibleItems.filter((item) => !grouped.has(item.path));
     return (
@@ -734,6 +742,7 @@ export default function DashboardLayout() {
             >
               {getRoleLabel(
                 user?.role,
+                staffOnly,
               )}
             </Typography>
           </Box>
@@ -1041,6 +1050,7 @@ export default function DashboardLayout() {
                 >
                   {getRoleLabel(
                     user?.role,
+                    staffOnly,
                   )}
                 </Typography>
               </Box>

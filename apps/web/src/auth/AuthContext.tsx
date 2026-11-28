@@ -1,10 +1,13 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
+
+import { apiClient } from '../api/client';
 
 import { loginRequest } from '../api/auth';
 
@@ -16,6 +19,8 @@ import type {
 interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
+  // جلسة مسجّل قديمة بلا علامة موظف الشؤون: نتحقق من الخادم قبل توجيهه
+  affairsStaffPending: boolean;
   login: (credentials: LoginRequest) => Promise<AuthUser>;
   logout: () => void;
 }
@@ -74,6 +79,31 @@ export function AuthProvider({
     return response.user;
   };
 
+  // مزامنة صفة موظف الشؤون مع الخادم (جلسة قديمة بلا علامة، أو تعطيل ملف الموظف أثناء الجلسة).
+  const syncRole = user?.role;
+  const syncId = user?.id;
+  useEffect(() => {
+    if (syncRole !== 'REGISTRAR') return undefined;
+    let active = true;
+    apiClient.get<{ isActiveStaff?: boolean }>('/affairs/me')
+      .then((response) => {
+        if (!active) return;
+        const flag = response.data.isActiveStaff === true;
+        setUser((current) => {
+          if (!current || current.id !== syncId || current.affairsStaff === flag) return current;
+          const next = { ...current, affairsStaff: flag };
+          localStorage.setItem('auth_user', JSON.stringify(next));
+          return next;
+        });
+      })
+      .catch(() => {
+        // تعذّر السؤال: نعتبره غير موظف شؤون (الواجهة العادية) بدل حجز الشاشة
+        if (!active) return;
+        setUser((current) => (current && current.id === syncId && current.affairsStaff === undefined ? { ...current, affairsStaff: false } : current));
+      });
+    return () => { active = false; };
+  }, [syncRole, syncId]);
+
   const logout = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('auth_user');
@@ -85,6 +115,7 @@ export function AuthProvider({
     () => ({
       user,
       isAuthenticated: Boolean(user),
+      affairsStaffPending: user?.role === 'REGISTRAR' && user.affairsStaff === undefined,
       login,
       logout,
     }),
