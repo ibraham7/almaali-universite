@@ -7,6 +7,7 @@ import {
 } from 'react-router-dom';
 
 import ProtectedRoute from './routes/ProtectedRoute';
+import { useAuth } from './auth/AuthContext';
 import DashboardLayout from './layouts/DashboardLayout';
 import GlobalSuccessToast from './components/GlobalSuccessToast';
 import RegistrationCountdown from './components/RegistrationCountdown';
@@ -49,6 +50,12 @@ const GradeScalePage = lazy(() => import('./pages/supervisor/GradeScalePage'));
 const ResultsImportPage = lazy(() => import('./pages/supervisor/ResultsImportPage'));
 const AuditLogsPage = lazy(() => import('./pages/supervisor/AuditLogsPage'));
 
+function DashboardHome() {
+  const { user } = useAuth();
+  if (user?.role === 'SITE_EDITOR') return <Navigate to="/site-admin" replace />;
+  return <DashboardPage />;
+}
+
 function App() {
   const location = useLocation();
   const studentRegistrationOpen =
@@ -78,7 +85,7 @@ function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route element={<DashboardLayout />}>
-            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/dashboard" element={<DashboardHome />} />
             <Route path="/support-tickets" element={<SupportTicketsPage />} />
           </Route>
         </Route>
@@ -104,7 +111,7 @@ function App() {
           </Route>
         </Route>
 
-        <Route element={<ProtectedRoute allowedRoles={['SYSTEM_ADMIN']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['SYSTEM_ADMIN', 'SITE_EDITOR']} />}>
           <Route element={<DashboardLayout />}>
             <Route path="/site-admin" element={<SiteAdminPage />} />
           </Route>

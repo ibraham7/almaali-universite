@@ -227,7 +227,7 @@ const navigationItems: NavigationItem[] = [
     label: 'لوحة الموقع',
     path: '/site-admin',
     icon: <PublicRoundedIcon />,
-    roles: ['SYSTEM_ADMIN'],
+    roles: ['SYSTEM_ADMIN', 'SITE_EDITOR'],
   },
   {
     label: 'إعدادات النظام',
@@ -258,6 +258,9 @@ function getRoleLabel(
 
     case 'SYSTEM_ADMIN':
       return 'مدير النظام';
+
+    case 'SITE_EDITOR':
+      return 'محرر الموقع';
 
     default:
       return 'مستخدم';

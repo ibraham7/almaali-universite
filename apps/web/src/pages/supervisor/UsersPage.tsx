@@ -115,6 +115,9 @@ function roleLabel(
 
         case 'SYSTEM_ADMIN':
             return 'مدير النظام';
+
+        case 'SITE_EDITOR':
+            return 'محرر الموقع';
     }
 }
 
@@ -975,6 +978,7 @@ export default function UsersPage() {
                                 <MenuItem value="ADVISOR">مشرف أكاديمي</MenuItem>
                                 <MenuItem value="REGISTRAR">مسجل الجامعة</MenuItem>
                                 <MenuItem value="SYSTEM_ADMIN">مدير النظام</MenuItem>
+                                <MenuItem value="SITE_EDITOR">محرر الموقع</MenuItem>
                             </Select>
                         </FormControl>
                     </Stack>

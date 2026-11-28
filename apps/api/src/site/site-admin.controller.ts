@@ -17,7 +17,7 @@ type AdminRequest = Request & { user: { id: string; role: string } };
 // لوحة إدارة الموقع: مدير النظام فقط.
 @Controller('site-admin')
 @UseGuards(JwtGuard, RolesGuard)
-@Roles('SYSTEM_ADMIN')
+@Roles('SYSTEM_ADMIN', 'SITE_EDITOR')
 export class SiteAdminController {
   constructor(private readonly admin: SiteAdminService, private readonly media: SiteMediaService) {}
 

@@ -20,6 +20,7 @@ enum RoleCode {
   ADVISOR
   REGISTRAR
   SYSTEM_ADMIN
+  SITE_EDITOR
 }
 
 enum ProgramLevel {

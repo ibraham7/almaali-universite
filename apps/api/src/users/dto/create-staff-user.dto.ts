@@ -17,6 +17,6 @@ export class CreateStaffUserDto {
   @MaxLength(128)
   password!: string;
 
-  @IsIn(['ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN'])
-  roleCode!: 'ADVISOR' | 'REGISTRAR' | 'SYSTEM_ADMIN';
+  @IsIn(['ADVISOR', 'REGISTRAR', 'SYSTEM_ADMIN', 'SITE_EDITOR'])
+  roleCode!: 'ADVISOR' | 'REGISTRAR' | 'SYSTEM_ADMIN' | 'SITE_EDITOR';
 }
