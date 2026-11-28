@@ -22,14 +22,14 @@ export default function AffairsReferralsTab({ role }: { role: string }) {
 
   return (
     <Stack spacing={2}>
-      <Alert severity="info">الجهات المستقبلة ليس لها حسابات في النظام حالياً، فيسجّل الموظف المسؤول ردّها من الطلب. افتح الإحالة لتسجيل الرد.</Alert>
+      <Alert severity="info">الجهات المستقبلة ليس لها حسابات في النظام حالياً، فيسجّل الموظف المسؤول ردّها من الطلب. افتح الإحالة لتسجيل الرد. الإحالة لا تنقل ملكية المعاملة: تبقى عند موظف الشؤون المسؤول حتى إغلاقها.</Alert>
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
         {FILTERS.map((f) => <Chip key={f.value} label={f.label} clickable color={status === f.value ? 'primary' : 'default'} variant={status === f.value ? 'filled' : 'outlined'} onClick={() => { setStatus(f.value); setPage(1); }} />)}
       </Stack>
       {error && <Alert severity="error">{error}</Alert>}
       <TableContainer component={Paper} variant="outlined">
         <Table size="small" aria-label="الإحالات">
-          <TableHead><TableRow><TableCell>الطلب</TableCell><TableCell>الطالب</TableCell><TableCell>الجهة</TableCell><TableCell>النوع</TableCell><TableCell>الموظف الأصلي</TableCell><TableCell>الحالة</TableCell><TableCell>المدة المستهدفة</TableCell></TableRow></TableHead>
+          <TableHead><TableRow><TableCell>الطلب</TableCell><TableCell>الطالب</TableCell><TableCell>الجهة</TableCell><TableCell>النوع</TableCell><TableCell>المالك الأساسي</TableCell><TableCell>الحالة</TableCell><TableCell>المدة المستهدفة</TableCell></TableRow></TableHead>
           <TableBody>
             {rows.map((r) => (
               <TableRow key={r.id} hover sx={{ cursor: 'pointer' }} onClick={() => setOpenId(r.requestId)}>

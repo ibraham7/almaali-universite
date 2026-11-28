@@ -58,7 +58,7 @@ export default function AffairsRequestDialog({ requestId, role, onClose, onChang
               <Typography variant="body2"><b>الخدمة:</b> {data.service.nameAr}</Typography>
               <Typography variant="body2"><b>مصدر الطلب:</b> {CHANNEL_LABEL[data.channel]}</Typography>
               <Typography variant="body2"><b>آخر تحديث:</b> {formatDate(data.updatedAt, true)}</Typography>
-              <Typography variant="body2"><b>الموظف المسند:</b> {data.assignedStaff?.name ?? 'غير مسند'}</Typography>
+              <Typography variant="body2"><b>المالك الأساسي (المسؤول حتى الإغلاق):</b> {data.assignedStaff?.name ?? 'غير مسند'}</Typography>
               <Typography variant="body2"><b>الموعد المتوقع:</b> {formatDate(data.dueAt)}</Typography>
               <Typography variant="body2"><b>هاتف الطالب:</b> {data.student.phone ?? '—'}</Typography>
               <Typography variant="body2"><b>تاريخ التقديم:</b> {formatDate(data.createdAt, true)}</Typography>

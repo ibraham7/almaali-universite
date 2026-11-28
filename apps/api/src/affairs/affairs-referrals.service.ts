@@ -52,10 +52,13 @@ export class AffairsReferralsService {
       await audit(tx, 'AFFAIRS_REQUEST_ASSIGNED', requestId, user.id, { number: request.number, to: me.id, viaReferral: true });
       return { ...request, status: 'ASSIGNED', assignedStaffId: me.id };
     }
-    return loadRequestForAction(tx, requestId, user);
+    const loaded = await loadRequestForAction(tx, requestId, user);
+    // مبدأ الملكية: موظف الشؤون المسؤول يبقى المالك الأساسي للمعاملة من بدء معالجتها حتى إغلاقها. فلا تُحال معاملة بلا مالك.
+    if (!loaded.assignedStaffId) throw new BadRequestException('أسند الطلب إلى موظف مسؤول قبل إحالته. يبقى هذا الموظف المالك الأساسي للمعاملة حتى إغلاقها، ولا تنتقل الملكية بالإحالة.');
+    return loaded;
   }
 
-  // Send a request to another body. The request becomes REFERRED and stays assigned to the original staff member.
+  // Send a request to another body. The request becomes REFERRED and stays owned by the same staff member: referring never changes the owner (assignedStaffId is never written here).
   async create(requestId: string, dto: CreateReferralDto, user: AffairsUser) {
     await this.settings.assertCapability(user, 'capCreateReferrals');
     const reason = dto.reason.trim();
