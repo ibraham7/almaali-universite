@@ -308,7 +308,7 @@ export async function changeStudentStatus(id: string, data: { status: string; re
 
 export interface AutoApprovalRow {
   studentId: string; universityId: string; name: string; admissionYear: number | null;
-  plan: { id: string; nameAr: string; versionNumber: number; cohortYear: number | null } | null;
+  plan: { id: string; nameAr: string; versionNumber: number; cohortYear: number | null; cohortToYear: number | null } | null;
   level: string | null; semester: string | null; reason: string | null;
 }
 

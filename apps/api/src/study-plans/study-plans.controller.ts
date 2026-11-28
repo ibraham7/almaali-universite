@@ -42,6 +42,7 @@ export class StudyPlansController {
       nameAr: string;
       nameEn?: string;
       cohortYear?: number | null;
+      cohortToYear?: number | null;
       effectiveFrom?: string | null;
       graduationCredits?: number | null;
     },
@@ -59,6 +60,7 @@ export class StudyPlansController {
       nameAr?: string;
       nameEn?: string;
       cohortYear?: number | null;
+      cohortToYear?: number | null;
       effectiveFrom?: string | null;
       graduationCredits?: number | null;
     },

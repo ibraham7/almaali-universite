@@ -13,6 +13,7 @@ import {
 import {
   PLAN_CATEGORY_LABEL, addCourseToPlan, getCourses, getPlanStructure, removePlanCourse, updatePlanCourse,
   type Course, type PlanCategory, type PlanStructure, type PlanStructureCourse,
+  cohortRangeLabel,
 } from '../../api/studyPlan';
 import { useAuth } from '../../auth/AuthContext';
 import PlanStructureTables from './PlanStructureTables';
@@ -28,8 +29,8 @@ function errorText(error: unknown, fallback = 'تعذر تنفيذ العملي�
   return fallback;
 }
 
-type Info = { collegeId: string; departmentId: string; programId: string; nameAr: string; cohortYear: string; effectiveFrom: string; graduationCredits: string };
-const EMPTY_INFO: Info = { collegeId: '', departmentId: '', programId: '', nameAr: '', cohortYear: '', effectiveFrom: '', graduationCredits: '' };
+type Info = { collegeId: string; departmentId: string; programId: string; nameAr: string; cohortYear: string; cohortToYear: string; effectiveFrom: string; graduationCredits: string };
+const EMPTY_INFO: Info = { collegeId: '', departmentId: '', programId: '', nameAr: '', cohortYear: '', cohortToYear: '', effectiveFrom: '', graduationCredits: '' };
 type LevelRow = { id?: string; nameAr: string };
 type SemesterRow = { id?: string; nameAr: string };
 
@@ -83,7 +84,7 @@ export default function StudyPlanWizardPage() {
       const department = departments.find((item) => item.id === program?.departmentId);
       setInfo({
         collegeId: program?.collegeId ?? department?.collegeId ?? '', departmentId: program?.departmentId ?? '', programId: data.programId,
-        nameAr: data.nameAr, cohortYear: data.cohortYear ? String(data.cohortYear) : '', effectiveFrom: data.effectiveFrom ? data.effectiveFrom.slice(0, 10) : '',
+        nameAr: data.nameAr, cohortYear: data.cohortYear ? String(data.cohortYear) : '', cohortToYear: data.cohortToYear ? String(data.cohortToYear) : '', effectiveFrom: data.effectiveFrom ? data.effectiveFrom.slice(0, 10) : '',
         graduationCredits: data.graduationCredits ? String(data.graduationCredits) : '',
       });
     }).catch((cause) => { if (active) setError(errorText(cause, 'تعذر تحميل الخطة.')); }).finally(() => { if (active) setLoading(false); });
@@ -103,12 +104,13 @@ export default function StudyPlanWizardPage() {
 
   async function saveInfo() {
     const cohortYear = info.cohortYear.trim() ? Number(info.cohortYear) : null;
+    const cohortToYear = info.cohortToYear.trim() ? Number(info.cohortToYear) : null;
     const graduationCredits = info.graduationCredits.trim() ? Number(info.graduationCredits) : null;
     if (planId) {
-      await updateStudyPlan(planId, { nameAr: info.nameAr.trim(), cohortYear, effectiveFrom: info.effectiveFrom || null, graduationCredits });
+      await updateStudyPlan(planId, { nameAr: info.nameAr.trim(), cohortYear, cohortToYear, effectiveFrom: info.effectiveFrom || null, graduationCredits });
       return;
     }
-    const created = await createStudyPlan({ programId: info.programId, nameAr: info.nameAr.trim(), cohortYear, effectiveFrom: info.effectiveFrom || null, graduationCredits });
+    const created = await createStudyPlan({ programId: info.programId, nameAr: info.nameAr.trim(), cohortYear, cohortToYear, effectiveFrom: info.effectiveFrom || null, graduationCredits });
     setPlanId(created.id);
     await loadStructure(created.id);
     navigate(`/supervisor/study-plan/${created.id}/edit`, { replace: true });
@@ -224,8 +226,10 @@ export default function StudyPlanWizardPage() {
               {programOptions.map((item) => <MenuItem key={item.id} value={item.id}>{item.nameAr}</MenuItem>)}
             </TextField>
             <TextField required label="اسم الخطة" value={info.nameAr} onChange={(event) => setInfo({ ...info, nameAr: event.target.value })} disabled={locked} />
-              <TextField label="الدفعة المستهدفة (سنة القبول)" value={info.cohortYear} disabled={locked}
-                onChange={(event) => setInfo({ ...info, cohortYear: event.target.value.replace(/\D/g, '').slice(0, 4) })} helperText="اتركها فارغة لخطة عامة لكل الدفعات" />
+              <TextField label="من دفعة (سنة القبول)" value={info.cohortYear} disabled={locked}
+                onChange={(event) => setInfo({ ...info, cohortYear: event.target.value.replace(/\D/g, '').slice(0, 4) })} helperText="أول دفعة تسري عليها الخطة. فارغة مع «إلى دفعة» فارغة = خطة عامة لكل الدفعات." />
+              <TextField label="إلى دفعة (اختياري)" value={info.cohortToYear} disabled={locked || !info.cohortYear}
+                onChange={(event) => setInfo({ ...info, cohortToYear: event.target.value.replace(/\D/g, '').slice(0, 4) })} helperText="اتركها فارغة إذا كانت الخطة ما زالت سارية على الدفعات الجديدة. لدفعة واحدة اكتب نفس السنة." />
               <TextField label="رقم الإصدار" value={structure?.versionNumber ?? 1} disabled helperText="الإصدارات الجديدة تُنشأ من الخطة المعتمدة" />
               <TextField type="date" label="تاريخ بدء التطبيق" value={info.effectiveFrom} disabled={locked}
                 onChange={(event) => setInfo({ ...info, effectiveFrom: event.target.value })} slotProps={{ inputLabel: { shrink: true } }} />
@@ -470,7 +474,7 @@ function ReviewStep({ structure }: { structure: PlanStructure }) {
         <Chip variant="outlined" label={`كلية: ${category.COLLEGE}`} />
         <Chip variant="outlined" label={`قسم: ${category.PROGRAM}`} />
         {category.UNSPECIFIED > 0 && <Chip color="warning" label={`غير محدد: ${category.UNSPECIFIED}`} />}
-        <Chip variant="outlined" label={structure.cohortYear ? `دفعة ${structure.cohortYear}` : 'كل الدفعات'} />
+        <Chip variant="outlined" label={cohortRangeLabel(structure.cohortYear, structure.cohortToYear)} />
         {structure.effectiveFrom && <Chip variant="outlined" label={`تبدأ ${structure.effectiveFrom.slice(0, 10)}`} />}
       </Stack>
       {problems.length > 0 ? <Alert severity="warning">{problems.map((item) => <div key={item}>{item}</div>)}</Alert> : <Alert severity="success">الخطة مكتملة وجاهزة للاعتماد.</Alert>}

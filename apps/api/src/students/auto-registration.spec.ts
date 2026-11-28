@@ -13,7 +13,7 @@ describe('admission year and plan selection', () => {
 
   it('prefers the latest approved version for the cohort, then the general plan; never a draft or an old version', () => {
     const plans = [
-      { id: 'a', status: 'APPROVED', cohortYear: 2027, versionNumber: 1 }, { id: 'b', status: 'APPROVED', cohortYear: 2027, versionNumber: 2 },
+      { id: 'a', status: 'APPROVED', cohortYear: 2027, cohortToYear: 2027, versionNumber: 1 }, { id: 'b', status: 'APPROVED', cohortYear: 2027, cohortToYear: 2027, versionNumber: 2 },
       { id: 'g', status: 'APPROVED', cohortYear: null, versionNumber: 1 }, { id: 'd', status: 'DRAFT', cohortYear: 2028, versionNumber: 1 }, { id: 'o', status: 'SUPERSEDED', cohortYear: 2029, versionNumber: 1 },
     ];
     expect(pickPlanForAdmission(plans, 2027)?.id).toBe('b');

@@ -1,3 +1,4 @@
+import { cohortRangeLabel } from '../../api/studyPlan';
 import {
     Alert,
     Box,
@@ -94,6 +95,8 @@ interface DialogForm {
 
     cohortYear: string;
 
+    cohortToYear: string;
+
     effectiveFrom: string;
 }
 
@@ -113,6 +116,7 @@ const emptyForm: DialogForm = {
     isActive: true,
 
     cohortYear: '',
+    cohortToYear: '',
 
     effectiveFrom: '',
 };
@@ -573,6 +577,11 @@ export default function AcademicStructurePage() {
                     ? String(item.cohortYear)
                     : '',
 
+            cohortToYear:
+                'cohortToYear' in item && item.cohortToYear
+                    ? String(item.cohortToYear)
+                    : '',
+
             effectiveFrom:
                 'effectiveFrom' in item && item.effectiveFrom
                     ? item.effectiveFrom.slice(0, 10)
@@ -772,6 +781,7 @@ export default function AcademicStructurePage() {
                                 form.nameEn.trim(),
 
                             cohortYear: form.cohortYear.trim() ? Number(form.cohortYear) : null,
+                            cohortToYear: form.cohortToYear.trim() ? Number(form.cohortToYear) : null,
 
                             effectiveFrom: form.effectiveFrom || null,
                         },
@@ -797,6 +807,7 @@ export default function AcademicStructurePage() {
                             undefined,
 
                         cohortYear: form.cohortYear.trim() ? Number(form.cohortYear) : null,
+                            cohortToYear: form.cohortToYear.trim() ? Number(form.cohortToYear) : null,
 
                         effectiveFrom: form.effectiveFrom || null,
                     });
@@ -1171,7 +1182,7 @@ export default function AcademicStructurePage() {
                                 [
                                     plan.versionNumber ? `إصدار ${plan.versionNumber}` : null,
                                     plan.status ? STUDY_PLAN_STATUS_LABEL[plan.status] : null,
-                                    plan.cohortYear ? `دفعة ${plan.cohortYear}` : 'كل الدفعات',
+                                    cohortRangeLabel(plan.cohortYear, plan.cohortToYear),
                                     plan.effectiveFrom ? `تبدأ ${plan.effectiveFrom.slice(0, 10)}` : null,
                                     plan.studentsCount ? `${plan.studentsCount} طالب` : null,
                                 ].filter(Boolean).join(' • ')
@@ -1374,11 +1385,20 @@ export default function AcademicStructurePage() {
 
                         {dialogType === 'studyPlan' && (<>
                             <TextField
-                                label="الدفعة المستهدفة (سنة القبول، اختياري)"
+                                label="من دفعة (سنة القبول، اختياري)"
                                 value={form.cohortYear}
                                 onChange={(event) => setForm((current) => ({ ...current, cohortYear: event.target.value.replace(/\D/g, '').slice(0, 4) }))}
                                 fullWidth
-                                helperText="مثال 2026. تُربط الخطة بطلاب هذه الدفعة. اتركها فارغة لخطة عامة لكل الدفعات."
+                                helperText="مثال 2023. أول دفعة تسري عليها الخطة. اتركها فارغة لخطة عامة لكل الدفعات."
+                                slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 4 } }}
+                            />
+                            <TextField
+                                label="إلى دفعة (اختياري)"
+                                value={form.cohortToYear}
+                                onChange={(event) => setForm((current) => ({ ...current, cohortToYear: event.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                                fullWidth
+                                disabled={!form.cohortYear}
+                                helperText="اتركها فارغة إذا كانت الخطة ما زالت سارية على الدفعات الجديدة."
                                 slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: 4 } }}
                             />
                             <TextField

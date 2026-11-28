@@ -7,18 +7,18 @@ import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { STUDY_PLAN_STATUS_LABEL, approveStudyPlan, createStudyPlanVersion, type StudyPlanStatus } from '../../api/academicStructure';
 import { apiClient } from '../../api/client';
-import { getPlanStructure, type PlanStructure } from '../../api/studyPlan';
+import { cohortRangeLabel, getPlanStructure, type PlanStructure } from '../../api/studyPlan';
 import { useAuth } from '../../auth/AuthContext';
 import PlanStructureTables from './PlanStructureTables';
 
 interface PlanRow {
-  id: string; nameAr: string; status: StudyPlanStatus; versionNumber: number; planKey: string; cohortYear: number | null;
+  id: string; nameAr: string; status: StudyPlanStatus; versionNumber: number; planKey: string; cohortYear: number | null; cohortToYear: number | null;
   effectiveFrom: string | null; approvedAt: string | null; coursesCount: number; studentsCount: number; totalCredits: number; graduationCredits: number | null;
   program?: { nameAr: string; college?: { nameAr: string } | null; department?: { nameAr: string; college?: { nameAr: string } | null } | null } | null;
 }
 
 interface VersionRow {
-  id: string; versionNumber: number; status: StudyPlanStatus; cohortYear: number | null; effectiveFrom: string | null; approvedAt: string | null;
+  id: string; versionNumber: number; status: StudyPlanStatus; cohortYear: number | null; cohortToYear: number | null; effectiveFrom: string | null; approvedAt: string | null;
   approvedByName: string | null; studentsCount: number; createdAt: string;
 }
 
@@ -141,7 +141,7 @@ export default function StudyPlansListPage() {
                   <TableCell>{plan.program?.college?.nameAr ?? plan.program?.department?.college?.nameAr ?? '—'}</TableCell>
                   <TableCell>{plan.program?.department?.nameAr ?? '—'}</TableCell>
                   <TableCell>{plan.program?.nameAr ?? '—'}</TableCell>
-                  <TableCell>{plan.cohortYear ?? 'كل الدفعات'}</TableCell>
+                  <TableCell>{cohortRangeLabel(plan.cohortYear, plan.cohortToYear)}</TableCell>
                   <TableCell>{plan.versionNumber}</TableCell>
                   <TableCell><Chip size="small" color={STATUS_COLOR[plan.status]} label={STUDY_PLAN_STATUS_LABEL[plan.status]} /></TableCell>
                   <TableCell>{date(plan.effectiveFrom)}</TableCell>
@@ -184,7 +184,7 @@ export default function StudyPlansListPage() {
             <Stack spacing={2}>
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
                 <Chip color={STATUS_COLOR[structure.status]} label={STUDY_PLAN_STATUS_LABEL[structure.status]} />
-                <Chip variant="outlined" label={structure.cohortYear ? `دفعة ${structure.cohortYear}` : 'كل الدفعات'} />
+                <Chip variant="outlined" label={cohortRangeLabel(structure.cohortYear, structure.cohortToYear)} />
                 {structure.effectiveFrom && <Chip variant="outlined" label={`تبدأ ${date(structure.effectiveFrom)}`} />}
                 <Chip color="primary" label={`${structure.totals.courses} مقرر • ${structure.totals.credits} ساعة`} />
                 <Chip variant="outlined" label={`جامعة ${structure.totals.byCategory.UNIVERSITY} • كلية ${structure.totals.byCategory.COLLEGE} • قسم ${structure.totals.byCategory.PROGRAM}`} />
@@ -200,7 +200,7 @@ export default function StudyPlansListPage() {
                           <TableRow key={item.id} selected={item.id === viewing?.id}>
                             <TableCell>{item.versionNumber}</TableCell>
                             <TableCell><Chip size="small" color={STATUS_COLOR[item.status]} label={STUDY_PLAN_STATUS_LABEL[item.status]} /></TableCell>
-                            <TableCell>{item.cohortYear ?? 'كل الدفعات'}</TableCell>
+                            <TableCell>{cohortRangeLabel(item.cohortYear, item.cohortToYear)}</TableCell>
                             <TableCell>{date(item.effectiveFrom)}</TableCell>
                             <TableCell>{date(item.approvedAt)}</TableCell>
                             <TableCell>{item.approvedByName ?? '—'}</TableCell>

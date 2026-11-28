@@ -5,7 +5,7 @@ import {
   getAcademicLevels, getColleges, getDepartments, getPrograms, getSemesters, getStudyPlans, selectableStructure, assignablePlans,
   type AcademicLevel, type College, type Department, type Program, type Semester, type StudyPlan,
 } from '../../api/academicStructure';
-import { studyPlanLabel } from '../../api/studyPlan';
+import { cohortRangeLabel, studyPlanLabel } from '../../api/studyPlan';
 import { approveStudentRegistration, approveStudentRegistrationAuto, type ApproveRegistrationInput, type AutoApprovalRow } from '../../api/students';
 
 type Placement = Omit<ApproveRegistrationInput, 'studentIds'>;
@@ -114,7 +114,7 @@ export default function ApproveRegistrationDialog({ open, students, onClose, onD
                   <TableRow key={row.studentId}>
                     <TableCell>{row.universityId} — {row.name}</TableCell>
                     <TableCell>{row.admissionYear ?? '—'}</TableCell>
-                    <TableCell>{row.plan ? `${row.plan.nameAr} — إصدار ${row.plan.versionNumber}${row.plan.cohortYear ? ` (دفعة ${row.plan.cohortYear})` : ' (عامة)'}` : <Typography component="span" color="warning.main">{row.reason}</Typography>}</TableCell>
+                    <TableCell>{row.plan ? `${row.plan.nameAr} — إصدار ${row.plan.versionNumber}${row.plan.cohortYear ? ` (${cohortRangeLabel(row.plan.cohortYear, row.plan.cohortToYear)})` : ' (عامة)'}` : <Typography component="span" color="warning.main">{row.reason}</Typography>}</TableCell>
                     <TableCell>{row.plan ? `${row.level} / ${row.semester}` : '—'}</TableCell>
                   </TableRow>
                 ))}

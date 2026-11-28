@@ -178,7 +178,9 @@ model StudyPlan {
   versionNumber     Int             @default(1)
   previousVersionId String?
   // الدفعة المستهدفة (سنة القبول) وتاريخ بدء التطبيق.
+  // الدفعة (سنة القبول): cohortYear = أول دفعة تسري عليها الخطة، cohortToYear = آخر دفعة (فارغ = سارية حتى الآن). فارغتان = خطة عامة.
   cohortYear        Int?
+  cohortToYear      Int?
   effectiveFrom     DateTime?
   approvedAt        DateTime?
   approvedById      String?
