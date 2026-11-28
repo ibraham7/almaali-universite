@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Box, Button, Chip, Collapse, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, MenuItem, Paper, Stack, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import {
-  SITE_STATUS_LABEL, archiveSiteMedia, createSiteNews, createSiteTestimonial, getSiteAcademic, getSiteMedia, getSiteNewsAdmin, getSiteTestimonials, restoreSiteMedia, saveSiteProfile,
+  SITE_STATUS_LABEL, archiveSiteMedia, createSiteNews, createSiteTestimonial, getSiteAcademic, getSiteItems, getSiteMedia, getSiteNewsAdmin, getSiteTestimonials, restoreSiteMedia, saveSiteProfile,
   setSiteNewsStatus, setSiteTestimonialStatus, updateSiteMedia, updateSiteNews, updateSiteTestimonial, uploadSiteMedia,
   type AcademicNode, type SiteMediaRow, type SiteNewsRow, type SiteStatus, type SiteTestimonialRow,
 } from '../../api/siteAdmin';
@@ -14,10 +14,12 @@ const chipColor = (status: SiteStatus) => (status === 'PUBLISHED' ? 'success' : 
 // الأخبار والإعلانات: تبدأ مسودة، النشر يضع التاريخ، والأرشفة تخفيها دون حذف.
 export function NewsTab() {
   const [rows, setRows] = useState<SiteNewsRow[]>([]);
-  const [form, setForm] = useState<{ id?: string; type: string; title: string; summary: string; body: string; coverMediaId: string | null } | null>(null);
+  const [form, setForm] = useState<{ id?: string; type: string; category: string; title: string; summary: string; body: string; coverMediaId: string | null } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const { images } = useMediaList();
+  const [categories, setCategories] = useState<string[]>([]);
+  useEffect(() => { getSiteItems().then((items) => setCategories(items.filter((item) => item.kind === 'NEWS_CATEGORY' && item.status === 'PUBLISHED').map((item) => item.title))).catch(() => undefined); }, []);
   const load = useCallback(() => getSiteNewsAdmin().then(setRows).catch((cause) => setError(errorText(cause))), []);
   useEffect(() => { void load(); }, [load]);
 
@@ -25,7 +27,7 @@ export function NewsTab() {
     if (!form) return;
     setBusy(true); setError('');
     try {
-      const body = { type: form.type, title: form.title.trim(), summary: form.summary.trim(), body: form.body.trim(), coverMediaId: form.coverMediaId };
+      const body = { type: form.type, category: form.category, title: form.title.trim(), summary: form.summary.trim(), body: form.body.trim(), coverMediaId: form.coverMediaId };
       if (form.id) await updateSiteNews(form.id, body); else await createSiteNews(body);
       setForm(null); await load();
     } catch (cause) { setError(errorText(cause)); } finally { setBusy(false); }
@@ -37,26 +39,27 @@ export function NewsTab() {
   return (
     <Stack spacing={2}>
       {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
-      <Box><Button variant="contained" onClick={() => setForm({ type: 'NEWS', title: '', summary: '', body: '', coverMediaId: null })}>إضافة خبر أو إعلان</Button></Box>
+      <Box><Button variant="contained" onClick={() => setForm({ type: 'NEWS', category: '', title: '', summary: '', body: '', coverMediaId: null })}>إضافة خبر أو إعلان</Button></Box>
       <TableContainer component={Paper} variant="outlined">
         <Table size="small" aria-label="الأخبار">
-          <TableHead><TableRow><TableCell>العنوان</TableCell><TableCell>النوع</TableCell><TableCell>تاريخ النشر</TableCell><TableCell>الحالة</TableCell><TableCell /></TableRow></TableHead>
+          <TableHead><TableRow><TableCell>العنوان</TableCell><TableCell>النوع</TableCell><TableCell>التصنيف</TableCell><TableCell>تاريخ النشر</TableCell><TableCell>الحالة</TableCell><TableCell /></TableRow></TableHead>
           <TableBody>
             {rows.map((row) => (
               <TableRow key={row.id} sx={{ opacity: row.status === 'ARCHIVED' ? 0.55 : 1 }}>
                 <TableCell sx={{ fontWeight: 700 }}>{row.title}</TableCell>
                 <TableCell>{row.type === 'ANNOUNCEMENT' ? 'إعلان' : 'خبر'}</TableCell>
+                <TableCell>{row.category || '—'}</TableCell>
                 <TableCell>{row.publishedAt?.slice(0, 10) ?? '—'}</TableCell>
                 <TableCell><Chip size="small" color={chipColor(row.status)} label={SITE_STATUS_LABEL[row.status]} /></TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                  <Button size="small" onClick={() => setForm({ id: row.id, type: row.type, title: row.title, summary: row.summary, body: row.body, coverMediaId: row.coverMediaId })}>تعديل</Button>
+                  <Button size="small" onClick={() => setForm({ id: row.id, type: row.type, category: row.category, title: row.title, summary: row.summary, body: row.body, coverMediaId: row.coverMediaId })}>تعديل</Button>
                   {row.status !== 'PUBLISHED' && <Button size="small" color="success" onClick={() => void status(row, 'PUBLISHED')}>{row.status === 'ARCHIVED' ? 'استعادة ونشر' : 'نشر'}</Button>}
                   {row.status === 'PUBLISHED' && <Button size="small" onClick={() => void status(row, 'DRAFT')}>إلغاء النشر</Button>}
                   {row.status !== 'ARCHIVED' && <Button size="small" color="warning" onClick={() => void status(row, 'ARCHIVED')}>أرشفة</Button>}
                 </TableCell>
               </TableRow>
             ))}
-            {rows.length === 0 && <TableRow><TableCell colSpan={5} align="center" sx={{ py: 3, color: 'text.secondary' }}>لا أخبار.</TableCell></TableRow>}
+            {rows.length === 0 && <TableRow><TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>لا أخبار.</TableCell></TableRow>}
           </TableBody>
         </Table>
       </TableContainer>
@@ -66,6 +69,7 @@ export function NewsTab() {
           {form && (
             <Stack spacing={2} sx={{ pt: 1 }}>
               <TextField select size="small" label="النوع" value={form.type} onChange={(event) => setForm({ ...form, type: event.target.value })}><MenuItem value="NEWS">خبر</MenuItem><MenuItem value="ANNOUNCEMENT">إعلان</MenuItem></TextField>
+              <TextField select size="small" label="التصنيف" value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} helperText="تُدار التصنيفات من تبويب «عناصر المحتوى» ← تصنيفات الأخبار."><MenuItem value="">بدون تصنيف</MenuItem>{[...new Set([...(form.category ? [form.category] : []), ...categories])].map((name) => <MenuItem key={name} value={name}>{name}</MenuItem>)}</TextField>
               <TextField required label="العنوان" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} slotProps={{ htmlInput: { maxLength: 250 } }} />
               <TextField label="ملخص قصير (يظهر في البطاقة)" multiline minRows={2} value={form.summary} onChange={(event) => setForm({ ...form, summary: event.target.value })} slotProps={{ htmlInput: { maxLength: 600 } }} />
               <TextField label="النص الكامل" multiline minRows={6} value={form.body} onChange={(event) => setForm({ ...form, body: event.target.value })} helperText="الفقرات تُفصل بسطر فارغ." slotProps={{ htmlInput: { maxLength: 20000 } }} />

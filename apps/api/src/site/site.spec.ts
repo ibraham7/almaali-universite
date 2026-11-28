@@ -22,6 +22,7 @@ function db(over: Record<string, any> = {}) {
     siteNews: { findMany: vi.fn().mockResolvedValue([]), count: vi.fn().mockResolvedValue(0), findFirst: vi.fn().mockResolvedValue(null), findUnique: vi.fn().mockResolvedValue({ id: 'n1', status: 'DRAFT', publishedAt: null, title: 'عنوان' }), update: vi.fn(async ({ data }: any) => ({ id: 'n1', ...data })), create: vi.fn(async ({ data }: any) => ({ id: 'n1', ...data })) },
     siteTestimonial: { findMany: vi.fn().mockResolvedValue([]) },
     siteAcademicProfile: { findMany: vi.fn().mockResolvedValue([]), upsert: vi.fn(async ({ create }: any) => ({ id: 'p1', ...create })) },
+    siteEntry: { groupBy: vi.fn().mockResolvedValue([]), findMany: vi.fn().mockResolvedValue([]), count: vi.fn().mockResolvedValue(0), findFirst: vi.fn().mockResolvedValue(null), findUnique: vi.fn().mockResolvedValue({ id: 'e1', kind: 'EVENT', status: 'DRAFT', publishedAt: null, title: 'فعالية', startsAt: null, endsAt: null }), create: vi.fn(async ({ data }: any) => ({ id: 'e1', ...data })), update: vi.fn(async ({ data }: any) => ({ id: 'e1', ...data })), delete: vi.fn().mockResolvedValue({}) },
     siteContactMessage: { create: vi.fn().mockResolvedValue({}) },
     college: { findMany: vi.fn().mockResolvedValue([]), findUnique: vi.fn().mockResolvedValue({ id: 'c1' }) },
     department: { findUnique: vi.fn() }, program: { findUnique: vi.fn() },
@@ -211,5 +212,55 @@ describe('site administration', () => {
     prisma.department.findUnique.mockResolvedValue({ id: 'd1' });
     await service.upsertProfile('DEPARTMENT', 'd1', { summary: 'x' }, admin);
     expect(prisma.siteAcademicProfile.upsert.mock.calls[1][0].create.isVisible).toBe(true);
+  });
+});
+
+describe('site entries (events, research, graduates, campus)', () => {
+  const adminService = (prisma: any) => new SiteAdminService(prisma as PrismaService, new SiteMediaService(prisma as PrismaService));
+
+  it('an event needs a date to be published, ends cannot precede starts, and it is deleted for real with an audit record', async () => {
+    const prisma = db();
+    const service = adminService(prisma);
+    await expect(service.createEntry({ kind: 'EVENT', title: 'ندوة', startsAt: '2026-12-10T10:00:00Z', endsAt: '2026-12-09T10:00:00Z' }, admin)).rejects.toBeInstanceOf(BadRequestException);
+    expect(await service.createEntry({ kind: 'EVENT', title: 'ندوة', startsAt: '2026-12-10T10:00:00Z' }, admin)).toMatchObject({ status: 'DRAFT', kind: 'EVENT' });
+    await expect(service.setEntryStatus('e1', 'PUBLISHED', admin)).rejects.toThrow('تاريخ الفعالية');
+    await service.deleteEntry('e1', admin);
+    expect(prisma.siteEntry.delete).toHaveBeenCalledWith({ where: { id: 'e1' } });
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({ data: expect.objectContaining({ action: 'SITE_ENTRY_DELETED' }) });
+    prisma.siteEntry.findUnique.mockResolvedValue(null);
+    await expect(service.deleteEntry('zz', admin)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('research and campus categories come from a fixed list, and gallery images must exist and be active images', async () => {
+    const prisma = db();
+    const service = adminService(prisma);
+    await expect(service.createEntry({ kind: 'RESEARCH', title: 'بحث', category: 'تصنيف مخترع' }, admin)).rejects.toThrow('التصنيف');
+    await service.createEntry({ kind: 'RESEARCH', title: 'بحث', category: 'أبحاث ودراسات' }, admin);
+    prisma.siteMedia.findMany.mockResolvedValue([]);
+    await expect(service.createEntry({ kind: 'CAMPUS', title: 'نشاط', galleryIds: ['11111111-1111-4111-8111-111111111111'] }, admin)).rejects.toThrow('معرض');
+  });
+
+  it('public lists show only published entries, split events into upcoming and past, and reject unknown kinds', async () => {
+    const prisma = db();
+    const service = new SitePublicService(prisma as PrismaService);
+    await expect(service.entriesList('NOPE')).rejects.toBeInstanceOf(NotFoundException);
+    await service.entriesList('EVENT', 1, 9, { when: 'past' });
+    const past = prisma.siteEntry.findMany.mock.calls.at(-1)[0];
+    expect(past.where).toMatchObject({ kind: 'EVENT', status: 'PUBLISHED' });
+    expect(past.where.startsAt.lt).toBeInstanceOf(Date);
+    await service.entriesList('EVENT', 1, 9);
+    expect(prisma.siteEntry.findMany.mock.calls.at(-1)[0].where.OR).toHaveLength(2);
+    expect(await service.entryOne('x').catch((error) => error)).toBeInstanceOf(NotFoundException);
+  });
+
+  it('a graduate update goes to the contact inbox with a fixed subject and ignores bots', async () => {
+    const prisma = db();
+    const service = new SitePublicService(prisma as PrismaService);
+    await service.submitGraduateUpdate({ name: 'خريج', contact: '0912345678', graduationYear: '2024', workplace: 'شركة' }, '2.2.2.2');
+    const data = prisma.siteContactMessage.create.mock.calls[0][0].data;
+    expect(data.subject).toBe('تحديث بيانات خريج');
+    expect(data.message).toContain('سنة التخرج: 2024');
+    await service.submitGraduateUpdate({ name: 'بوت', contact: 'a@b.co', website: 'spam' }, '2.2.2.2');
+    expect(prisma.siteContactMessage.create).toHaveBeenCalledTimes(1);
   });
 });

@@ -19,7 +19,8 @@ type RoleCodeValue =
   | 'STUDENT'
   | 'ADVISOR'
   | 'REGISTRAR'
-  | 'SYSTEM_ADMIN';
+  | 'SYSTEM_ADMIN'
+  | 'SITE_EDITOR';
 
 interface FindUsersOptions {
   search?: string;
@@ -482,6 +483,7 @@ export class UsersService {
       'ADVISOR',
       'REGISTRAR',
       'SYSTEM_ADMIN',
+      'SITE_EDITOR',
     ];
 
     if (

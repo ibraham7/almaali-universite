@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Box, Tab, Tabs, Typography } from '@mui/material';
 import { AcademicTab, MediaTab, NewsTab, TestimonialsTab } from './MoreTabs';
+import EntriesTab from './EntriesTab';
 import { ItemsTab, MessagesTab, SettingsTab } from './ContentTabs';
 
 const TABS = [
@@ -8,12 +9,13 @@ const TABS = [
   { label: 'عناصر المحتوى', node: <ItemsTab /> },
   { label: 'الكليات والاختصاصات', node: <AcademicTab /> },
   { label: 'الأخبار والإعلانات', node: <NewsTab /> },
+  { label: 'الفعاليات والبحث والخريجون والحياة الجامعية', node: <EntriesTab /> },
   { label: 'قالوا عن الجامعة', node: <TestimonialsTab /> },
   { label: 'الوسائط', node: <MediaTab /> },
   { label: 'رسائل التواصل', node: <MessagesTab /> },
 ];
 
-// لوحة الموقع التعريفي (مدير النظام فقط): كل ما يراه الزوار يُدار من هنا، وما ليس له بيانات لا يظهر.
+// لوحة الموقع التعريفي (مدير النظام ومحرر الموقع): كل ما يراه الزوار يُدار من هنا، وما ليس له بيانات لا يظهر.
 export default function SiteAdminPage() {
   const [tab, setTab] = useState(0);
   return (

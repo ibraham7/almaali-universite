@@ -7,6 +7,7 @@ import {
 } from 'react-router-dom';
 
 import ProtectedRoute from './routes/ProtectedRoute';
+import { useAuth } from './auth/AuthContext';
 import DashboardLayout from './layouts/DashboardLayout';
 import GlobalSuccessToast from './components/GlobalSuccessToast';
 import RegistrationCountdown from './components/RegistrationCountdown';
@@ -19,6 +20,11 @@ const CollegesPage = lazy(() => import('./pages/site/CollegesPage'));
 const AdmissionPage = lazy(() => import('./pages/site/AdmissionPage'));
 const NewsListPage = lazy(() => import('./pages/site/NewsPages').then((m) => ({ default: m.NewsListPage })));
 const NewsDetailPage = lazy(() => import('./pages/site/NewsPages').then((m) => ({ default: m.NewsDetailPage })));
+const EventsPage = lazy(() => import('./pages/site/EntriesPages').then((m) => ({ default: () => <m.EntriesListPage section="events" /> })));
+const ResearchPage = lazy(() => import('./pages/site/EntriesPages').then((m) => ({ default: () => <m.EntriesListPage section="research" /> })));
+const CampusPage = lazy(() => import('./pages/site/EntriesPages').then((m) => ({ default: () => <m.EntriesListPage section="campus" /> })));
+const GraduatesPage = lazy(() => import('./pages/site/EntriesPages').then((m) => ({ default: m.GraduatesPage })));
+const EntryDetailPage = lazy(() => import('./pages/site/EntriesPages').then((m) => ({ default: m.EntryDetailPage })));
 const TestimonialsPage = lazy(() => import('./pages/site/TestimonialsPage'));
 const ContactPage = lazy(() => import('./pages/site/ContactPage'));
 const SiteAdminPage = lazy(() => import('./pages/site-admin/SiteAdminPage'));
@@ -49,6 +55,12 @@ const GradeScalePage = lazy(() => import('./pages/supervisor/GradeScalePage'));
 const ResultsImportPage = lazy(() => import('./pages/supervisor/ResultsImportPage'));
 const AuditLogsPage = lazy(() => import('./pages/supervisor/AuditLogsPage'));
 
+function DashboardHome() {
+  const { user } = useAuth();
+  if (user?.role === 'SITE_EDITOR') return <Navigate to="/site-admin" replace />;
+  return <DashboardPage />;
+}
+
 function App() {
   const location = useLocation();
   const studentRegistrationOpen =
@@ -66,6 +78,14 @@ function App() {
         <Route path="/admission" element={<AdmissionPage />} />
         <Route path="/news" element={<NewsListPage />} />
         <Route path="/news/:id" element={<NewsDetailPage />} />
+        <Route path="/events" element={<EventsPage />} />
+        <Route path="/research" element={<ResearchPage />} />
+        <Route path="/campus" element={<CampusPage />} />
+        <Route path="/graduates" element={<GraduatesPage />} />
+        <Route path="/events/:id" element={<EntryDetailPage />} />
+        <Route path="/research/:id" element={<EntryDetailPage />} />
+        <Route path="/campus/:id" element={<EntryDetailPage />} />
+        <Route path="/graduates/:id" element={<EntryDetailPage />} />
         <Route path="/testimonials" element={<TestimonialsPage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/login" element={<LoginPage />} />
@@ -78,7 +98,7 @@ function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route element={<DashboardLayout />}>
-            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/dashboard" element={<DashboardHome />} />
             <Route path="/support-tickets" element={<SupportTicketsPage />} />
           </Route>
         </Route>
@@ -104,7 +124,7 @@ function App() {
           </Route>
         </Route>
 
-        <Route element={<ProtectedRoute allowedRoles={['SYSTEM_ADMIN']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['SYSTEM_ADMIN', 'SITE_EDITOR']} />}>
           <Route element={<DashboardLayout />}>
             <Route path="/site-admin" element={<SiteAdminPage />} />
           </Route>

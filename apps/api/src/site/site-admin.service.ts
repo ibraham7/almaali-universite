@@ -2,7 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SiteMediaService } from './site-media.service.js';
 import { SETTING_DEFS, SETTING_KEYS } from './site.constants.js';
-import type { CreateItemDto, CreateNewsDto, CreateTestimonialDto, UpdateItemDto, UpdateNewsDto, UpdateTestimonialDto, UpsertProfileDto } from './dto/site.dto.js';
+import { ENTRY_CATEGORIES, MAX_GALLERY } from './site.constants.js';
+import type { CreateEntryDto, UpdateEntryDto, CreateItemDto, CreateNewsDto, CreateTestimonialDto, UpdateItemDto, UpdateNewsDto, UpdateTestimonialDto, UpsertProfileDto } from './dto/site.dto.js';
 
 type Status = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
 const PROFILE_KINDS = ['COLLEGE', 'DEPARTMENT', 'PROGRAM'] as const;
@@ -89,7 +90,7 @@ export class SiteAdminService {
   async createNews(dto: CreateNewsDto, userId: string) {
     const coverMediaId = await this.media.assertImage(dto.coverMediaId);
     return this.prisma.$transaction(async (tx) => {
-      const news = await tx.siteNews.create({ data: { type: dto.type ?? 'NEWS', title: dto.title.trim(), summary: dto.summary?.trim() ?? '', body: dto.body?.trim() ?? '', coverMediaId, status: 'DRAFT', updatedById: userId } });
+      const news = await tx.siteNews.create({ data: { type: dto.type ?? 'NEWS', title: dto.title.trim(), category: dto.category?.trim() ?? '', summary: dto.summary?.trim() ?? '', body: dto.body?.trim() ?? '', coverMediaId, status: 'DRAFT', updatedById: userId } });
       await this.audit(tx, 'SITE_NEWS_CREATED', 'SiteNews', news.id, userId, { title: news.title });
       return news;
     });
@@ -102,7 +103,7 @@ export class SiteAdminService {
     return this.prisma.$transaction(async (tx) => {
       const news = await tx.siteNews.update({ where: { id }, data: {
         ...(dto.type !== undefined ? { type: dto.type } : {}), ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
-        ...(dto.summary !== undefined ? { summary: dto.summary.trim() } : {}), ...(dto.body !== undefined ? { body: dto.body.trim() } : {}),
+        ...(dto.category !== undefined ? { category: dto.category.trim() } : {}), ...(dto.summary !== undefined ? { summary: dto.summary.trim() } : {}), ...(dto.body !== undefined ? { body: dto.body.trim() } : {}),
         ...(coverMediaId !== undefined ? { coverMediaId } : {}), updatedById: userId,
       } });
       await this.audit(tx, 'SITE_NEWS_UPDATED', 'SiteNews', id, userId);
@@ -211,6 +212,98 @@ export class SiteAdminService {
       const row = await tx.siteContactMessage.update({ where: { id }, data: { status, handledById: status === 'NEW' ? null : userId, handledAt: status === 'NEW' ? null : new Date() }, select: { id: true, status: true } });
       await this.audit(tx, 'SITE_MESSAGE_STATUS', 'SiteContactMessage', id, userId, { from: found.status, to: status });
       return row;
+    });
+  }
+
+  // ---------- الفعاليات والبحث العلمي والخريجون والحياة الجامعية ----------
+  listEntries(kind?: string) {
+    return this.prisma.siteEntry.findMany({ where: kind ? { kind: kind as 'EVENT' } : {}, orderBy: [{ kind: 'asc' }, { startsAt: 'desc' }, { createdAt: 'desc' }], take: 500 });
+  }
+
+  private parseDate(value: string | null | undefined, label: string) {
+    if (value === undefined) return undefined;
+    if (value === null || value === '') return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) throw new BadRequestException(`${label} غير صحيح.`);
+    return date;
+  }
+
+  private async gallery(ids: string[] | undefined) {
+    if (ids === undefined) return undefined;
+    const unique = [...new Set(ids)].slice(0, MAX_GALLERY);
+    if (unique.length === 0) return [];
+    const rows = await this.prisma.siteMedia.findMany({ where: { id: { in: unique }, isArchived: false, mimeType: { startsWith: 'image/' } }, select: { id: true } });
+    if (rows.length !== unique.length) throw new BadRequestException('إحدى صور المعرض غير موجودة أو مؤرشفة.');
+    return unique;
+  }
+
+  private checkCategory(kind: string, category: string | undefined) {
+    const allowed = ENTRY_CATEGORIES[kind as keyof typeof ENTRY_CATEGORIES] ?? [];
+    if (category && allowed.length > 0 && !allowed.includes(category)) throw new BadRequestException('التصنيف غير معروف لهذا النوع.');
+  }
+
+  private checkDates(startsAt: Date | null | undefined, endsAt: Date | null | undefined) {
+    if (startsAt && endsAt && endsAt < startsAt) throw new BadRequestException('تاريخ النهاية قبل تاريخ البداية.');
+  }
+
+  async createEntry(dto: CreateEntryDto, userId: string) {
+    this.checkCategory(dto.kind, dto.category?.trim());
+    const startsAt = this.parseDate(dto.startsAt, 'تاريخ البداية');
+    const endsAt = this.parseDate(dto.endsAt, 'تاريخ النهاية');
+    this.checkDates(startsAt, endsAt);
+    const coverMediaId = await this.media.assertImage(dto.coverMediaId);
+    const galleryIds = (await this.gallery(dto.galleryIds)) ?? [];
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.siteEntry.create({ data: {
+        kind: dto.kind, category: dto.category?.trim() ?? '', title: dto.title.trim(), summary: dto.summary?.trim() ?? '', body: dto.body?.trim() ?? '', location: dto.location?.trim() ?? '',
+        startsAt: startsAt ?? null, endsAt: endsAt ?? null, coverMediaId, galleryIds, sortOrder: dto.sortOrder ?? 0, status: 'DRAFT', updatedById: userId,
+      } });
+      await this.audit(tx, 'SITE_ENTRY_CREATED', 'SiteEntry', row.id, userId, { kind: row.kind, title: row.title });
+      return row;
+    });
+  }
+
+  async updateEntry(id: string, dto: UpdateEntryDto, userId: string) {
+    const found = await this.prisma.siteEntry.findUnique({ where: { id }, select: { id: true, kind: true, startsAt: true, endsAt: true } });
+    if (!found) throw new NotFoundException('العنصر غير موجود.');
+    this.checkCategory(found.kind, dto.category?.trim());
+    const startsAt = this.parseDate(dto.startsAt, 'تاريخ البداية');
+    const endsAt = this.parseDate(dto.endsAt, 'تاريخ النهاية');
+    this.checkDates(startsAt === undefined ? found.startsAt : startsAt, endsAt === undefined ? found.endsAt : endsAt);
+    const coverMediaId = dto.coverMediaId === undefined ? undefined : await this.media.assertImage(dto.coverMediaId);
+    const galleryIds = await this.gallery(dto.galleryIds);
+    return this.prisma.$transaction(async (tx) => {
+      const row = await tx.siteEntry.update({ where: { id }, data: {
+        ...(dto.title !== undefined ? { title: dto.title.trim() } : {}), ...(dto.category !== undefined ? { category: dto.category.trim() } : {}),
+        ...(dto.summary !== undefined ? { summary: dto.summary.trim() } : {}), ...(dto.body !== undefined ? { body: dto.body.trim() } : {}), ...(dto.location !== undefined ? { location: dto.location.trim() } : {}),
+        ...(startsAt !== undefined ? { startsAt } : {}), ...(endsAt !== undefined ? { endsAt } : {}), ...(coverMediaId !== undefined ? { coverMediaId } : {}),
+        ...(galleryIds !== undefined ? { galleryIds } : {}), ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}), updatedById: userId,
+      } });
+      await this.audit(tx, 'SITE_ENTRY_UPDATED', 'SiteEntry', id, userId);
+      return row;
+    });
+  }
+
+  async setEntryStatus(id: string, status: Status, userId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const found = await tx.siteEntry.findUnique({ where: { id }, select: { id: true, status: true, publishedAt: true, title: true, kind: true, startsAt: true } });
+      if (!found) throw new NotFoundException('العنصر غير موجود.');
+      if (status === 'PUBLISHED' && !found.title.trim()) throw new BadRequestException('اكتب العنوان قبل النشر.');
+      if (status === 'PUBLISHED' && found.kind === 'EVENT' && !found.startsAt) throw new BadRequestException('حدّد تاريخ الفعالية قبل النشر.');
+      const row = await tx.siteEntry.update({ where: { id }, data: { status, updatedById: userId, ...(status === 'PUBLISHED' && !found.publishedAt ? { publishedAt: new Date() } : {}) } });
+      await this.audit(tx, 'SITE_ENTRY_STATUS', 'SiteEntry', id, userId, { from: found.status, to: status });
+      return row;
+    });
+  }
+
+  // الحذف النهائي مسموح لهذه الأنواع (الفعاليات وغيرها) ويُسجَّل بالتدقيق.
+  async deleteEntry(id: string, userId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const found = await tx.siteEntry.findUnique({ where: { id }, select: { id: true, title: true, kind: true } });
+      if (!found) throw new NotFoundException('العنصر غير موجود.');
+      await tx.siteEntry.delete({ where: { id } });
+      await this.audit(tx, 'SITE_ENTRY_DELETED', 'SiteEntry', id, userId, { kind: found.kind, title: found.title });
+      return { ok: true };
     });
   }
 }

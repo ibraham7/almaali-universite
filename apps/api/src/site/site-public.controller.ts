@@ -3,7 +3,7 @@ import type { Request, Response } from 'express';
 import { SitePublicService } from './site-public.service.js';
 import { SiteMediaService } from './site-media.service.js';
 import { RateLimit, RateLimitGuard, clientIp } from './rate-limit.guard.js';
-import { ContactMessageDto } from './dto/site.dto.js';
+import { ContactMessageDto, GraduateUpdateDto } from './dto/site.dto.js';
 
 // نقاط الموقع العامة: بلا تسجيل دخول، للقراءة فقط (ما عدا رسالة التواصل)، وعليها حد للطلبات.
 @Controller('site')
@@ -17,11 +17,23 @@ export class SitePublicController {
 
   @Get('news')
   @Header('Cache-Control', 'public, max-age=60')
-  news(@Query('page') page?: string, @Query('type') type?: string, @Query('q') q?: string) { return this.service.newsList(Number(page) || 1, 9, type, q); }
+  news(@Query('page') page?: string, @Query('type') type?: string, @Query('q') q?: string, @Query('category') category?: string) { return this.service.newsList(Number(page) || 1, 9, type, q, category); }
 
   @Get('news/:id')
   @Header('Cache-Control', 'public, max-age=60')
   newsOne(@Param('id') id: string) { return this.service.newsOne(id); }
+
+  @Get('entries/:kind')
+  @Header('Cache-Control', 'public, max-age=60')
+  entries(@Param('kind') kind: string, @Query('page') page?: string, @Query('when') when?: string, @Query('category') category?: string) { return this.service.entriesList(kind.toUpperCase().replace('-', '_'), Number(page) || 1, 9, { when, category }); }
+
+  @Get('entry/:id')
+  @Header('Cache-Control', 'public, max-age=60')
+  entry(@Param('id') id: string) { return this.service.entryOne(id); }
+
+  @Post('graduates/update')
+  @RateLimit(5, 60 * 60_000)
+  graduateUpdate(@Body() body: GraduateUpdateDto, @Req() request: Request) { return this.service.submitGraduateUpdate(body, clientIp(request)); }
 
   @Get('media/:id')
   @RateLimit(600, 60_000)
