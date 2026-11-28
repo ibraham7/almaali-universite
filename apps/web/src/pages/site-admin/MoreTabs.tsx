@@ -159,7 +159,7 @@ function ProfileRow({ node, kind, images, depth, onSaved, onError, children }: {
   }
 
   return (
-    <Box sx={{ ms: depth * 3, mb: 1 }}>
+    <Box sx={{ marginInlineStart: depth * 3, mb: 1 }}>
       <Paper variant="outlined" sx={{ p: 1.5 }}>
         <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }} useFlexGap>
           <Typography sx={{ fontWeight: depth === 0 ? 800 : 600, flex: 1, minWidth: 160 }}>{node.nameAr}</Typography>

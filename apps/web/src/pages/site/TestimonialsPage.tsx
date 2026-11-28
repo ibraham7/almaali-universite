@@ -13,7 +13,7 @@ export default function TestimonialsPage() {
       {items.length > 0 && (
         <Wrap sx={{ py: { xs: 4, md: 6 }, display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2.5 }}>
           {items.map((item) => (
-            <Box component="figure" key={`${item.name}-${item.text.slice(0, 20)}`} sx={{ ...goldCard, m: 0, p: 3, position: 'relative' }}>
+            <Box data-rv="" data-tilt="" component="figure" key={`${item.name}-${item.text.slice(0, 20)}`} sx={{ ...goldCard, m: 0, p: 3, position: 'relative' }}>
               <FormatQuoteRoundedIcon sx={{ position: 'absolute', top: 10, insetInlineStart: 14, fontSize: 48, color: T.gold2, opacity: 0.6 }} />
               <Typography component="blockquote" sx={{ m: 0, mt: 3, mb: 2, fontSize: 17, lineHeight: 1.9 }}>{item.text}</Typography>
               <Box component="figcaption" sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>

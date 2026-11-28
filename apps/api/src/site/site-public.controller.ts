@@ -17,7 +17,7 @@ export class SitePublicController {
 
   @Get('news')
   @Header('Cache-Control', 'public, max-age=60')
-  news(@Query('page') page?: string) { return this.service.newsList(Number(page) || 1); }
+  news(@Query('page') page?: string, @Query('type') type?: string, @Query('q') q?: string) { return this.service.newsList(Number(page) || 1, 9, type, q); }
 
   @Get('news/:id')
   @Header('Cache-Control', 'public, max-age=60')

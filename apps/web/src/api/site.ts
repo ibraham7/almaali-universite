@@ -14,6 +14,7 @@ export interface SiteContent {
   colleges: SiteCollege[];
   testimonials: Array<{ text: string; name: string; role: string }>;
   latestNews: SiteNewsCard[];
+  latestAnnouncements: SiteNewsCard[];
 }
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
@@ -37,8 +38,8 @@ export function useSiteContent() {
   return { content, failed, loading: !content && !failed };
 }
 
-export async function getSiteNews(page: number) {
-  const { data } = await apiClient.get<{ total: number; page: number; pageSize: number; items: SiteNewsCard[] }>('/site/news', { params: { page } });
+export async function getSiteNews(page: number, type?: 'NEWS' | 'ANNOUNCEMENT', q?: string) {
+  const { data } = await apiClient.get<{ total: number; page: number; pageSize: number; items: SiteNewsCard[] }>('/site/news', { params: { page, type, q: q?.trim() || undefined } });
   return data;
 }
 

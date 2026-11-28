@@ -53,7 +53,7 @@ export default function AffairsServicesTab() {
           <TableBody>
             {items.map((item) => (
               <TableRow key={item.id}>
-                <TableCell sx={{ fontWeight: 700 }}>{item.nameAr}{item.missing && item.missing.length > 0 && <Chip size="small" color="warning" label="ناقصة" title={`ينقصها: ${item.missing.join('، ')}`} sx={{ ms: 1 }} />}</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>{item.nameAr}{item.missing && item.missing.length > 0 && <Chip size="small" color="warning" label="ناقصة" title={`ينقصها: ${item.missing.join('، ')}`} sx={{ marginInlineStart: 1 }} />}</TableCell>
                 <TableCell>{item.code}</TableCell>
                 <TableCell>{SERVICE_CHANNEL_LABEL[item.channel]}</TableCell>
                 <TableCell>{OUTCOME_SERVICE_LABEL[item.outcome]}</TableCell>
