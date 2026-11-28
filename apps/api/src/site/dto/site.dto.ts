@@ -1,8 +1,9 @@
 import { Type } from 'class-transformer';
-import { IsBoolean, IsEnum, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsEnum, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 
 const STATUSES = ['DRAFT', 'PUBLISHED', 'ARCHIVED'] as const;
-const KINDS = ['STAT', 'VALUE', 'GOAL', 'MILESTONE', 'ADMISSION_STEP', 'FAQ'] as const;
+const KINDS = ['STAT', 'VALUE', 'GOAL', 'MILESTONE', 'ADMISSION_STEP', 'FAQ', 'NEWS_CATEGORY'] as const;
+const ENTRY_KIND_LIST = ['EVENT', 'RESEARCH', 'GRADUATE_STORY', 'GRADUATE_NEWS', 'CAMPUS'] as const;
 
 // قيم النصوص المفردة: المفاتيح المسموحة والحدود تُفحص بالخدمة.
 export class UpdateSettingsDto {
@@ -56,6 +57,9 @@ export class CreateNewsDto {
   @IsString() @IsNotEmpty() @MaxLength(250)
   title!: string;
 
+  @IsOptional() @IsString() @MaxLength(120)
+  category?: string;
+
   @IsOptional() @IsString() @MaxLength(600)
   summary?: string;
 
@@ -72,6 +76,9 @@ export class UpdateNewsDto {
 
   @IsOptional() @IsString() @IsNotEmpty() @MaxLength(250)
   title?: string;
+
+  @IsOptional() @IsString() @MaxLength(120)
+  category?: string;
 
   @IsOptional() @IsString() @MaxLength(600)
   summary?: string;
@@ -152,4 +159,95 @@ export class ContactMessageDto {
 export class MessageStatusDto {
   @IsEnum({ NEW: 'NEW', READ: 'READ', ARCHIVED: 'ARCHIVED' })
   status!: 'NEW' | 'READ' | 'ARCHIVED';
+}
+
+export class CreateEntryDto {
+  @IsIn(ENTRY_KIND_LIST)
+  kind!: (typeof ENTRY_KIND_LIST)[number];
+
+  @IsString() @IsNotEmpty() @MaxLength(250)
+  title!: string;
+
+  @IsOptional() @IsString() @MaxLength(120)
+  category?: string;
+
+  @IsOptional() @IsString() @MaxLength(600)
+  summary?: string;
+
+  @IsOptional() @IsString() @MaxLength(20000)
+  body?: string;
+
+  @IsOptional() @IsString() @MaxLength(250)
+  location?: string;
+
+  @IsOptional() @IsDateString()
+  startsAt?: string | null;
+
+  @IsOptional() @IsDateString()
+  endsAt?: string | null;
+
+  @IsOptional() @IsUUID()
+  coverMediaId?: string | null;
+
+  @IsOptional() @IsArray() @ArrayMaxSize(24) @IsUUID(undefined, { each: true })
+  galleryIds?: string[];
+
+  @IsOptional() @IsInt() @Min(0) @Max(100000) @Type(() => Number)
+  sortOrder?: number;
+}
+
+export class UpdateEntryDto {
+  @IsOptional() @IsString() @IsNotEmpty() @MaxLength(250)
+  title?: string;
+
+  @IsOptional() @IsString() @MaxLength(120)
+  category?: string;
+
+  @IsOptional() @IsString() @MaxLength(600)
+  summary?: string;
+
+  @IsOptional() @IsString() @MaxLength(20000)
+  body?: string;
+
+  @IsOptional() @IsString() @MaxLength(250)
+  location?: string;
+
+  @IsOptional() @IsDateString()
+  startsAt?: string | null;
+
+  @IsOptional() @IsDateString()
+  endsAt?: string | null;
+
+  @IsOptional() @IsUUID()
+  coverMediaId?: string | null;
+
+  @IsOptional() @IsArray() @ArrayMaxSize(24) @IsUUID(undefined, { each: true })
+  galleryIds?: string[];
+
+  @IsOptional() @IsInt() @Min(0) @Max(100000) @Type(() => Number)
+  sortOrder?: number;
+}
+
+// نموذج تحديث بيانات الخريج (عام): يصل لصندوق رسائل الموقع.
+export class GraduateUpdateDto {
+  @IsString() @IsNotEmpty() @MaxLength(120)
+  name!: string;
+
+  @IsString() @IsNotEmpty() @MaxLength(120)
+  contact!: string;
+
+  @IsOptional() @IsString() @MaxLength(80)
+  graduationYear?: string;
+
+  @IsOptional() @IsString() @MaxLength(160)
+  program?: string;
+
+  @IsOptional() @IsString() @MaxLength(250)
+  workplace?: string;
+
+  @IsOptional() @IsString() @MaxLength(2000)
+  message?: string;
+
+  @IsOptional() @IsString() @MaxLength(200)
+  website?: string;
 }

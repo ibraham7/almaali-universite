@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { SETTING_DEFS } from './site.constants.js';
-import type { ContactMessageDto } from './dto/site.dto.js';
+import { ENTRY_KINDS, SETTING_DEFS } from './site.constants.js';
+import type { ContactMessageDto, GraduateUpdateDto } from './dto/site.dto.js';
 
 const PUBLIC_SETTING_KEYS = new Set(SETTING_DEFS.map((def) => def.key));
 
@@ -16,17 +16,19 @@ export class SitePublicService {
   }
 
   async content() {
-    const [settings, items, testimonials, news, announcements, profiles, colleges] = await Promise.all([
+    const [settings, items, testimonials, news, announcements, profiles, colleges, entryCounts, nextEvent] = await Promise.all([
       this.prisma.siteSetting.findMany(),
       this.prisma.siteContentItem.findMany({ where: { status: 'PUBLISHED' }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }], select: { kind: true, title: true, text: true, extra: true } }),
       this.prisma.siteTestimonial.findMany({ where: { status: 'PUBLISHED' }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }], select: { text: true, name: true, role: true } }),
-      this.prisma.siteNews.findMany({ where: { status: 'PUBLISHED', type: 'NEWS' }, orderBy: { publishedAt: 'desc' }, take: 3, select: { id: true, type: true, title: true, summary: true, coverMediaId: true, publishedAt: true } }),
-      this.prisma.siteNews.findMany({ where: { status: 'PUBLISHED', type: 'ANNOUNCEMENT' }, orderBy: { publishedAt: 'desc' }, take: 5, select: { id: true, type: true, title: true, summary: true, coverMediaId: true, publishedAt: true } }),
+      this.prisma.siteNews.findMany({ where: { status: 'PUBLISHED', type: 'NEWS' }, orderBy: { publishedAt: 'desc' }, take: 3, select: { id: true, type: true, title: true, category: true, summary: true, coverMediaId: true, publishedAt: true } }),
+      this.prisma.siteNews.findMany({ where: { status: 'PUBLISHED', type: 'ANNOUNCEMENT' }, orderBy: { publishedAt: 'desc' }, take: 5, select: { id: true, type: true, title: true, category: true, summary: true, coverMediaId: true, publishedAt: true } }),
       this.prisma.siteAcademicProfile.findMany(),
       this.prisma.college.findMany({
         where: { isActive: true }, orderBy: { createdAt: 'asc' },
         select: { id: true, nameAr: true, departments: { where: { isActive: true }, orderBy: { createdAt: 'asc' }, select: { id: true, nameAr: true, programs: { where: { isActive: true }, orderBy: { createdAt: 'asc' }, select: { id: true, nameAr: true, level: true } } } } },
       }),
+      this.prisma.siteEntry.groupBy({ by: ['kind'], where: { status: 'PUBLISHED' }, _count: { _all: true } }),
+      this.prisma.siteEntry.findMany({ where: { status: 'PUBLISHED', kind: 'EVENT', OR: [{ startsAt: { gte: new Date() } }, { endsAt: { gte: new Date() } }] }, orderBy: { startsAt: 'asc' }, take: 3, select: { id: true, title: true, location: true, startsAt: true, coverMediaId: true } }),
     ]);
     const values: Record<string, string> = {};
     for (const row of settings) if (PUBLIC_SETTING_KEYS.has(row.key) && row.value.trim()) values[row.key] = row.value;
@@ -45,30 +47,32 @@ export class SitePublicService {
     return {
       settings: values,
       stats: this.items(items, 'STAT'), values: this.items(items, 'VALUE'), goals: this.items(items, 'GOAL'), milestones: this.items(items, 'MILESTONE'),
-      admissionSteps: this.items(items, 'ADMISSION_STEP'), faq: this.items(items, 'FAQ'),
+      admissionSteps: this.items(items, 'ADMISSION_STEP'), faq: this.items(items, 'FAQ'), newsCategories: this.items(items, 'NEWS_CATEGORY').map((row) => row.title),
+      entryCounts: Object.fromEntries(entryCounts.map((row) => [row.kind, row._count._all])), upcomingEvents: nextEvent,
       colleges: visibleColleges, testimonials, latestNews: news, latestAnnouncements: announcements,
     };
   }
 
   // type: خبر أو إعلان. q: بحث بالعنوان والملخص (حد أقصى 80 حرفًا).
-  async newsList(page = 1, pageSize = 9, type?: string, q?: string) {
+  async newsList(page = 1, pageSize = 9, type?: string, q?: string, category?: string) {
     const take = Math.min(Math.max(pageSize, 1), 24);
     const skip = (Math.max(page, 1) - 1) * take;
     const term = q?.trim().slice(0, 80);
     const where = {
       status: 'PUBLISHED' as const,
       ...(type === 'NEWS' || type === 'ANNOUNCEMENT' ? { type: type as 'NEWS' | 'ANNOUNCEMENT' } : {}),
+      ...(category?.trim() ? { category: category.trim().slice(0, 120) } : {}),
       ...(term ? { OR: [{ title: { contains: term, mode: 'insensitive' as const } }, { summary: { contains: term, mode: 'insensitive' as const } }] } : {}),
     };
     const [total, rows] = await Promise.all([
       this.prisma.siteNews.count({ where }),
-      this.prisma.siteNews.findMany({ where, orderBy: { publishedAt: 'desc' }, skip, take, select: { id: true, type: true, title: true, summary: true, coverMediaId: true, publishedAt: true } }),
+      this.prisma.siteNews.findMany({ where, orderBy: { publishedAt: 'desc' }, skip, take, select: { id: true, type: true, title: true, category: true, summary: true, coverMediaId: true, publishedAt: true } }),
     ]);
     return { total, page: Math.max(page, 1), pageSize: take, items: rows };
   }
 
   async newsOne(id: string) {
-    const row = await this.prisma.siteNews.findFirst({ where: { id, status: 'PUBLISHED' }, select: { id: true, type: true, title: true, summary: true, body: true, coverMediaId: true, publishedAt: true } });
+    const row = await this.prisma.siteNews.findFirst({ where: { id, status: 'PUBLISHED' }, select: { id: true, type: true, title: true, category: true, summary: true, body: true, coverMediaId: true, publishedAt: true } });
     if (!row) throw new NotFoundException('الخبر غير موجود.');
     return row;
   }
@@ -84,5 +88,42 @@ export class SitePublicService {
     const secret = process.env.JWT_SECRET ?? 'site';
     await this.prisma.siteContactMessage.create({ data: { name, contact, subject: dto.subject?.trim() ?? '', message, ipHash: createHash('sha256').update(`${secret}:${ip}`).digest('hex') } });
     return { ok: true };
+  }
+
+  // قائمة عامة لنوع واحد. الفعاليات: when=upcoming|past (حسب تاريخ البداية)، وغيرها بترتيب الإدخال ثم الأحدث.
+  async entriesList(kind: string, page = 1, pageSize = 9, opts: { when?: string; category?: string } = {}) {
+    if (!(ENTRY_KINDS as readonly string[]).includes(kind)) throw new NotFoundException();
+    const take = Math.min(Math.max(pageSize, 1), 24);
+    const skip = (Math.max(page, 1) - 1) * take;
+    const now = new Date();
+    const isEvent = kind === 'EVENT';
+    const where = {
+      kind: kind as 'EVENT', status: 'PUBLISHED' as const,
+      ...(opts.category?.trim() ? { category: opts.category.trim().slice(0, 120) } : {}),
+      ...(isEvent && opts.when === 'past' ? { startsAt: { lt: now }, NOT: { endsAt: { gte: now } } } : isEvent ? { OR: [{ startsAt: { gte: now } }, { endsAt: { gte: now } }] } : {}),
+    };
+    const orderBy = isEvent ? [{ startsAt: opts.when === 'past' ? ('desc' as const) : ('asc' as const) }] : [{ sortOrder: 'asc' as const }, { publishedAt: 'desc' as const }];
+    const [total, rows] = await Promise.all([
+      this.prisma.siteEntry.count({ where }),
+      this.prisma.siteEntry.findMany({ where, orderBy, skip, take, select: { id: true, kind: true, category: true, title: true, summary: true, location: true, startsAt: true, endsAt: true, coverMediaId: true, publishedAt: true } }),
+    ]);
+    return { total, page: Math.max(page, 1), pageSize: take, items: rows };
+  }
+
+  async entryOne(id: string) {
+    const row = await this.prisma.siteEntry.findFirst({ where: { id, status: 'PUBLISHED' }, select: { id: true, kind: true, category: true, title: true, summary: true, body: true, location: true, startsAt: true, endsAt: true, coverMediaId: true, galleryIds: true, publishedAt: true } });
+    if (!row) throw new NotFoundException('غير موجود.');
+    return row;
+  }
+
+  // نموذج تحديث بيانات الخريج: يصل صندوق رسائل الموقع بعنوان ثابت.
+  async submitGraduateUpdate(dto: GraduateUpdateDto, ip: string) {
+    const lines = [
+      dto.graduationYear?.trim() && `سنة التخرج: ${dto.graduationYear.trim()}`,
+      dto.program?.trim() && `البرنامج/الاختصاص: ${dto.program.trim()}`,
+      dto.workplace?.trim() && `العمل الحالي: ${dto.workplace.trim()}`,
+      dto.message?.trim(),
+    ].filter(Boolean) as string[];
+    return this.submitMessage({ name: dto.name, contact: dto.contact, subject: 'تحديث بيانات خريج', message: lines.join('\n') || 'طلب تحديث بيانات خريج', website: dto.website } as ContactMessageDto, ip);
   }
 }

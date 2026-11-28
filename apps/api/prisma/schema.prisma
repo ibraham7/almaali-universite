@@ -1081,6 +1081,15 @@ enum SiteItemKind {
   MILESTONE
   ADMISSION_STEP
   FAQ
+  NEWS_CATEGORY
+}
+
+enum SiteEntryKind {
+  EVENT
+  RESEARCH
+  GRADUATE_STORY
+  GRADUATE_NEWS
+  CAMPUS
 }
 
 enum SiteNewsType {
@@ -1129,6 +1138,7 @@ model SiteNews {
   id           String            @id @default(uuid())
   type         SiteNewsType      @default(NEWS)
   title        String
+  category     String            @default("")
   summary      String            @default("")
   body         String            @default("")
   coverMediaId String?
@@ -1139,6 +1149,29 @@ model SiteNews {
   updatedAt    DateTime          @updatedAt
 
   @@index([status, publishedAt])
+}
+
+// فعاليات، بحث علمي، قصص وأخبار الخريجين، الحياة الجامعية. يُحذف نهائيًا من اللوحة (مع تسجيل بالتدقيق).
+model SiteEntry {
+  id           String            @id @default(uuid())
+  kind         SiteEntryKind
+  category     String            @default("")
+  title        String
+  summary      String            @default("")
+  body         String            @default("")
+  location     String            @default("")
+  startsAt     DateTime?
+  endsAt       DateTime?
+  coverMediaId String?
+  galleryIds   String[]          @default([])
+  sortOrder    Int               @default(0)
+  status       SiteContentStatus @default(DRAFT)
+  publishedAt  DateTime?
+  updatedById  String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([kind, status, startsAt])
 }
 
 model SiteTestimonial {
