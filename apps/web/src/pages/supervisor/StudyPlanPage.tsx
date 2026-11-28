@@ -156,16 +156,30 @@ export default function StudyPlanPage() {
   const [selectedPrerequisiteIds, setSelectedPrerequisiteIds] =
     useState<string[]>([]);
 
-  // البرامج المتاحة (واحد لكل برنامج) وخطط البرنامج المختار.
+  // البرامج المتاحة (واحد لكل برنامج) مع كليتها وقسمها، لاختيار متتابع: الكلية ← القسم ← البرنامج (بكالوريوس، دبلوم...).
   const programOptions = useMemo(() => {
-    const seen = new Map<string, string>();
+    const seen = new Map<string, { id: string; college: string; department: string; label: string }>();
     for (const plan of studyPlans) {
       if (!seen.has(plan.programId)) {
-        seen.set(plan.programId, studyPlanProgramLabel(plan) || plan.nameAr);
+        seen.set(plan.programId, {
+          id: plan.programId,
+          college: plan.program?.college?.nameAr ?? plan.program?.department?.college?.nameAr ?? '—',
+          department: plan.program?.department?.nameAr ?? '—',
+          label: plan.program?.nameAr || studyPlanProgramLabel(plan) || plan.nameAr,
+        });
       }
     }
-    return [...seen.entries()].map(([id, label]) => ({ id, label }));
+    return [...seen.values()];
   }, [studyPlans]);
+  const currentProgram = programOptions.find((item) => item.id === programId);
+  const collegeNames = useMemo(() => [...new Set(programOptions.map((item) => item.college))], [programOptions]);
+  const departmentNames = useMemo(() => [...new Set(programOptions.filter((item) => item.college === currentProgram?.college).map((item) => item.department))], [programOptions, currentProgram]);
+  const levelPrograms = useMemo(() => programOptions.filter((item) => item.college === currentProgram?.college && item.department === currentProgram?.department), [programOptions, currentProgram]);
+
+  const chooseProgram = (nextProgramId: string) => {
+    setProgramId(nextProgramId);
+    setStudyPlanId(studyPlans.find((plan) => plan.programId === nextProgramId)?.id ?? '');
+  };
 
   const programPlans = useMemo(
     () => studyPlans.filter((plan) => plan.programId === programId),
@@ -764,39 +778,29 @@ export default function StudyPlanPage() {
               display: 'grid',
               gridTemplateColumns: {
                 xs: '1fr',
-                md: 'repeat(4, 1fr)',
+                md: 'repeat(3, 1fr)',
               },
               gap: 2,
             }}
           >
             <FormControl fullWidth>
-              <InputLabel>
-                البرنامج
-              </InputLabel>
+              <InputLabel>الكلية</InputLabel>
+              <Select value={currentProgram?.college ?? ''} label="الكلية" onChange={(event) => { const first = programOptions.find((item) => item.college === event.target.value); if (first) chooseProgram(first.id); }}>
+                {collegeNames.map((name) => <MenuItem key={name} value={name}>{name}</MenuItem>)}
+              </Select>
+            </FormControl>
 
-              <Select
-                value={programId}
-                label="البرنامج"
-                onChange={(event) => {
-                  const nextProgramId = event.target.value;
-                  setProgramId(nextProgramId);
-                  setStudyPlanId(
-                    studyPlans.find(
-                      (plan) => plan.programId === nextProgramId,
-                    )?.id ?? '',
-                  );
-                }}
-              >
-                {programOptions.map(
-                  (program) => (
-                    <MenuItem
-                      key={program.id}
-                      value={program.id}
-                    >
-                      {program.label}
-                    </MenuItem>
-                  ),
-                )}
+            <FormControl fullWidth>
+              <InputLabel>القسم / الاختصاص</InputLabel>
+              <Select value={currentProgram?.department ?? ''} label="القسم / الاختصاص" onChange={(event) => { const first = programOptions.find((item) => item.college === currentProgram?.college && item.department === event.target.value); if (first) chooseProgram(first.id); }}>
+                {departmentNames.map((name) => <MenuItem key={name} value={name}>{name}</MenuItem>)}
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth>
+              <InputLabel>البرنامج</InputLabel>
+              <Select value={programId} label="البرنامج" onChange={(event) => chooseProgram(event.target.value)}>
+                {levelPrograms.map((program) => <MenuItem key={program.id} value={program.id}>{program.label}</MenuItem>)}
               </Select>
             </FormControl>
 
