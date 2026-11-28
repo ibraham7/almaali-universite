@@ -67,6 +67,18 @@ describe('study plan versions', () => {
     expect(prisma.studyPlan.updateMany).not.toHaveBeenCalled();
   });
 
+  it('the overlap check uses the whole cohort range, with an open end meaning still in force', async () => {
+    const levels = [{ id: 'l1', nameAr: 'م1', _count: { semesters: 1 } }];
+    const open = db(plan({ cohortYear: 2026, cohortToYear: null, academicYears: levels, _count: { planCourses: 1 } }));
+    await new StudyPlansService(open as PrismaService).approve('p1', admin);
+    expect(open.studyPlan.findFirst.mock.calls[0][0].where.AND).toEqual([{ OR: [{ cohortToYear: null }, { cohortToYear: { gte: 2026 } }] }]);
+    const closed = db(plan({ cohortYear: 2020, cohortToYear: 2022, academicYears: levels, _count: { planCourses: 1 } }));
+    await new StudyPlansService(closed as PrismaService).approve('p1', admin);
+    expect(closed.studyPlan.findFirst.mock.calls[0][0].where.AND).toEqual([{ cohortYear: { lte: 2022 } }, { OR: [{ cohortToYear: null }, { cohortToYear: { gte: 2020 } }] }]);
+    closed.studyPlan.findFirst.mockResolvedValue({ nameAr: 'خطة 2023', versionNumber: 1, cohortYear: 2023, cohortToYear: null });
+    await expect(new StudyPlansService(closed as PrismaService).approve('p1', admin)).rejects.toThrow('تتداخل');
+  });
+
   it('a new version copies levels, semesters, active courses and the curriculum as a draft, leaving the original alone', async () => {
     const source = plan({
       status: 'APPROVED', id: 'p1',
@@ -102,13 +114,36 @@ describe('study plan versions', () => {
 
   it('picks the plan for a new student by cohort, then the general plan, never a draft', async () => {
     const prisma = db(null);
-    const plans = [plan({ id: 'a', cohortYear: 2025, versionNumber: 2, status: 'APPROVED' }), plan({ id: 'b', cohortYear: 2026, versionNumber: 3, status: 'APPROVED' }), plan({ id: 'g', cohortYear: null, status: 'APPROVED' })];
+    const plans = [plan({ id: 'a', cohortYear: 2025, cohortToYear: 2025, versionNumber: 2, status: 'APPROVED' }), plan({ id: 'b', cohortYear: 2026, cohortToYear: 2026, versionNumber: 3, status: 'APPROVED' }), plan({ id: 'g', cohortYear: null, status: 'APPROVED' })];
     prisma.studyPlan.findMany.mockResolvedValue(plans);
     const service = new StudyPlansService(prisma as PrismaService);
     expect((await service.suggestForAdmission('prog1', 2026))?.id).toBe('b');
     expect((await service.suggestForAdmission('prog1', 2030))?.id).toBe('g');
     expect(prisma.studyPlan.findMany).toHaveBeenCalledWith({ where: { programId: 'prog1', status: 'APPROVED' }, orderBy: expect.anything() });
-    prisma.studyPlan.findMany.mockResolvedValue([plan({ id: 'a', cohortYear: 2025, status: 'APPROVED' })]);
+    prisma.studyPlan.findMany.mockResolvedValue([plan({ id: 'a', cohortYear: 2025, cohortToYear: 2025, status: 'APPROVED' })]);
     expect(await service.suggestForAdmission('prog1', 2026)).toBeNull();
+  });
+
+  it('a plan with no end cohort stays in force for later cohorts; a newer plan from its start year wins; a closed range stops', async () => {
+    const prisma = db(null);
+    prisma.studyPlan.findMany.mockResolvedValue([
+      plan({ id: 'old', cohortYear: 2023, cohortToYear: null, versionNumber: 2, status: 'APPROVED' }),
+      plan({ id: 'closed', cohortYear: 2019, cohortToYear: 2021, status: 'APPROVED' }),
+      plan({ id: 'new', cohortYear: 2026, cohortToYear: null, status: 'APPROVED' }),
+    ]);
+    const service = new StudyPlansService(prisma as PrismaService);
+    expect((await service.suggestForAdmission('prog1', 2024))?.id).toBe('old');
+    expect((await service.suggestForAdmission('prog1', 2026))?.id).toBe('new');
+    expect((await service.suggestForAdmission('prog1', 2020))?.id).toBe('closed');
+    expect(await service.suggestForAdmission('prog1', 2022)).toBeNull();
+  });
+
+  it('validates the cohort range and refuses approval when it overlaps another approved plan of the program', async () => {
+    const prisma = db(null, { program: { findUnique: vi.fn().mockResolvedValue({ nameAr: 'بكالوريوس', isActive: true, college: null, department: null }) } });
+    const service = new StudyPlansService(prisma as PrismaService);
+    await expect(service.create({ programId: 'prog1', nameAr: 'x', cohortToYear: 2026 }, admin)).rejects.toThrow('من دفعة');
+    await expect(service.create({ programId: 'prog1', nameAr: 'x', cohortYear: 2026, cohortToYear: 2024 }, admin)).rejects.toThrow('لا يمكن أن تسبق');
+    const ok: any = await service.create({ programId: 'prog1', nameAr: 'x', cohortYear: 2023 }, admin);
+    expect(ok.cohortToYear).toBeNull();
   });
 });

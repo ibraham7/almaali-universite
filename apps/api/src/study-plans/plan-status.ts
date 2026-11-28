@@ -14,6 +14,13 @@ export async function assertPlanEditable(db: Db, studyPlanId: string) {
   return plan;
 }
 
-export function planLabel(plan: { nameAr: string; versionNumber: number; cohortYear?: number | null }) {
-  return `${plan.nameAr} — إصدار ${plan.versionNumber}${plan.cohortYear ? ` (دفعة ${plan.cohortYear})` : ''}`;
+// وصف مدى الدفعات: عامة، دفعة واحدة، مدى مغلق، أو سارية حتى الآن (النهاية فارغة).
+export function cohortRangeLabel(from?: number | null, to?: number | null) {
+  if (!from) return 'كل الدفعات';
+  if (!to) return `من دفعة ${from} (سارية)`;
+  return from === to ? `دفعة ${from}` : `من دفعة ${from} إلى ${to}`;
+}
+
+export function planLabel(plan: { nameAr: string; versionNumber: number; cohortYear?: number | null; cohortToYear?: number | null }) {
+  return `${plan.nameAr} — إصدار ${plan.versionNumber}${plan.cohortYear ? ` (${cohortRangeLabel(plan.cohortYear, plan.cohortToYear)})` : ''}`;
 }

@@ -13,11 +13,19 @@ export interface StudyPlan {
   status?: 'DRAFT' | 'APPROVED' | 'SUPERSEDED';
   versionNumber?: number;
   cohortYear?: number | null;
+  cohortToYear?: number | null;
   program?: {
     nameAr: string;
     college?: { nameAr: string } | null;
     department?: { nameAr: string; college?: { nameAr: string } | null } | null;
   } | null;
+}
+
+// مدى دفعات الخطة: عامة، دفعة واحدة، مدى مغلق، أو «سارية» (بلا نهاية).
+export function cohortRangeLabel(from?: number | null, to?: number | null) {
+  if (!from) return 'كل الدفعات';
+  if (!to) return `من دفعة ${from} (سارية)`;
+  return from === to ? `دفعة ${from}` : `من دفعة ${from} إلى ${to}`;
 }
 
 // "الكلية ← القسم ← البرنامج" for a plan's program (used to pick a program in a drop-down).
@@ -325,6 +333,7 @@ export interface PlanStructure {
   status: 'DRAFT' | 'APPROVED' | 'SUPERSEDED';
   versionNumber: number;
   cohortYear: number | null;
+  cohortToYear: number | null;
   effectiveFrom: string | null;
   graduationCredits: number | null;
   levels: Array<{

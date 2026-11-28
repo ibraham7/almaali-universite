@@ -9,7 +9,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import { getAdvisorAllowedProgramIds } from '../advisors/advisor-scope.js';
 import { assertSelectable } from '../academic-structure/active-structure.js';
-import { assertPlanEditable, planLabel } from './plan-status.js';
+import { assertPlanEditable, cohortRangeLabel, planLabel } from './plan-status.js';
 import { effectiveCredits, effectivePrerequisites } from './plan-course-rules.js';
 import { pickPlanForAdmission } from './plan-selection.js';
 
@@ -43,12 +43,13 @@ export class StudyPlansService {
     nameAr: string;
     nameEn?: string;
     cohortYear?: number | null;
+    cohortToYear?: number | null;
     effectiveFrom?: string | null;
     graduationCredits?: number | null;
   }, actor: { id: string; role: string } = { id: '', role: 'SYSTEM_ADMIN' }) {
     await this.assertProgramAccess(data.programId, actor);
     await assertSelectable(this.prisma, { programId: data.programId });
-    const cohortYear = this.parseCohort(data.cohortYear);
+    const { cohortYear, cohortToYear } = this.parseCohortRange(data.cohortYear, data.cohortToYear);
     const effectiveFrom = this.parseDate(data.effectiveFrom);
     // الخطة الجديدة تُنشأ مسودة (إصدار 1) ولا تُستعمل لربط الطلاب إلا بعد الاعتماد.
     return this.prisma.studyPlan.create({
@@ -58,10 +59,20 @@ export class StudyPlansService {
         nameEn: data.nameEn?.trim(),
         status: 'DRAFT',
         cohortYear,
+        cohortToYear,
         effectiveFrom,
         ...(typeof data.graduationCredits === 'number' ? { graduationCredits: data.graduationCredits } : {}),
       },
     });
+  }
+
+  // مدى الدفعات: «من دفعة» مطلوبة إن وُجدت «إلى دفعة»، والنهاية لا تسبق البداية. النهاية الفارغة = سارية حتى الآن.
+  private parseCohortRange(from?: number | null, to?: number | null) {
+    const cohortYear = this.parseCohort(from);
+    const cohortToYear = this.parseCohort(to);
+    if (cohortToYear !== null && cohortYear === null) throw new BadRequestException('حدّد «من دفعة» أيضًا، أو اترك الدفعتين فارغتين لخطة عامة.');
+    if (cohortYear !== null && cohortToYear !== null && cohortToYear < cohortYear) throw new BadRequestException('«إلى دفعة» لا يمكن أن تسبق «من دفعة».');
+    return { cohortYear, cohortToYear };
   }
 
   private parseCohort(value?: number | null) {
@@ -84,6 +95,7 @@ export class StudyPlansService {
       nameAr?: string;
       nameEn?: string;
       cohortYear?: number | null;
+      cohortToYear?: number | null;
       effectiveFrom?: string | null;
       graduationCredits?: number | null;
     },
@@ -91,6 +103,11 @@ export class StudyPlansService {
   ) {
     await this.assertPlanAccess(id, actor);
     await assertPlanEditable(this.prisma, id);
+    let range: { cohortYear?: number | null; cohortToYear?: number | null } = {};
+    if (data.cohortYear !== undefined || data.cohortToYear !== undefined) {
+      const current = await this.prisma.studyPlan.findUniqueOrThrow({ where: { id }, select: { cohortYear: true, cohortToYear: true } });
+      range = this.parseCohortRange(data.cohortYear !== undefined ? data.cohortYear : current.cohortYear, data.cohortToYear !== undefined ? data.cohortToYear : current.cohortToYear);
+    }
 
     return this.prisma.studyPlan.update({
       where: { id },
@@ -98,7 +115,7 @@ export class StudyPlansService {
       data: {
         ...(data.nameAr !== undefined ? { nameAr: data.nameAr.trim() } : {}),
         ...(data.nameEn !== undefined ? { nameEn: data.nameEn.trim() || null } : {}),
-        ...(data.cohortYear !== undefined ? { cohortYear: this.parseCohort(data.cohortYear) } : {}),
+        ...range,
         ...(data.effectiveFrom !== undefined ? { effectiveFrom: this.parseDate(data.effectiveFrom) } : {}),
         ...(data.graduationCredits !== undefined ? { graduationCredits: data.graduationCredits } : {}),
       },
@@ -120,8 +137,18 @@ export class StudyPlansService {
     if (plan._count.planCourses === 0) problems.push('أضف مقررًا واحدًا على الأقل');
     if (problems.length) throw new BadRequestException(`لا يمكن اعتماد الخطة: ${problems.join('، ')}.`);
     if (plan.cohortYear) {
-      const clash = await this.prisma.studyPlan.findFirst({ where: { programId: plan.programId, cohortYear: plan.cohortYear, status: 'APPROVED', planKey: { not: plan.planKey } }, select: { nameAr: true, versionNumber: true } });
-      if (clash) throw new ConflictException(`لهذا البرنامج خطة معتمدة أخرى لدفعة ${plan.cohortYear}: «${clash.nameAr}» (إصدار ${clash.versionNumber}). غيّر الدفعة أو أرشف تلك الخطة بإصدار جديد.`);
+      // تداخل مدى الدفعات مع خطة معتمدة أخرى للبرنامج نفسه (النهاية الفارغة = مفتوحة). الخطة العامة لا تتعارض مع المحددة.
+      const clash = await this.prisma.studyPlan.findFirst({
+        where: {
+          programId: plan.programId, status: 'APPROVED', planKey: { not: plan.planKey }, cohortYear: { not: null },
+          AND: [
+            ...(plan.cohortToYear ? [{ cohortYear: { lte: plan.cohortToYear } }] : []),
+            { OR: [{ cohortToYear: null }, { cohortToYear: { gte: plan.cohortYear } }] },
+          ],
+        },
+        select: { nameAr: true, versionNumber: true, cohortYear: true, cohortToYear: true },
+      });
+      if (clash) throw new ConflictException(`تتداخل دفعات هذه الخطة (${cohortRangeLabel(plan.cohortYear, plan.cohortToYear)}) مع خطة معتمدة أخرى لنفس البرنامج: «${clash.nameAr}» إصدار ${clash.versionNumber} (${cohortRangeLabel(clash.cohortYear, clash.cohortToYear)}). حدّد «إلى دفعة» للخطة الأقدم بإصدار جديد منها، أو غيّر الدفعات.`);
     }
     return this.prisma.$transaction(async (tx) => {
       const approved = await tx.studyPlan.updateMany({ where: { id, status: 'DRAFT' }, data: { status: 'APPROVED', approvedAt: new Date(), approvedById: actor.id || null } });
@@ -155,7 +182,7 @@ export class StudyPlansService {
       const plan = await tx.studyPlan.create({
         data: {
           programId: source.programId, nameAr: source.nameAr, nameEn: source.nameEn, graduationCredits: source.graduationCredits,
-          status: 'DRAFT', planKey: source.planKey, versionNumber, previousVersionId: source.id, cohortYear: source.cohortYear, effectiveFrom: null,
+          status: 'DRAFT', planKey: source.planKey, versionNumber, previousVersionId: source.id, cohortYear: source.cohortYear, cohortToYear: source.cohortToYear, effectiveFrom: null,
         },
       });
       const levelIds = new Map<string, string>();
@@ -279,7 +306,7 @@ export class StudyPlansService {
     const found = await this.prisma.studyPlan.findUnique({ where: { id: plan.id }, select: { planKey: true } });
     const versions = await this.prisma.studyPlan.findMany({
       where: { planKey: found!.planKey }, orderBy: { versionNumber: 'asc' },
-      select: { id: true, nameAr: true, status: true, versionNumber: true, cohortYear: true, effectiveFrom: true, approvedAt: true, approvedById: true, createdAt: true },
+      select: { id: true, nameAr: true, status: true, versionNumber: true, cohortYear: true, cohortToYear: true, effectiveFrom: true, approvedAt: true, approvedById: true, createdAt: true },
     });
     const [students, approvers] = await Promise.all([
       this.prisma.student.groupBy({ by: ['studyPlanId'], where: { studyPlanId: { in: versions.map((item) => item.id) } }, _count: { _all: true } }),
@@ -309,6 +336,45 @@ export class StudyPlansService {
       orderBy: {
         createdAt: 'asc',
       },
+    });
+  }
+
+  // مرحلة التجريب فقط: يُفعَّل بالإعداد ALLOW_TEST_DELETE=true على السيرفر، ويُغلَق بإزالته (كحذف الطلاب).
+  static deleteEnabled() {
+    return process.env.ALLOW_TEST_DELETE === 'true';
+  }
+
+  // حذف خطة بكل محتواها (مستويات، فصول، مقررات، متطلبات). الحذف النهائي ممنوع عادةً بقاعدة البيانات؛ يُسمح به هنا فقط.
+  // يُرفض إن كانت لفصول الخطة شعب أو تسجيلات أو نتائج أو فترات تسجيل (بياناتها حقيقية). الطلاب المرتبطون يُفك ارتباطهم فقط.
+  async deleteForTest(id: string, confirm: string, user: { id: string; role: string }) {
+    if (!StudyPlansService.deleteEnabled()) throw new ForbiddenException('حذف الخطط مغلق. يُفعَّل لمرحلة التجريب فقط من إعدادات السيرفر.');
+    if (user.role !== 'SYSTEM_ADMIN') throw new ForbiddenException('حذف الخطط لمدير النظام فقط.');
+    if ((confirm ?? '').trim() !== 'حذف') throw new BadRequestException('اكتب كلمة «حذف» للتأكيد.');
+    const plan = await this.prisma.studyPlan.findUnique({ where: { id }, select: { id: true, nameAr: true, versionNumber: true, status: true, academicYears: { select: { id: true, semesters: { select: { id: true } } } } } });
+    if (!plan) throw new NotFoundException('الخطة غير موجودة.');
+    const semesterIds = plan.academicYears.flatMap((year) => year.semesters.map((semester) => semester.id));
+    const [sections, enrollments, results, periods] = await Promise.all([
+      this.prisma.courseSection.count({ where: { semesterId: { in: semesterIds } } }),
+      this.prisma.studentEnrollment.count({ where: { semesterId: { in: semesterIds } } }),
+      this.prisma.courseResult.count({ where: { semesterId: { in: semesterIds } } }),
+      this.prisma.registrationPeriod.count({ where: { semesterId: { in: semesterIds } } }),
+    ]);
+    if (sections || enrollments || results || periods) {
+      throw new ConflictException(`لا يمكن حذف الخطة لأن لفصولها بيانات مرتبطة: ${sections} شعبة، ${enrollments} تسجيل، ${results} نتيجة، ${periods} فترة تسجيل.`);
+    }
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.allow_hard_delete', 'on', true)`;
+      const unlinked = await tx.student.updateMany({ where: { studyPlanId: id }, data: { studyPlanId: null, academicYearId: null, semesterId: null } });
+      await tx.studyPlan.updateMany({ where: { previousVersionId: id }, data: { previousVersionId: null } });
+      await tx.studyPlanCoursePrerequisite.deleteMany({ where: { planCourse: { studyPlanId: id } } });
+      await tx.studyPlanCourse.deleteMany({ where: { studyPlanId: id } });
+      await tx.studyPlanCurriculumCourse.deleteMany({ where: { studyPlanId: id } });
+      await tx.studyPlanCurriculumQuota.deleteMany({ where: { studyPlanId: id } });
+      await tx.semester.deleteMany({ where: { id: { in: semesterIds } } });
+      await tx.academicYear.deleteMany({ where: { studyPlanId: id } });
+      await tx.studyPlan.delete({ where: { id } });
+      await tx.auditLog.create({ data: { action: 'TEST_PHASE_DELETE_STUDY_PLAN', entity: 'StudyPlan', entityId: id, userId: user.id, details: JSON.stringify({ name: plan.nameAr, version: plan.versionNumber, status: plan.status, unlinkedStudents: unlinked.count }) } });
+      return { deleted: true, unlinkedStudents: unlinked.count };
     });
   }
 }

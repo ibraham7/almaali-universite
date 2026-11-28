@@ -7,18 +7,18 @@ import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { STUDY_PLAN_STATUS_LABEL, approveStudyPlan, createStudyPlanVersion, type StudyPlanStatus } from '../../api/academicStructure';
 import { apiClient } from '../../api/client';
-import { getPlanStructure, type PlanStructure } from '../../api/studyPlan';
+import { cohortRangeLabel, getPlanStructure, type PlanStructure } from '../../api/studyPlan';
 import { useAuth } from '../../auth/AuthContext';
 import PlanStructureTables from './PlanStructureTables';
 
 interface PlanRow {
-  id: string; nameAr: string; status: StudyPlanStatus; versionNumber: number; planKey: string; cohortYear: number | null;
+  id: string; nameAr: string; status: StudyPlanStatus; versionNumber: number; planKey: string; cohortYear: number | null; cohortToYear: number | null;
   effectiveFrom: string | null; approvedAt: string | null; coursesCount: number; studentsCount: number; totalCredits: number; graduationCredits: number | null;
   program?: { nameAr: string; college?: { nameAr: string } | null; department?: { nameAr: string; college?: { nameAr: string } | null } | null } | null;
 }
 
 interface VersionRow {
-  id: string; versionNumber: number; status: StudyPlanStatus; cohortYear: number | null; effectiveFrom: string | null; approvedAt: string | null;
+  id: string; versionNumber: number; status: StudyPlanStatus; cohortYear: number | null; cohortToYear: number | null; effectiveFrom: string | null; approvedAt: string | null;
   approvedByName: string | null; studentsCount: number; createdAt: string;
 }
 
@@ -51,11 +51,28 @@ export default function StudyPlansListPage() {
   const [structure, setStructure] = useState<PlanStructure | null>(null);
   const [versions, setVersions] = useState<VersionRow[]>([]);
   const [viewLoading, setViewLoading] = useState(false);
+  // حذف الخطط (مرحلة التجريب): يظهر لمدير النظام فقط عند تفعيله من السيرفر
+  const [canDelete, setCanDelete] = useState(false);
+  const [deleting, setDeleting] = useState<PlanRow | null>(null);
+  const [deleteWord, setDeleteWord] = useState('');
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  useEffect(() => { apiClient.get<{ deletePlans: boolean }>('/study-plans/capabilities').then((response) => setCanDelete(response.data.deletePlans)).catch(() => setCanDelete(false)); }, []);
 
   const load = useCallback(async () => {
     try { setPlans((await apiClient.get<PlanRow[]>('/study-plans')).data); setError(''); } catch (cause) { setError(errorText(cause, 'تعذر تحميل الخطط.')); } finally { setLoading(false); }
   }, []);
   useEffect(() => { void load(); }, [load]);
+
+  async function confirmDelete() {
+    if (!deleting) return;
+    setDeleteBusy(true); setDeleteError('');
+    try {
+      const result = await apiClient.delete<{ unlinkedStudents: number }>(`/study-plans/${deleting.id}`, { data: { confirm: deleteWord } });
+      setNotice(`تم حذف الخطة «${deleting.nameAr}»${result.data.unlinkedStudents ? ` وفك ارتباط ${result.data.unlinkedStudents} طالب بها` : ''}.`);
+      setDeleting(null); setDeleteWord(''); await load();
+    } catch (cause) { setDeleteError(errorText(cause)); } finally { setDeleteBusy(false); }
+  }
 
   const rows = useMemo(() => plans
     .filter((plan) => !status || plan.status === status)
@@ -124,7 +141,7 @@ export default function StudyPlansListPage() {
                   <TableCell>{plan.program?.college?.nameAr ?? plan.program?.department?.college?.nameAr ?? '—'}</TableCell>
                   <TableCell>{plan.program?.department?.nameAr ?? '—'}</TableCell>
                   <TableCell>{plan.program?.nameAr ?? '—'}</TableCell>
-                  <TableCell>{plan.cohortYear ?? 'كل الدفعات'}</TableCell>
+                  <TableCell>{cohortRangeLabel(plan.cohortYear, plan.cohortToYear)}</TableCell>
                   <TableCell>{plan.versionNumber}</TableCell>
                   <TableCell><Chip size="small" color={STATUS_COLOR[plan.status]} label={STUDY_PLAN_STATUS_LABEL[plan.status]} /></TableCell>
                   <TableCell>{date(plan.effectiveFrom)}</TableCell>
@@ -137,6 +154,7 @@ export default function StudyPlansListPage() {
                     {plan.status === 'DRAFT' && <Button size="small" onClick={() => navigate(`/supervisor/study-plan/${plan.id}/edit`)}>متابعة الإنشاء</Button>}
                     {plan.status === 'DRAFT' && canApprove && <Button size="small" color="success" onClick={() => void act('approve', plan)}>اعتماد</Button>}
                     {plan.status === 'APPROVED' && canApprove && <Button size="small" color="warning" onClick={() => void act('version', plan)}>إصدار جديد</Button>}
+                    {canDelete && <Button size="small" color="error" onClick={() => { setDeleting(plan); setDeleteWord(''); setDeleteError(''); }}>حذف</Button>}
                   </TableCell>
                 </TableRow>
               ))}
@@ -146,6 +164,18 @@ export default function StudyPlansListPage() {
         </TableContainer>
       )}
 
+      <Dialog open={Boolean(deleting)} onClose={deleteBusy ? undefined : () => setDeleting(null)} fullWidth maxWidth="xs">
+        <DialogTitle>حذف الخطة (مرحلة التجريب)</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Alert severity="warning">سيُحذف «{deleting?.nameAr}» (إصدار {deleting?.versionNumber}) بكل مستوياتها وفصولها ومقرراتها نهائيًا، ويُفك ارتباط طلابها ({deleting?.studentsCount ?? 0}) بها. لا يمكن التراجع. يُرفض الحذف إن كان لفصولها شعب أو تسجيلات أو نتائج.</Alert>
+            {deleteError && <Alert severity="error">{deleteError}</Alert>}
+            <TextField label="اكتب كلمة «حذف» للتأكيد" value={deleteWord} onChange={(event) => setDeleteWord(event.target.value)} autoFocus />
+          </Stack>
+        </DialogContent>
+        <DialogActions><Button onClick={() => setDeleting(null)} disabled={deleteBusy}>إلغاء</Button><Button color="error" variant="contained" disabled={deleteBusy || deleteWord.trim() !== 'حذف'} onClick={() => void confirmDelete()}>حذف نهائيًا</Button></DialogActions>
+      </Dialog>
+
       <Dialog open={Boolean(viewing)} onClose={() => setViewing(null)} fullWidth maxWidth="lg">
         <DialogTitle>{viewing ? `${viewing.nameAr} — إصدار ${viewing.versionNumber}` : ''}</DialogTitle>
         <DialogContent dividers>
@@ -154,7 +184,7 @@ export default function StudyPlansListPage() {
             <Stack spacing={2}>
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
                 <Chip color={STATUS_COLOR[structure.status]} label={STUDY_PLAN_STATUS_LABEL[structure.status]} />
-                <Chip variant="outlined" label={structure.cohortYear ? `دفعة ${structure.cohortYear}` : 'كل الدفعات'} />
+                <Chip variant="outlined" label={cohortRangeLabel(structure.cohortYear, structure.cohortToYear)} />
                 {structure.effectiveFrom && <Chip variant="outlined" label={`تبدأ ${date(structure.effectiveFrom)}`} />}
                 <Chip color="primary" label={`${structure.totals.courses} مقرر • ${structure.totals.credits} ساعة`} />
                 <Chip variant="outlined" label={`جامعة ${structure.totals.byCategory.UNIVERSITY} • كلية ${structure.totals.byCategory.COLLEGE} • قسم ${structure.totals.byCategory.PROGRAM}`} />
@@ -170,7 +200,7 @@ export default function StudyPlansListPage() {
                           <TableRow key={item.id} selected={item.id === viewing?.id}>
                             <TableCell>{item.versionNumber}</TableCell>
                             <TableCell><Chip size="small" color={STATUS_COLOR[item.status]} label={STUDY_PLAN_STATUS_LABEL[item.status]} /></TableCell>
-                            <TableCell>{item.cohortYear ?? 'كل الدفعات'}</TableCell>
+                            <TableCell>{cohortRangeLabel(item.cohortYear, item.cohortToYear)}</TableCell>
                             <TableCell>{date(item.effectiveFrom)}</TableCell>
                             <TableCell>{date(item.approvedAt)}</TableCell>
                             <TableCell>{item.approvedByName ?? '—'}</TableCell>

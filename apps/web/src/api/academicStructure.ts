@@ -75,6 +75,7 @@ export interface StudyPlan {
     planKey?: string;
     versionNumber?: number;
     cohortYear?: number | null;
+    cohortToYear?: number | null;
     effectiveFrom?: string | null;
     approvedAt?: string | null;
     coursesCount?: number;
@@ -262,6 +263,7 @@ export async function createStudyPlan(
         nameEn?: string;
 
         cohortYear?: number | null;
+        cohortToYear?: number | null;
         effectiveFrom?: string | null;
         graduationCredits?: number | null;
     },
@@ -281,6 +283,7 @@ export async function updateStudyPlan(
         nameAr?: string;
         nameEn?: string;
         cohortYear?: number | null;
+        cohortToYear?: number | null;
         effectiveFrom?: string | null;
         graduationCredits?: number | null;
     },

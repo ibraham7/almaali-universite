@@ -273,12 +273,12 @@ export class StudentsService implements OnModuleInit, OnModuleDestroy {
       this.prisma.studyPlan.findMany({
         where: { programId: { in: programIds }, status: 'APPROVED' },
         select: {
-          id: true, programId: true, nameAr: true, status: true, versionNumber: true, cohortYear: true,
+          id: true, programId: true, nameAr: true, status: true, versionNumber: true, cohortYear: true, cohortToYear: true,
           academicYears: { orderBy: { levelNumber: 'asc' }, take: 1, select: { id: true, nameAr: true, semesters: { orderBy: { semesterNumber: 'asc' }, take: 1, select: { id: true, nameAr: true } } } },
         },
       }),
     ]);
-    type Row = { studentId: string; universityId: string; name: string; admissionYear: number | null; plan: { id: string; nameAr: string; versionNumber: number; cohortYear: number | null } | null; level: string | null; semester: string | null; reason: string | null };
+    type Row = { studentId: string; universityId: string; name: string; admissionYear: number | null; plan: { id: string; nameAr: string; versionNumber: number; cohortYear: number | null; cohortToYear: number | null } | null; level: string | null; semester: string | null; reason: string | null };
     const rows: Row[] = [];
     const placements: Array<{ studentId: string; collegeId: string | null; departmentId: string | null; programId: string; studyPlanId: string; academicYearId: string; semesterId: string; status: string }> = [];
     for (const id of dto.studentIds) {
@@ -296,7 +296,7 @@ export class StudentsService implements OnModuleInit, OnModuleDestroy {
       const level = plan.academicYears[0];
       const semester = level?.semesters[0];
       if (!level || !semester) { rows.push({ ...base, reason: 'الخطة المختارة بلا مستويات أو فصول' }); continue; }
-      rows.push({ ...base, plan: { id: plan.id, nameAr: plan.nameAr, versionNumber: plan.versionNumber, cohortYear: plan.cohortYear }, level: level.nameAr, semester: semester.nameAr, reason: null });
+      rows.push({ ...base, plan: { id: plan.id, nameAr: plan.nameAr, versionNumber: plan.versionNumber, cohortYear: plan.cohortYear, cohortToYear: plan.cohortToYear }, level: level.nameAr, semester: semester.nameAr, reason: null });
       placements.push({
         studentId: id, collegeId: student.collegeId ?? program.collegeId ?? program.department?.collegeId ?? null, departmentId: student.departmentId ?? program.departmentId ?? null,
         programId: program.id, studyPlanId: plan.id, academicYearId: level.id, semesterId: semester.id, status: student.status,
